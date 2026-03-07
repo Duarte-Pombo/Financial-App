@@ -60,4 +60,4 @@ Awared doesn't shame you for your patterns. It helps you see them clearly, under
 
 ---
 
-*Moodget — understand the feeling, change the habit.*
+*Awared — understand the feeling, change the habit.*
