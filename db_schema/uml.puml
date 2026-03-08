@@ -1,0 +1,250 @@
+' ═══════════════════════════════════════════════════
+'  .puml file to use in plantuml.com webserver
+' ═══════════════════════════════════════════════════
+
+@startuml Awared_Database_Schema
+hide circle
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 100
+
+skinparam entity {
+  BackgroundColor #FAFAFA
+  BorderColor #555555
+  FontName Arial
+  FontSize 12
+  AttributeFontSize 11
+  AttributeFontName Arial
+}
+
+skinparam arrow {
+  Color #666666
+  FontSize 10
+  FontName Arial
+  FontColor #444444
+}
+
+' ═══════════════════════════════════════════════════
+'  CORE
+' ═══════════════════════════════════════════════════
+
+entity "USERS" as User {
+  * id : UUID <<PK>>
+  --
+  email : VARCHAR(255)
+  username : VARCHAR(100)
+  password_hash : TEXT
+  avatar_url : TEXT <<nullable>>
+  timezone : VARCHAR(50)
+  currency_code : CHAR(3)
+  created_at : TIMESTAMPTZ
+  updated_at : TIMESTAMPTZ
+}
+
+entity "TRANSACTIONS" as Transaction {
+  * id : UUID <<PK>>
+  --
+  user_id : UUID <<FK>>
+  category_id : INT <<FK, nullable>>
+  emotion_log_id : UUID <<FK, nullable>>
+  --
+  amount : NUMERIC(12,2)
+  currency_code : CHAR(3)
+  merchant_name : VARCHAR(200) <<nullable>>
+  note : TEXT <<nullable>>
+  type : ENUM <<debit, credit>>
+  is_impulse : BOOLEAN <<nullable>>
+  transacted_at : TIMESTAMPTZ
+  created_at : TIMESTAMPTZ
+}
+
+' ═══════════════════════════════════════════════════
+'  REFERENCE
+' ═══════════════════════════════════════════════════
+
+entity "EMOTIONS" as Emotion {
+  * id : SMALLINT <<PK>>
+  --
+  name : VARCHAR(50)
+  category : ENUM <<positive, negative, neutral>>
+
+' FOR ML CAPABILITIES IF WE WANT TO IMPLEMENT
+  polarity : SMALLINT <<-5 to +5>>
+  energy : SMALLINT <<1 to 10>>
+'
+  emoji : VARCHAR(10) <<nullable>>
+  color_hex : CHAR(7) <<nullable>>
+  description : TEXT <<nullable>>
+}
+
+entity "SPENDING_CATEGORIES" as Category {
+  * id : INT <<PK>>
+  --
+  parent_id : INT <<FK, self-ref, nullable>>
+  user_id : UUID <<FK, nullable>>
+  --
+  name : VARCHAR(100)
+  icon : VARCHAR(10) <<nullable>>
+  color_hex : CHAR(7) <<nullable>>
+' FOR SYSTEM DEFAULT CATEGORIES (RENT / TRANSPORT / ETC...)
+  is_system : BOOLEAN
+}
+
+' ═══════════════════════════════════════════════════
+'  EMOTION TRACKING
+' ═══════════════════════════════════════════════════
+
+entity "EMOTION_LOGS" as EmotionLog {
+  * id : UUID <<PK>>
+  --
+  user_id : UUID <<FK>>
+  emotion_id : SMALLINT <<FK>>
+  --
+  intensity : SMALLINT <<1 to 10>>
+  source : ENUM <<manual, prompted>>
+  context_note : TEXT <<nullable>>
+  logged_at : TIMESTAMPTZ
+  created_at : TIMESTAMPTZ
+}
+
+' ═══════════════════════════════════════════════════
+'  INTELLIGENCE
+' ═══════════════════════════════════════════════════
+
+entity "EMOTIONAL_PATTERNS" as Pattern {
+  * id : UUID <<PK>>
+  --
+  user_id : UUID <<FK>>
+  emotion_id : SMALLINT <<FK>>
+  category_id : INT <<FK, nullable>>
+  --
+  pattern_type : ENUM <<time_based, trigger, cyclical>>
+  avg_spend_amount : NUMERIC(10,2)
+  occurrence_count : INT
+  time_of_day : SMALLINT[] <<nullable>>
+  days_of_week : SMALLINT[] <<nullable>>
+  correlation_score : FLOAT
+  computed_at : TIMESTAMPTZ
+  valid_until : TIMESTAMPTZ
+}
+
+entity "INSIGHTS" as Insight {
+  * id : UUID <<PK>>
+  --
+  user_id : UUID <<FK>>
+  emotion_id : SMALLINT <<FK, nullable>>
+  category_id : INT <<FK, nullable>>
+  --
+  type : ENUM <<pattern, warning, milestone, nudge>>
+  title : VARCHAR(200)
+  body : TEXT
+  confidence : FLOAT
+  data_window_days : SMALLINT
+'STORE EACH JSON METADATA IN THE DB FOR DATA COLLECTION
+  metadata : JSONB
+  seen_at : TIMESTAMPTZ <<nullable>>
+  dismissed_at : TIMESTAMPTZ <<nullable>>
+  generated_at : TIMESTAMPTZ
+}
+
+' ═══════════════════════════════════════════════════
+'  WELLBEING
+' ═══════════════════════════════════════════════════
+
+entity "JOURNAL_ENTRIES" as Journal {
+  * id : UUID <<PK>>
+  --
+  user_id : UUID <<FK>>
+  emotion_log_id : UUID <<FK, nullable>>
+  transaction_id : UUID <<FK, nullable>>
+  --
+  title : VARCHAR(200) <<nullable>>
+  body : TEXT
+  prompt_used : TEXT <<nullable>>
+  is_private : BOOLEAN
+  created_at : TIMESTAMPTZ
+  updated_at : TIMESTAMPTZ
+}
+
+entity "INTERVENTIONS" as Intervention {
+  * id : UUID <<PK>>
+  --
+  user_id : UUID <<FK>>
+  emotion_log_id : UUID <<FK, nullable>>
+  transaction_id : UUID <<FK, nullable>>
+  --
+  type : ENUM <<breathing, cooldown, journal_nudge, reflection>>
+  trigger_context : JSONB
+  presented_at : TIMESTAMPTZ
+  outcome : ENUM <<heeded, bypassed, ignored, pending>>
+  cooldown_until : TIMESTAMPTZ <<nullable>>
+  responded_at : TIMESTAMPTZ <<nullable>>
+}
+
+entity "BUDGETS" as Budget {
+  * id : UUID <<PK>>
+  --
+  user_id : UUID <<FK>>
+  category_id : INT <<FK, nullable>>
+  --
+  name : VARCHAR(100)
+  amount_limit : NUMERIC(12,2)
+  period : ENUM <<weekly, monthly, custom>>
+  period_start : DATE
+  period_end : DATE
+  alert_threshold : SMALLINT <<percent, e.g. 80>>
+  is_active : BOOLEAN
+  created_at : TIMESTAMPTZ
+}
+
+entity "USER_SETTINGS" as Settings {
+  * id : UUID <<PK>>
+  --
+  user_id : UUID <<FK>>
+  --
+  emotion_check_freq : ENUM <<per_transaction, daily, manual>>
+  nudge_enabled : BOOLEAN
+  cooldown_minutes : SMALLINT
+  weekly_digest_on : BOOLEAN
+  notification_prefs : JSONB
+  theme : ENUM <<light, dark, system>>
+  updated_at : TIMESTAMPTZ
+}
+
+' ═══════════════════════════════════════════════════
+'  RELATIONSHIPS
+' ═══════════════════════════════════════════════════
+
+' User → core entities
+User ||--|| Settings     
+User ||--o{ Transaction  
+User ||--o{ Budget       
+User ||--o{ EmotionLog   
+User ||--o{ Category     
+User ||--o{ Pattern      
+User ||--o{ Insight      
+User ||--o{ Journal      
+User ||--o{ Intervention 
+
+' Emotion reference → logs, patterns, insights
+Emotion ||--o{ EmotionLog 
+Emotion ||--o{ Pattern    
+Emotion ||--o{ Insight    
+
+' EmotionLog links
+EmotionLog |o--o| Transaction  
+EmotionLog ||--o{ Journal      
+EmotionLog ||--o{ Intervention 
+
+' Category links
+Category ||--o{ Transaction 
+Category ||--o{ Budget      
+Category ||--o{ Pattern     
+Category ||--o{ Insight     
+Category ||--o{ Category    
+
+' Transaction links
+Transaction ||--o{ Journal      
+Transaction ||--o{ Intervention 
+
+@enduml
