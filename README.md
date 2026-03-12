@@ -34,6 +34,25 @@ Instead of just flagging the overspend, Awared asks: *what's making you nervous 
 
 ## Core Features
 
+Awared focuses on **simplicity** and **meaningful insights**. Instead of overwhelming users with complex financial tools, the application prioritizes **clarity**, **emotional awareness**, and **quick interactions**.
+
+**Expense Tracking**
+Users can easily log their expenses in just a few seconds, recording the amount, category, location, and optional notes. The process is designed to be fast and frictionless so that users actually build the habit of recording their spending.
+
+**Emotion Tagging**
+Every expense can be associated with an emotional state, such as stress, boredom, happiness, or excitement. This allows users to begin understanding the emotional triggers behind their purchases.
+
+**Spending Timeline**
+Users can browse their recent transactions through a simple timeline, allowing them to quickly review what they spent and when.
+
+**Expense Insights**
+Awared analyzes patterns in spending behavior and emotional context. Over time, the system helps users notice correlations between emotions and financial decisions.
+
+**Dominant Emotion of the Day**
+The application highlights the dominant emotion associated with the user's spending for the day, helping them reflect on how their mood influences their purchases.
+
+**Visual Patterns**  
+Simple visual summaries help users understand trends in their spending and emotional patterns over time.
 
 ---
 
@@ -59,5 +78,28 @@ Awared doesn't shame you for your patterns. It helps you see them clearly, under
 ---
 
 ---
+
+## Our Team
+
+Awared is being developed by a team of students passionate about building meaningful digital products that combine technology with human-centered design.
+
+**João Taveira** - up202306063
+
+Informatics and Computing Engineering student focused (...).
+
+**Duarte Pombo** - up20230
+
+Informatics and Computing Engineering student focused (...).
+
+**Guilherme Linhares** - up202307295
+
+Informatics and Computing Engineering student focused (...).
+
+**Camila Castro** - up202305458
+
+Informatics and Computing Engineering student focused (...).
+
+The project is supervised by **Professor José Campos**, who supports the team throughout the development process as the project's academic tutor.
+
 
 *Awared — understand the feeling, change the habit.*
