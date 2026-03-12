@@ -56,7 +56,7 @@ Simple visual summaries help users understand trends in their spending and emoti
 
 ---
 
-## Who It's For
+## Who It is For
 
 
 ---
