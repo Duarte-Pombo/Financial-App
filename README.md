@@ -45,14 +45,20 @@ Every expense can be associated with an emotional state, such as stress, boredom
 **Spending Timeline**
 Users can browse their recent transactions through a simple timeline, allowing them to quickly review what they spent and when.
 
+**Emotional Heatmap & Calendar**
+A visual heatmap displays spending and emotional patterns over time, allowing users to identify behavioral trends at a glance. Users can switch between a heatmap and a calendar view, and drill into any specific day to review the expenses and emotions recorded on that date.
+
 **Expense Insights**
 Awared analyzes patterns in spending behavior and emotional context. Over time, the system helps users notice correlations between emotions and financial decisions.
 
+**Receive Notifications**
+When the application detects patterns in emotional spending, it sends gentle reflective prompts to encourage users to pause and reflect on their behavior. Positive reinforcement is also provided when users demonstrate healthy financial habits, creating a supportive rather than restrictive experience.
+
+**Budget Tracking**
+Users can set a global monthly spending limit and monitor their progress through a visual indicator. Notifications are triggered at 50%, 75%, and 100% of the limit, helping users stay aware of their budget without feeling overwhelmed.
+
 **Dominant Emotion of the Day**
 The application highlights the dominant emotion associated with the user's spending for the day, helping them reflect on how their mood influences their purchases.
-
-**Visual Patterns**  
-Simple visual summaries help users understand trends in their spending and emotional patterns over time.
 
 ---
 
