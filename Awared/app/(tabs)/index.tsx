@@ -1,5 +1,6 @@
 import { Text, View, StyleSheet } from "react-native";
 import Gauge from "@/components/gauge";
+import React from "react";
 
 export default function Index() {
   return (
