@@ -1,13 +1,9 @@
 import { Text, View, StyleSheet } from "react-native";
-import Gauge from "@/components/gauge";
 
-export default function Index() {
+export default function Calendar() {
   return (
     <View style={styles.container}>
-      <Text>You Have</Text>
-      <Text>MONEY$</Text>
-      <Text>to spend</Text>
-      <Gauge value={0.7} />
+      <Text>Calendar Page Template</Text>
     </View>
   );
 }

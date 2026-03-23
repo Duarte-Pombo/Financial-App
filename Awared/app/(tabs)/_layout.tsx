@@ -23,6 +23,24 @@ export default function TabsLayout() {
           <IonIcons name={focused ? 'home-sharp' : 'home-outline'} color={color} size={24} />
         )
       }} />
+      <Tabs.Screen name="addPurchase" options={{
+        title: 'Add Purchase',
+        tabBarIcon: ({ color, focused }) => (
+          <IonIcons name={focused ? 'add-circle' : 'add-circle-outline'} color={color} size={24} />
+        )
+      }} />
+      <Tabs.Screen name="calendar" options={{
+        title: 'Calendar',
+        tabBarIcon: ({ color, focused }) => (
+          <IonIcons name={focused ? 'calendar' : 'calendar-outline'} color={color} size={24} />
+        )
+      }} />
+      <Tabs.Screen name="history" options={{
+        title: 'History',
+        tabBarIcon: ({ color, focused }) => (
+          <IonIcons name={focused ? 'newspaper' : 'newspaper-outline'} color={color} size={24} />
+        )
+      }} />
     </Tabs>
 
   )
