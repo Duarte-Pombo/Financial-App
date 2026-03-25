@@ -1,48 +1,83 @@
 import { Tabs } from "expo-router";
-import IonIcons from "@expo/vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '000',
-        headerStyle: {
-          backgroundColor: '#fdf3ff',
-        },
-        headerShadowVisible: false,
-        headerTintColor: '#000',
+        headerShown: false,
+        tabBarShowLabel: false,
+        tabBarActiveTintColor: "#6b21a8",
+        tabBarInactiveTintColor: "#c4a8e0",
         tabBarStyle: {
-          backgroundColor: '#fdf3ff',
+          position: "absolute",
+          bottom: 30,
+          left: 70,
+          right: 70,
+          height: 60,
+          borderRadius: 30,
+          backgroundColor: "#e8d5f5",
+          borderTopWidth: 0,
+          shadowColor: "#9b72cf",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.2,
+          shadowRadius: 12,
+          elevation: 8,
         },
-
+        tabBarItemStyle: {
+          paddingVertical: 10,
+        },
       }}
     >
-      <Tabs.Screen name="index" options={{
-        title: 'Home',
-        tabBarIcon: ({ color, focused }) => (
-          <IonIcons name={focused ? 'home-sharp' : 'home-outline'} color={color} size={24} />
-        )
-      }} />
-      <Tabs.Screen name="addPurchase" options={{
-        title: 'Add Purchase',
-        tabBarIcon: ({ color, focused }) => (
-          <IonIcons name={focused ? 'add-circle' : 'add-circle-outline'} color={color} size={24} />
-        )
-      }} />
-      <Tabs.Screen name="calendar" options={{
-        title: 'Calendar',
-        tabBarIcon: ({ color, focused }) => (
-          <IonIcons name={focused ? 'calendar' : 'calendar-outline'} color={color} size={24} />
-        )
-      }} />
-      <Tabs.Screen name="history" options={{
-        title: 'History',
-        tabBarIcon: ({ color, focused }) => (
-          <IonIcons name={focused ? 'newspaper' : 'newspaper-outline'} color={color} size={24} />
-        )
-      }} />
+      <Tabs.Screen
+        name="index"
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <Ionicons
+              name={focused ? "home-sharp" : "home-outline"}
+              color={focused ? "#6b21a8" : "#c4a8e0"}
+              size={22}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="addPurchase"
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <Ionicons
+              name={focused ? "add-circle" : "add-circle-outline"}
+              color={focused ? "#6b21a8" : "#c4a8e0"}
+              size={24}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="calendar"
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <Ionicons
+              name={focused ? "calendar" : "calendar-outline"}
+              color={focused ? "#6b21a8" : "#c4a8e0"}
+              size={22}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <Ionicons
+              name={focused ? "newspaper" : "newspaper-outline"}
+              color={focused ? "#6b21a8" : "#c4a8e0"}
+              size={22}
+            />
+          ),
+        }}
+      />
     </Tabs>
-
-  )
+  );
 }
