@@ -2,20 +2,23 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
-import { runMigrations } from "../lib/database";
+import { getDb } from "../database/db";
+import { seedDatabase } from "../database/seed";
 import React from "react";
 
 export default function RootLayout() {
-  const [dbReady, setDbReady] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    runMigrations()
-      .then(() => setDbReady(true))
-      .catch((e) => console.error("[db] migration failed:", e));
+    async function init() {
+      await getDb();        // creates tables
+      await seedDatabase(); // inserts emotions + categories if empty
+      setReady(true);
+    }
+    init().catch(console.error);
   }, []);
 
-  // Block rendering until DB is ready — usually <100ms
-  if (!dbReady) {
+  if (!ready) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fdf3ff" }}>
         <ActivityIndicator color="#9b72cf" />
