@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
 import { styles } from "./addPurchaseStyles";
+import { KeyboardAvoidingView, Platform } from "react-native";
 import { getEmotions, type Emotion } from "../../lib/repositories/emotions";
 import React from "react";
 
@@ -78,6 +79,7 @@ export default function AddPurchase() {
 
   return (
     <View style={styles.container}>
+      <KeyboardAvoidingView style={{flex:1}} behavior="height">
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -184,6 +186,7 @@ export default function AddPurchase() {
           <Text style={styles.buttonText}>Done</Text>
         </Pressable>
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 } 
