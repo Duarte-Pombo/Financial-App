@@ -12,11 +12,11 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: "#c4a8e0",
         tabBarStyle: {
           position: "absolute",
-          bottom: 30,
+          bottom: 50,
           left: 70,
           right: 70,
           height: 60,
-          borderRadius: 30,
+          borderRadius: 15,
           backgroundColor: "#e8d5f5",
           borderTopWidth: 0,
           shadowColor: "#9b72cf",

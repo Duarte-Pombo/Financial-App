@@ -97,36 +97,29 @@ export const styles = StyleSheet.create({
   },
 
   // Feelings
-  feelingsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+  feelingsScroll: {
     marginBottom: 24,
   },
-  addFeelingBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: "#bbb",
-    borderStyle: "dashed",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
+  feelingsScrollContent: {
+    flexDirection: "row",
+    gap: 8,
+    paddingVertical: 4,
   },
-  feelingBox: {
-    flex: 1,
-    borderRadius: 10,
-    paddingVertical: 9,
+  feelingChip: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 4,
+    borderRadius: 20,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
   },
-  feelingBoxBlue: { backgroundColor: "#c8daf5" },
-  feelingBoxPurple: { backgroundColor: "#7a2a8c" },
-  feelingBoxYellow: { backgroundColor: "#f5e642" },
-  feelingTextDark: { fontSize: 13, fontWeight: "500", color: "#1a3a6e" },
-  feelingTextLight: { fontSize: 13, fontWeight: "500", color: "#f3d0ff" },
-  feelingTextYellow: { fontSize: 13, fontWeight: "500", color: "#5a4e00" },
+  feelingEmoji: {
+    fontSize: 13,
+  },
+  feelingChipText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
   selectedFeeling: {
     borderWidth: 2,
     borderColor: "#333",

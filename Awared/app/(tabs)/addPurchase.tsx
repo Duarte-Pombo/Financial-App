@@ -3,41 +3,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
 import { styles } from "./addPurchaseStyles";
+import { getEmotions, type Emotion } from "../../lib/repositories/emotions";
 import React from "react";
-
-type Feeling = 
-  "sad" 
-  | "stress" 
-  | "happy" 
-  | "anxiety"
-  | "joy"
-  | "calm"
-  | "tired"
-  | "angry"
-  | "bored"
-  | "excited";
-
-const defaultFeelings: Feeling[] = [
-  "sad",
-  "stress",
-  "happy",
-  "anxiety",
-  "joy",
-  "calm",
-  "tired",
-];
-
-const extraFeelings: Feeling[] = [
-  "angry",
-  "bored",
-  "excited",
-];
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = ["January", "February", "March", "April", "May", "June",
-                "July", "August", "September", "October", "November", "December"];
-
-const [showMoreFeelings, setShowMoreFeelings] = useState(false);
+  "July", "August", "September", "October", "November", "December"];
 
 function getDateLabel(d: Date) {
   return `${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`;
@@ -49,28 +20,34 @@ function getTimeLabel(d: Date) {
   return `${h}:${m}`;
 }
 
-// Formats raw digit string into "0.00" style — like a payment terminal
-function formatAmount(digits: string): string {
-  const padded = digits.padStart(3, "0");
-  const cents = padded.slice(-2);
-  const euros = padded.slice(0, -2).replace(/^0+/, "") || "0";
-  return `${euros}.${cents}`;
+// Determine text color based on background luminance
+function getTextColor(hex: string | null): string {
+  if (!hex) return "#333";
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.55 ? "#333" : "#f3f0ff";
 }
 
 export default function AddPurchase() {
   const router = useRouter();
 
-  // Store only raw digits, e.g. "1050" → displays as "10.50"
   const [rawDigits, setRawDigits] = useState("");
   const [item, setItem] = useState("");
   const [location, setLocation] = useState("");
   const [note, setNote] = useState("");
-  const [selectedFeelings, setSelectedFeelings] = useState<Feeling[]>([]);
-
-  // Live clock
+  const [selectedEmotionIds, setSelectedEmotionIds] = useState<number[]>([]);
+  const [emotions, setEmotions] = useState<Emotion[]>([]);
   const [now, setNow] = useState(new Date());
   const clockRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Load emotions once
+  useEffect(() => {
+    getEmotions().then(setEmotions).catch(console.error);
+  }, []);
+
+  // Start clock
   useEffect(() => {
     clockRef.current = setInterval(() => setNow(new Date()), 1000);
     return () => {
@@ -78,31 +55,26 @@ export default function AddPurchase() {
     };
   }, []);
 
+  // Reset form on focus
   useFocusEffect(
     useCallback(() => {
       setRawDigits("");
       setItem("");
       setLocation("");
       setNote("");
-      setSelectedFeelings([]);
+      setSelectedEmotionIds([]);
     }, [])
   );
 
-  const toggleFeeling = (feeling: Feeling) => {
-    setSelectedFeelings((prev) =>
-      prev.includes(feeling)
-        ? prev.filter((f) => f !== feeling)
-        : [...prev, feeling]
+  const toggleEmotion = (id: number) => {
+    setSelectedEmotionIds((prev) =>
+      prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]
     );
   };
 
-  // Only accept digit keys, max 7 digits (99999.99)
   const handleAmountChange = (text: string) => {
-    const digits = text.replace(/[^0-9]/g, "").slice(0, 7);
-    setRawDigits(digits);
+    setRawDigits(text.replace(/[^0-9.,]/g, ""));
   };
-
-  const displayAmount = formatAmount(rawDigits);
 
   return (
     <View style={styles.container}>
@@ -124,14 +96,13 @@ export default function AddPurchase() {
         <Text style={styles.label}>How much was it?</Text>
         <View style={styles.centeredSection}>
           <View style={styles.amountRow}>
-            {/* Hidden real input captures keyboard */}
             <TextInput
-              style={styles.amountInput}
-              keyboardType="number-pad"
-              value={displayAmount}
+              style={[styles.amountInput, { color: "#000" }]}
+              keyboardType="decimal-pad"
+              value={rawDigits}
               onChangeText={handleAmountChange}
-              placeholderTextColor="#ccc"
-              caretHidden={true}
+              placeholder="0.00"
+              placeholderTextColor="#999"
             />
             <Text style={styles.currencySymbol}>$</Text>
           </View>
@@ -152,29 +123,32 @@ export default function AddPurchase() {
 
         {/* Feelings */}
         <Text style={styles.label}>How were you feeling?</Text>
-        <View style={styles.feelingsRow}>
-          <Pressable style={styles.addFeelingBox}>
-            <Ionicons name="add" size={18} color="#aaa" />
-          </Pressable>
-          <Pressable
-            style={[styles.feelingBox, styles.feelingBoxBlue, selectedFeelings.includes("sad") && styles.selectedFeeling]}
-            onPress={() => toggleFeeling("sad")}
-          >
-            <Text style={styles.feelingTextDark}>Sadness</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.feelingBox, styles.feelingBoxPurple, selectedFeelings.includes("stress") && styles.selectedFeeling]}
-            onPress={() => toggleFeeling("stress")}
-          >
-            <Text style={styles.feelingTextLight}>Stress</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.feelingBox, styles.feelingBoxYellow, selectedFeelings.includes("happy") && styles.selectedFeeling]}
-            onPress={() => toggleFeeling("happy")}
-          >
-            <Text style={styles.feelingTextYellow}>Happy</Text>
-          </Pressable>
-        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.feelingsScroll}
+          contentContainerStyle={styles.feelingsScrollContent}
+        >
+          {emotions.map((emotion) => {
+            const isSelected = selectedEmotionIds.includes(emotion.id);
+            return (
+              <Pressable
+                key={emotion.id}
+                style={[
+                  styles.feelingChip,
+                  { backgroundColor: emotion.color_hex ?? "#e0d4ea" },
+                  isSelected && styles.selectedFeeling,
+                ]}
+                onPress={() => toggleEmotion(emotion.id)}
+              >
+                {emotion.emoji && <Text style={styles.feelingEmoji}>{emotion.emoji}</Text>}
+                <Text style={[styles.feelingChipText, { color: getTextColor(emotion.color_hex) }]}>
+                  {emotion.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
 
         {/* Location */}
         <Text style={styles.label}>Where were you?</Text>
@@ -212,4 +186,4 @@ export default function AddPurchase() {
       </ScrollView>
     </View>
   );
-}
+} 
