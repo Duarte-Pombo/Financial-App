@@ -1,23 +1,86 @@
 import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
 import { styles } from "./addPurchaseStyles";
 import React from "react";
 
-type Feeling = "sad" | "stress" | "happy";
+type Feeling = 
+  "sad" 
+  | "stress" 
+  | "happy" 
+  | "anxiety"
+  | "joy"
+  | "calm"
+  | "tired"
+  | "angry"
+  | "bored"
+  | "excited";
+
+const defaultFeelings: Feeling[] = [
+  "sad",
+  "stress",
+  "happy",
+  "anxiety",
+  "joy",
+  "calm",
+  "tired",
+];
+
+const extraFeelings: Feeling[] = [
+  "angry",
+  "bored",
+  "excited",
+];
+
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTHS = ["January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"];
+
+const [showMoreFeelings, setShowMoreFeelings] = useState(false);
+
+function getDateLabel(d: Date) {
+  return `${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+function getTimeLabel(d: Date) {
+  const h = d.getHours().toString().padStart(2, "0");
+  const m = d.getMinutes().toString().padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+// Formats raw digit string into "0.00" style — like a payment terminal
+function formatAmount(digits: string): string {
+  const padded = digits.padStart(3, "0");
+  const cents = padded.slice(-2);
+  const euros = padded.slice(0, -2).replace(/^0+/, "") || "0";
+  return `${euros}.${cents}`;
+}
 
 export default function AddPurchase() {
   const router = useRouter();
-  const [amount, setAmount] = useState("");
+
+  // Store only raw digits, e.g. "1050" → displays as "10.50"
+  const [rawDigits, setRawDigits] = useState("");
   const [item, setItem] = useState("");
   const [location, setLocation] = useState("");
   const [note, setNote] = useState("");
   const [selectedFeelings, setSelectedFeelings] = useState<Feeling[]>([]);
 
+  // Live clock
+  const [now, setNow] = useState(new Date());
+  const clockRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    clockRef.current = setInterval(() => setNow(new Date()), 1000);
+    return () => {
+      if (clockRef.current) clearInterval(clockRef.current);
+    };
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
-      setAmount("");
+      setRawDigits("");
       setItem("");
       setLocation("");
       setNote("");
@@ -33,13 +96,13 @@ export default function AddPurchase() {
     );
   };
 
+  // Only accept digit keys, max 7 digits (99999.99)
   const handleAmountChange = (text: string) => {
-    const cleaned = text.replace(/[^0-9.]/g, "");
-    const parts = cleaned.split(".");
-    if (parts.length > 2) return;
-    if (parts[1] && parts[1].length > 2) return;
-    setAmount(cleaned);
+    const digits = text.replace(/[^0-9]/g, "").slice(0, 7);
+    setRawDigits(digits);
   };
+
+  const displayAmount = formatAmount(rawDigits);
 
   return (
     <View style={styles.container}>
@@ -53,21 +116,22 @@ export default function AddPurchase() {
           <Pressable style={styles.backButton} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={16} color="#555" />
           </Pressable>
-          <Text style={styles.headerText}>Monday, 12 March</Text>
-          <Text style={styles.headerTime}>9:30</Text>
+          <Text style={styles.headerText}>{getDateLabel(now)}</Text>
+          <Text style={styles.headerTime}>{getTimeLabel(now)}</Text>
         </View>
 
         {/* Amount */}
         <Text style={styles.label}>How much was it?</Text>
         <View style={styles.centeredSection}>
           <View style={styles.amountRow}>
+            {/* Hidden real input captures keyboard */}
             <TextInput
               style={styles.amountInput}
-              keyboardType="decimal-pad"
-              value={amount}
+              keyboardType="number-pad"
+              value={displayAmount}
               onChangeText={handleAmountChange}
-              placeholder="0.00"
               placeholderTextColor="#ccc"
+              caretHidden={true}
             />
             <Text style={styles.currencySymbol}>$</Text>
           </View>

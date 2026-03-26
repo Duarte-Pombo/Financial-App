@@ -67,7 +67,7 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="history"
+        name="insights"
         options={{
           tabBarIcon: ({ focused }) => (
             <Ionicons

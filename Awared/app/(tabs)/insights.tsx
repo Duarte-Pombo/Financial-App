@@ -1,10 +1,10 @@
 import React from "react";
 import { Text, View, StyleSheet } from "react-native";
 
-export default function History() {
+export default function Insights() {
   return (
     <View style={styles.container}>
-      <Text>History Page Template</Text>
+      <Text>Insights Page Template</Text>
     </View>
   );
 }
