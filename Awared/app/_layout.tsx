@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { getDb } from "../database/db";
 import { seedDatabase } from "../database/seed";
+import { seedInsightsTestData } from "../database/testData.ts";
 import React from "react";
 
 export default function RootLayout() {
@@ -13,6 +14,7 @@ export default function RootLayout() {
     async function init() {
       await getDb();        // creates tables
       await seedDatabase(); // inserts emotions + categories if empty
+      await seedInsightsTestData(); // test data
       setReady(true);
     }
     init().catch(console.error);
