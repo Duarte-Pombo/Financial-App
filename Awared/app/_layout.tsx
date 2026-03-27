@@ -6,9 +6,22 @@ import { getDb } from "../database/db";
 import { seedDatabase } from "../database/seed";
 import { seedInsightsTestData } from "../database/testData.ts";
 import React from "react";
+import {
+  useFonts,
+  RobotoSerif_400Regular,
+  RobotoSerif_500Medium,
+  RobotoSerif_600SemiBold,
+  RobotoSerif_700Bold,
+} from "@expo-google-fonts/roboto-serif";
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
+  const [fontsLoaded] = useFonts({
+    RobotoSerif_400Regular,
+    RobotoSerif_500Medium,
+    RobotoSerif_600SemiBold,
+    RobotoSerif_700Bold,
+  });
 
   useEffect(() => {
     async function init() {
@@ -20,7 +33,7 @@ export default function RootLayout() {
     init().catch(console.error);
   }, []);
 
-  if (!ready) {
+  if (!ready || !fontsLoaded) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fdf3ff" }}>
         <ActivityIndicator color="#9b72cf" />
