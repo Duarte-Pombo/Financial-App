@@ -24,7 +24,7 @@ export default function Index() {
         <Text style={{ fontSize: 28, padding: 5 }}>Activity</Text>
         <Text>Emotion of the day:😟</Text>
         <View style={styles.entry}>
-          <Text>😟</Text>
+          <Text style={{ fontSize: 30 }}>😟</Text>
           <View>
             <Text>Coffe - Anxious</Text>
             <Text>3 hours ago</Text>
@@ -32,7 +32,7 @@ export default function Index() {
           <Text>-1,20€</Text>
         </View>
         <View style={styles.entry}>
-          <Text>😟</Text>
+          <Text style={{ fontSize: 30 }}>😟</Text>
           <View>
             <Text>Coffe - Anxious</Text>
             <Text>3 hours ago</Text>
@@ -40,7 +40,7 @@ export default function Index() {
           <Text>-1,20€</Text>
         </View>
         <View style={styles.entry}>
-          <Text>😟</Text>
+          <Text style={{ fontSize: 30 }}>😟</Text>
           <View>
             <Text>Coffe - Anxious</Text>
             <Text>3 hours ago</Text>
@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
     width: "100%",
     paddingLeft: 20,
     flexDirection: "column",
-    marginBottom: 50,
+    marginBottom: 60,
   },
   entry: {
     flex: 1,
