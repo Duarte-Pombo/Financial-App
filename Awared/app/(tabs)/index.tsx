@@ -1,4 +1,5 @@
-import { Text, View, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
+import { Text } from "@/components/Text";
 import Gauge from "@/components/gauge";
 import Button from "@/components/button";
 import React from "react";
