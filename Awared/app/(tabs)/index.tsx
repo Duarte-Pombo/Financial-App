@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 10,
-    borderBottomWidth: 2,
+    borderBottomWidth: 1,
   },
   budget: {
     width: '100%',
