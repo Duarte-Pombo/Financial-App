@@ -1,4 +1,4 @@
-import { Text, View, StyleSheet } from "react-native";
+import { Text, View, StyleSheet, Pressable } from "react-native";
 import Gauge from "@/components/gauge";
 import Button from "@/components/button";
 import React from "react";
@@ -8,21 +8,21 @@ export default function Index() {
   return (
     <View style={styles.container}>
       <View style={styles.budget}>
-        <Text style={{ fontSize: 28, padding: 4 }}>You Have</Text>
-        <Text style={{ fontSize: 48 }}>202,30€</Text>
-        <Text style={{ fontSize: 28, padding: 4, paddingLeft: 50 }}>to spend</Text>
-        <View style={{ alignSelf: 'center', marginTop: 10, marginBottom: 50 }}>
-          <Gauge value={0.7} />
+        <Text style={{ fontSize: 28 }}>You Have</Text>
+        <View style={{ paddingLeft: 20, flexDirection: "row", gap: 10 }}>
+          <Text style={{ fontSize: 48 }}>202,30€</Text>
+          <Pressable onPress={() => alert("Edit Budget")}>
+            <Ionicons name="pencil" size={24} color="#555" />
+          </Pressable>
         </View>
-        <View style={styles.Buttons}>
-          <Button label="Edit Budget" />
-          <Button label="See History" />
-          <Button label="See profile" />
+        <Text style={{ fontSize: 28, paddingLeft: 50 }}>to spend</Text>
+        <View style={{ alignSelf: 'center', marginTop: 20, marginBottom: 30 }}>
+          <Gauge value={0.7} />
         </View>
       </View>
       <View style={styles.activityContainer}>
-        <Text style={{ fontSize: 28, padding: 5 }}>Activity</Text>
-        <Text>Emotion of the day:😟</Text>
+        <Text style={{ alignSelf: 'center', fontSize: 30, padding: 5 }}>Activity</Text>
+        <Text style={{ alignSelf: 'center', fontSize: 18, padding: 5 }}>Emotion of the day:😟</Text>
         <View style={styles.entry}>
           <Text style={{ fontSize: 30 }}>😟</Text>
           <View>
@@ -47,6 +47,9 @@ export default function Index() {
           </View>
           <Text>-1,20€</Text>
         </View>
+        <Pressable style={{ width: '100%', padding: 10, marginTop: 5 }} onPress={() => alert("View History")}>
+          <Text style={{ alignSelf: 'center', fontSize: 18 }}>View More</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -69,6 +72,7 @@ const styles = StyleSheet.create({
     flex: 1 / 2,
     width: "100%",
     paddingLeft: 20,
+    paddingRight: 20,
     flexDirection: "column",
     marginBottom: 60,
   },
@@ -85,6 +89,8 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
     paddingRight: 20,
     flex: 1 / 3,
-    marginBottom: 50,
+    flexDirection: 'column',
+    justifyContent: 'center',
+    gap: 8,
   }
 })
