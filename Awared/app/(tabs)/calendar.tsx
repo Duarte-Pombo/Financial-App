@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import { View, StyleSheet, ScrollView, Pressable, FlatList } from "react-native";
 import { Text } from "@/components/Text";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -269,7 +270,7 @@ export default function Calendar() {
       </View>
 
       {/* ── Monthly heatmap button ── */}
-      <Pressable style={styles.monthlyBtn}>
+      <Pressable style={styles.monthlyBtn} onPress={() => router.push("/monthlyHeatmap")}>
         <Ionicons name="calendar-outline" size={15} color="#555" style={{ marginRight: 7 }} />
         <Text style={styles.monthlyBtnText}>Monthly heatmap</Text>
       </Pressable>

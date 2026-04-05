@@ -45,7 +45,8 @@ export default function RootLayout() {
     <>
       <StatusBar style="dark" backgroundColor="#fdf3ff" />
       <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)"          options={{ headerShown: false }} />
+        <Stack.Screen name="monthlyHeatmap"  options={{ headerShown: false }} />
       </Stack>
     </>
   );
