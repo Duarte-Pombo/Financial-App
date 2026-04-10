@@ -5,33 +5,35 @@ import { navigate } from "expo-router/build/global-state/routing";
 export default function Login() {
   let email: string;
   let password: string;
+  let passwordConfirm: string;
   return (
     <View style={{ flex: 1, flexDirection: "column" }}>
       <View style={{ flex: 1, flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
-        <Text style={{ fontSize: 20, marginBottom: 25 }}>Welcome Back!</Text>
+        <Text style={{ fontSize: 20, marginBottom: 25 }}>Welcome to Awared!</Text>
         <TextInput style={styles.input} placeholder="Email" onChangeText={(value) => email = value} />
         <TextInput style={styles.input} placeholder="Password" onChangeText={(value) => password = value} />
-        <Pressable style={styles.button} onPress={() => attemptLogin(email, password)}>
-          <Text style={{ textAlign: "center" }}>Login</Text>
+        <TextInput style={styles.input} placeholder="Confirm Password" onChangeText={(value) => passwordConfirm = value} />
+        <Pressable style={styles.button} onPress={() => registerNewUser(email, password, passwordConfirm)}>
+          <Text style={{ textAlign: "center" }}>Register</Text>
         </Pressable>
 
       </View>
       <View style={{ flex: 1 / 4, flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
-        <Text>New here?</Text>
-        <Pressable style={styles.button} onPress={gotoRegister}>
-          <Text style={{ textAlign: "center" }}>Register</Text>
+        <Text>Already have an account?</Text>
+        <Pressable style={styles.button} onPress={gotoLogin}>
+          <Text style={{ textAlign: "center" }}>Login</Text>
         </Pressable>
       </View>
     </View>
   );
 }
 
-function attemptLogin(email: string, password: string) {
+function registerNewUser(email: string, password: string, passwordConfirm: string) {
   navigate("/(tabs)");
 }
 
-function gotoRegister() {
-  navigate("/register");
+function gotoLogin() {
+  navigate("/");
 }
 
 const styles = StyleSheet.create({
