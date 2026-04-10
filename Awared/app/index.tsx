@@ -1,6 +1,7 @@
 import React from "react";
 import { Text, View, StyleSheet, Pressable, TextInput } from "react-native";
 import { navigate } from "expo-router/build/global-state/routing";
+import { getDb } from "@/database/db";
 
 export default function Login() {
   let email: string;
@@ -26,8 +27,16 @@ export default function Login() {
   );
 }
 
-function attemptLogin(email: string, password: string) {
-  navigate("/(tabs)");
+async function attemptLogin(email: string, password: string): Promise<void> {
+  let db = await getDb();
+  let hash = btoa(password);
+  const user = await db.getFirstAsync(
+    "SELECT email, password_hash FROM users WHERE email = ? AND password_hash = ?",
+    [email, hash]
+  );
+  if (user != null)
+    navigate("/(tabs)");
+  else alert("Wrong Credentials");
 }
 
 function gotoRegister() {
