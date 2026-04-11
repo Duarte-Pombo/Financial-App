@@ -10,8 +10,8 @@ export default function Login() {
     <View style={{ flex: 1, flexDirection: "column" }}>
       <View style={{ flex: 1, flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
         <Text style={{ fontSize: 20, marginBottom: 25 }}>Welcome Back!</Text>
-        <TextInput style={styles.input} placeholder="Email" onChangeText={(value) => email = value} />
-        <TextInput style={styles.input} placeholder="Password" onChangeText={(value) => password = value} />
+        <TextInput style={styles.input} placeholder="Email or Username" onChangeText={(value) => email = value} />
+        <TextInput style={styles.input} placeholder="Password" secureTextEntry={true} onChangeText={(value) => password = value} />
         <Pressable style={styles.button} onPress={() => attemptLogin(email, password)}>
           <Text style={{ textAlign: "center" }}>Login</Text>
         </Pressable>
@@ -31,8 +31,8 @@ async function attemptLogin(email: string, password: string): Promise<void> {
   let db = await getDb();
   let hash = btoa(password);
   const user = await db.getFirstAsync(
-    "SELECT email, password_hash FROM users WHERE email = ? AND password_hash = ?",
-    [email, hash]
+    "SELECT email, username, password_hash FROM users WHERE (email = ? or username = ?) AND password_hash = ?",
+    [email, email, hash]
   );
   if (user != null)
     navigate("/(tabs)");
