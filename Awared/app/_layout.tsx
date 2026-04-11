@@ -22,14 +22,14 @@ const DEV_RESET = true; // COMMENT AFTER TESTING
 // │  08 │ Happy/Excited Spender — positive emotion but category/amount risk    │
 // └─────┴──────────────────────────────────────────────────────────────────────┘
 
-// import { seed_01_mindful_spender as activeSeed } from "../database/test_seeds/seed_01_mindful_spender";
-// import { seed_02_stress_shopper        as activeSeed } from "../database/test_seeds/seed_02_stress_shopper";
-// import { seed_03_boredom_binger        as activeSeed } from "../database/test_seeds/seed_03_boredom_binger";
-import { seed_04_night_owl as activeSeed } from "../database/test_seeds/seed_04_night_owl";
-// import { seed_05_recovering_spender    as activeSeed } from "../database/test_seeds/seed_05_recovering_spender";
-// import { seed_06_edge_cases            as activeSeed } from "../database/test_seeds/seed_06_edge_cases";
-// import { seed_07_anger_spender         as activeSeed } from "../database/test_seeds/seed_07_anger_spender";
-// import { seed_08_happy_excited_spender as activeSeed } from "../database/test_seeds/seed_08_happy_excited_spender";
+import { seed_01_mindful_spender } from "../database/test_seeds/seed_01_mindful_spender";
+import { seed_02_stress_shopper } from "../database/test_seeds/seed_02_stress_shopper";
+import { seed_03_boredom_binger } from "../database/test_seeds/seed_03_boredom_binger";
+import { seed_04_night_owl } from "../database/test_seeds/seed_04_night_owl";
+import { seed_05_recovering_spender } from "../database/test_seeds/seed_05_recovering_spender";
+import { seed_06_edge_cases } from "../database/test_seeds/seed_06_edge_cases";
+import { seed_07_anger_spender } from "../database/test_seeds/seed_07_anger_spender";
+import { seed_08_happy_excited_spender } from "../database/test_seeds/seed_08_happy_excited_spender";
 
 // const activeSeed: (() => Promise<void>) | null = null;
 
@@ -61,9 +61,14 @@ export default function RootLayout() {
         }
 
         await seedDatabase(); // always runs
-        if (activeSeed) {
-          await activeSeed();
-        }
+        await seed_01_mindful_spender();
+        await seed_02_stress_shopper();
+        await seed_03_boredom_binger();
+        await seed_04_night_owl();
+        await seed_05_recovering_spender();
+        await seed_06_edge_cases();
+        await seed_07_anger_spender();
+        await seed_08_happy_excited_spender();
 
         setReady(true);
       } catch (e) {

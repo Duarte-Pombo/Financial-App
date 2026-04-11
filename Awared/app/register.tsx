@@ -1,6 +1,7 @@
 import React from "react";
 import { Text, View, StyleSheet, Pressable, TextInput } from "react-native";
 import { navigate } from "expo-router/build/global-state/routing";
+import { getDb } from "@/database/db";
 
 export default function Login() {
   let email: string;
@@ -13,8 +14,8 @@ export default function Login() {
         <Text style={{ fontSize: 20, marginBottom: 25 }}>Welcome to Awared!</Text>
         <TextInput style={styles.input} placeholder="Email" onChangeText={(value) => email = value} />
         <TextInput style={styles.input} placeholder="Username" onChangeText={(value) => username = value} />
-        <TextInput style={styles.input} placeholder="Password" onChangeText={(value) => password = value} />
-        <TextInput style={styles.input} placeholder="Confirm Password" onChangeText={(value) => passwordConfirm = value} />
+        <TextInput style={styles.input} secureTextEntry={true} placeholder="Password" onChangeText={(value) => password = value} />
+        <TextInput style={styles.input} secureTextEntry={true} placeholder="Confirm Password" onChangeText={(value) => passwordConfirm = value} />
         <Pressable style={styles.button} onPress={() => registerNewUser(email, username, password, passwordConfirm)}>
           <Text style={{ textAlign: "center" }}>Register</Text>
         </Pressable>
@@ -30,7 +31,21 @@ export default function Login() {
   );
 }
 
-function registerNewUser(email: string, username: string, password: string, passwordConfirm: string) {
+async function registerNewUser(email: string, username: string, password: string, passwordConfirm: string): Promise<void> {
+  if (password != passwordConfirm) {
+    alert("Passwords don't match!");
+    return;
+  }
+  if (password == undefined) {
+    alert("Password cannot be empty!");
+    return;
+  }
+  let db = await getDb();
+  let hash = btoa(password)
+  await db.runAsync(
+    "INSERT INTO users (email, username, password_hash) VALUES (?, ?, ?)",
+    [email, username, hash]
+  );
   navigate("/(tabs)");
 }
 

@@ -31,11 +31,14 @@ async function attemptLogin(email: string, password: string): Promise<void> {
   let db = await getDb();
   let hash = btoa(password);
   const user = await db.getFirstAsync(
-    "SELECT email, username, password_hash FROM users WHERE (email = ? or username = ?) AND password_hash = ?",
+    "SELECT id, email, username, password_hash FROM users WHERE (email = ? or username = ?) AND password_hash = ?",
     [email, email, hash]
   );
-  if (user != null)
+  if (user != null) {
+    global.userID = user.id;
+    console.log("UserID:" + global.userID);
     navigate("/(tabs)");
+  }
   else alert("Wrong Credentials");
 }
 

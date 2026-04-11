@@ -26,7 +26,7 @@
 import { getDb } from "../db";
 import { randomUUID } from "expo-crypto";
 
-const USER_ID = "local-user";
+const USER_ID = 4;
 
 function daysAgo(n: number, hour = 22, minute = 0): string {
   const d = new Date();
@@ -38,7 +38,7 @@ function daysAgo(n: number, hour = 22, minute = 0): string {
 async function ensureUser(db: any) {
   await db.runAsync(
     `INSERT OR IGNORE INTO users (id, email, username, password_hash) VALUES (?, ?, ?, ?)`,
-    [USER_ID, "local@app.com", "local_user", "no-auth"]
+    [USER_ID, "night@app.com", "night_user", "MTIz"]
   );
 }
 

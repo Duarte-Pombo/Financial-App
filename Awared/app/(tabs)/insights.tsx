@@ -52,7 +52,7 @@ type ScoredTransaction = RawTransaction & {
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const TEMP_USER_ID = "local-user";
+let TEMP_USER_ID;
 const AVG_SPEND = 20; // baseline average transaction amount in EUR
 
 // Category impulse weights (matched to spending_categories names)
@@ -355,6 +355,8 @@ export default function Insights() {
   const loadInsights = useCallback(async () => {
     try {
       const db = await getDb();
+
+      TEMP_USER_ID = global.userID;
 
       // Fetch last 30 days of transactions joined with emotion + category data
       const rows = await db.getAllAsync<RawTransaction>(

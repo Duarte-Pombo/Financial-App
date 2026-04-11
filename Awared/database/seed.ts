@@ -49,12 +49,6 @@ export async function seedDatabase(): Promise<void> {
         [c.name, c.icon, c.color_hex]
       );
     }
-
-    //TEST USER
-    await db.runAsync(
-      `INSERT INTO users(email, username, password_hash)
-      VALUES ("test@email.com", "testUser", "MTIz")`
-    );
   });
 
   console.log("[db] seeded emotions and categories");
