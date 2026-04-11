@@ -24,7 +24,10 @@ export default function Index() {
       const db = await getDb();
       const userID = global.userID;
       const transactions = await db.getAllAsync(
-        "SELECT * FROM transactions WHERE user_id = ?",
+        `SELECT * FROM transactions as t
+        JOIN spending_categories as s
+        on t.category_id = s.id
+        WHERE t.user_id = ? ORDER BY t.created_at DESC LIMIT 3`,
         [userID]
       );
       setActivity(transactions);
@@ -39,8 +42,9 @@ export default function Index() {
         <View style={styles.entry} key={i}>
           <Text style={{ fontSize: 30 }}>😟</Text>
           <View>
-            <Text>{activity[i].merchant_name}</Text>
-            <Text>{activity[i].transacted_at}</Text>
+            <Text style={{ fontSize: 18 }}>{activity[i].icon} {activity[i].name}</Text>
+            <Text style={{ fontSize: 16 }}>{activity[i].merchant_name}</Text>
+            <Text>{activity[i].created_at}</Text>
           </View>
           <Text>{activity[i].amount} {activity[i].currency_code}</Text>
         </View>
@@ -66,7 +70,7 @@ export default function Index() {
       {activity ? (
         <View style={styles.activityContainer}>
           <Text style={{ alignSelf: 'center', fontSize: 30, padding: 5 }}>Activity</Text>
-          <Text style={{ alignSelf: 'center', fontSize: 18, padding: 5 }}>Emotion of the day:😟</Text>
+          <Text style={{ alignSelf: 'center', fontSize: 18, padding: 6 }}>Emotion of the day:😟</Text>
           {recents}
           <Pressable style={{ width: '100%', padding: 10, marginTop: 5 }} onPress={() => alert("View History")}>
             <Text style={{ alignSelf: 'center', fontSize: 18 }}>View More</Text>
