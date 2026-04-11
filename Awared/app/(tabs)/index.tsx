@@ -72,7 +72,7 @@ export default function Index() {
           <Text style={{ alignSelf: 'center', fontSize: 30, padding: 5 }}>Activity</Text>
           <Text style={{ alignSelf: 'center', fontSize: 18, padding: 6 }}>Emotion of the day:😟</Text>
           {recents}
-          <Pressable style={{ width: '100%', padding: 10, marginTop: 5 }} onPress={() => alert("View History")}>
+          <Pressable style={{ width: '100%', padding: 8, marginTop: 2 }} onPress={() => alert("View History")}>
             <Text style={{ alignSelf: 'center', fontSize: 18 }}>View More</Text>
           </Pressable>
         </View>
