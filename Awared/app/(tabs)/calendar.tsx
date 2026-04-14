@@ -1,8 +1,10 @@
 import React, { useState, useRef } from "react";
-import { View, StyleSheet, ScrollView, Pressable, FlatList } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, FlatList, Animated, Dimensions } from "react-native";
 import { Text } from "@/components/Text";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import MonthlyHeatmapPanel from "@/components/MonthlyHeatmapPanel";
+
+const SCREEN_W = Dimensions.get("window").width;
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -95,7 +97,39 @@ export default function Calendar() {
   const [weekIdx, setWeekIdx]             = useState(THIS_WEEK_IDX);
   const [selectedDay, setSelectedDay]     = useState<number | null>(null);
   const [selectedEmotion, setSelectedEmotion] = useState<string | null>(null);
-  const flatRef = useRef<FlatList>(null);
+  const flatRef   = useRef<FlatList>(null);
+  const pillAnim  = useRef(new Animated.Value(0)).current;
+  const pageAnim  = useRef(new Animated.Value(0)).current;
+  const [activeTab, setActiveTab] = useState<0 | 1>(0);
+
+  // Monthly state (lifted here so the navigator strip can be shared)
+  const [monthYear,  setMonthYear]  = useState(2026);
+  const [monthMonth, setMonthMonth] = useState(3); // 0-indexed
+  const canGoBackMonth    = !(monthYear === 2026 && monthMonth === 2);
+  const canGoForwardMonth = !(monthYear === 2026 && monthMonth === 3);
+  function changeMonth(dir: -1 | 1) {
+    let m = monthMonth + dir, y = monthYear;
+    if (m < 0)  { m = 11; y--; }
+    if (m > 11) { m = 0;  y++; }
+    setMonthMonth(m); setMonthYear(y);
+  }
+  const MONTHS_LONG = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+  function goMonthly() {
+    setActiveTab(1);
+    Animated.parallel([
+      Animated.spring(pageAnim, { toValue: -SCREEN_W, useNativeDriver: true, tension: 180, friction: 22 }),
+      Animated.spring(pillAnim, { toValue: 116,       useNativeDriver: true, tension: 180, friction: 22 }),
+    ]).start();
+  }
+
+  function goWeekly() {
+    setActiveTab(0);
+    Animated.parallel([
+      Animated.spring(pageAnim, { toValue: 0, useNativeDriver: true, tension: 180, friction: 22 }),
+      Animated.spring(pillAnim, { toValue: 0, useNativeDriver: true, tension: 180, friction: 22 }),
+    ]).start();
+  }
 
   const currentWeek  = MOCK_DATA[weekIdx];
   const isThisWeek   = weekIdx === THIS_WEEK_IDX;
@@ -156,10 +190,60 @@ export default function Calendar() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Weekly Heatmap</Text>
+    <View style={styles.screen}>
+      {/* ── Fixed toggle header ── */}
+      <View style={styles.header}>
+        <Text style={styles.screenTitle}>Expense Heatmap</Text>
+        <View style={styles.togglePill}>
+          <Animated.View style={[styles.toggleActive, { transform: [{ translateX: pillAnim }] }]} />
+          <Pressable style={styles.toggleOption} onPress={goWeekly}>
+            <Text style={[styles.toggleText, activeTab === 0 && styles.toggleTextActive]}>Weekly</Text>
+          </Pressable>
+          <Pressable style={styles.toggleOption} onPress={goMonthly}>
+            <Text style={[styles.toggleText, activeTab === 1 && styles.toggleTextActive]}>Monthly</Text>
+          </Pressable>
+        </View>
+      </View>
 
-      {/* ── Emotion slider ── */}
+      {/* ── Sliding navigator strip ── */}
+      <Animated.View style={[styles.navStrip, { transform: [{ translateX: pageAnim }] }]}>
+        {/* Weekly navigator */}
+        <View style={styles.navStripPanel}>
+          <View style={styles.weekNav}>
+            <Pressable style={[styles.navArrow, !canGoBack && styles.navDisabled]} onPress={() => canGoBack && handleWeekChange(-1)}>
+              <Ionicons name="chevron-back" size={18} color={canGoBack ? "#444" : "#ccc"} />
+            </Pressable>
+            <View style={styles.navLabel}>
+              <Text style={styles.navLabelText}>{weekLabel}</Text>
+            </View>
+            <Pressable style={[styles.navArrow, !canGoForward && styles.navDisabled]} onPress={() => canGoForward && handleWeekChange(1)}>
+              <Ionicons name="chevron-forward" size={18} color={canGoForward ? "#444" : "#ccc"} />
+            </Pressable>
+          </View>
+        </View>
+        {/* Monthly navigator */}
+        <View style={styles.navStripPanel}>
+          <View style={styles.weekNav}>
+            <Pressable style={[styles.navArrow, !canGoBackMonth && styles.navDisabled]} onPress={() => canGoBackMonth && changeMonth(-1)}>
+              <Ionicons name="chevron-back" size={18} color={canGoBackMonth ? "#444" : "#ccc"} />
+            </Pressable>
+            <View style={styles.navLabel}>
+              <Text style={styles.navLabelText}>{MONTHS_LONG[monthMonth]} {monthYear}</Text>
+            </View>
+            <Pressable style={[styles.navArrow, !canGoForwardMonth && styles.navDisabled]} onPress={() => canGoForwardMonth && changeMonth(1)}>
+              <Ionicons name="chevron-forward" size={18} color={canGoForwardMonth ? "#444" : "#ccc"} />
+            </Pressable>
+          </View>
+        </View>
+      </Animated.View>
+
+      {/* ── Sliding panels ── */}
+      <View style={styles.panels}>
+        <Animated.View style={[styles.panelRow, { transform: [{ translateX: pageAnim }] }]}>
+
+          {/* Weekly panel */}
+          <ScrollView style={styles.panel} contentContainerStyle={styles.panelContent}>
+            {/* ── Emotion slider ── */}
       <View style={styles.sliderCard}>
         <FlatList
           ref={flatRef}
@@ -225,19 +309,6 @@ export default function Calendar() {
         </View>
       </View>
 
-      {/* ── Week navigator ── */}
-      <View style={styles.weekNav}>
-        <Pressable style={[styles.navArrow, !canGoBack && styles.navDisabled]} onPress={() => canGoBack && handleWeekChange(-1)}>
-          <Ionicons name="chevron-back" size={18} color={canGoBack ? "#444" : "#ccc"} />
-        </Pressable>
-        <View style={styles.navLabel}>
-          <Text style={styles.navLabelText}>{weekLabel}</Text>
-        </View>
-        <Pressable style={[styles.navArrow, !canGoForward && styles.navDisabled]} onPress={() => canGoForward && handleWeekChange(1)}>
-          <Ionicons name="chevron-forward" size={18} color={canGoForward ? "#444" : "#ccc"} />
-        </Pressable>
-      </View>
-
       {/* ── Emotion breakdown ── */}
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>{sectionTitle}</Text>
@@ -269,19 +340,57 @@ export default function Calendar() {
         )}
       </View>
 
-      {/* ── Monthly heatmap button ── */}
-      <Pressable style={styles.monthlyBtn} onPress={() => router.push("/monthlyHeatmap")}>
-        <Ionicons name="calendar-outline" size={15} color="#555" style={{ marginRight: 7 }} />
-        <Text style={styles.monthlyBtnText}>Monthly heatmap</Text>
-      </Pressable>
-    </ScrollView>
+          </ScrollView>
+
+          {/* Monthly panel */}
+          <View style={styles.panel}>
+            <MonthlyHeatmapPanel year={monthYear} month={monthMonth} />
+          </View>
+
+        </Animated.View>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fdf3ff" },
-  content:   { padding: 20, paddingTop: 60, paddingBottom: 40 },
-  title:     { fontSize: 26, fontFamily: "RobotoSerif_600SemiBold", marginBottom: 16, color: "#333" },
+  screen:  { flex: 1, backgroundColor: "#fdf3ff" },
+  header:  { paddingTop: 60, paddingBottom: 12, alignItems: "center", backgroundColor: "#fdf3ff" },
+  screenTitle: { fontSize: 26, fontFamily: "RobotoSerif_600SemiBold", color: "#000", marginBottom: 12, marginTop: 8 },
+  panels:  { flex: 1, overflow: "hidden" },
+  panelRow: { flex: 1, flexDirection: "row", width: SCREEN_W * 2 },
+  panel:   { width: SCREEN_W, flex: 1 },
+  panelContent: { padding: 20, paddingBottom: 40 },
+
+  // ── navigator strip ──
+  navStrip:      { flexDirection: "row", width: SCREEN_W * 2, paddingHorizontal: 0 },
+  navStripPanel: { width: SCREEN_W, paddingHorizontal: 20, paddingBottom: 10 },
+
+  // ── toggle ──
+  togglePill: {
+    flexDirection: "row",
+    backgroundColor: "#ede4f7",
+    borderRadius: 20,
+    padding: 4,
+    position: "relative",
+    width: 240,
+  },
+  toggleActive: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    width: 116,
+    height: 36,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  toggleOption: { flex: 1, height: 36, alignItems: "center", justifyContent: "center" },
+  toggleText: { fontSize: 14, fontFamily: "RobotoSerif_600SemiBold", color: "#888" },
+  toggleTextActive: { color: "#5c2d91" },
 
   // ── slider ──
   sliderCard: {
@@ -362,18 +471,4 @@ const styles = StyleSheet.create({
   filterCountNumber: { fontSize: 52, fontFamily: "RobotoSerif_700Bold", lineHeight: 58 },
   filterCountLabel:  { fontSize: 13, color: "#999", marginTop: 2 },
 
-  // ── monthly button ──
-  monthlyBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    height: 48,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  monthlyBtnText: { fontSize: 14, fontFamily: "RobotoSerif_600SemiBold", color: "#555" },
 });

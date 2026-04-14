@@ -3,6 +3,13 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import React from "react";
+import {
+  useFonts,
+  RobotoSerif_400Regular,
+  RobotoSerif_500Medium,
+  RobotoSerif_600SemiBold,
+  RobotoSerif_700Bold,
+} from "@expo-google-fonts/roboto-serif";
 
 import { getDb } from "../database/db";
 import { seedDatabase } from "../database/seed";
@@ -96,14 +103,10 @@ export default function RootLayout() {
     <>
       <StatusBar style="dark" backgroundColor="#fdf3ff" />
       <Stack>
-<<<<<<< HEAD
-        <Stack.Screen name="(tabs)"          options={{ headerShown: false }} />
-        <Stack.Screen name="monthlyHeatmap"  options={{ headerShown: false }} />
-=======
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="register" options={{ headerShown: false }} />
->>>>>>> 879159e01fbb1e87cad7b5fdb20cc68593b6f1ac
+        <Stack.Screen name="monthlyHeatmap" options={{ headerShown: false, animation: "slide_from_right" }} />
       </Stack>
     </>
   );

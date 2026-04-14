@@ -234,6 +234,7 @@ export default function MonthlyHeatmap() {
   const [sheetDay,    setSheetDay]    = useState<number | null>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
   const sheetAnim = useRef(new Animated.Value(SHEET_MAX_H)).current;
+  const pillAnim  = useRef(new Animated.Value(120)).current;
 
   const monthData  = getMonthData(year, month);
   const numDays    = daysInMonth(year, month);
@@ -295,12 +296,20 @@ export default function MonthlyHeatmap() {
     <>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
 
-        {/* ── Header ── */}
-        <View style={styles.header}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={22} color="#444" />
-          </Pressable>
-          <Text style={styles.title}>Monthly Heatmap</Text>
+        {/* ── Toggle ── */}
+        <View style={styles.toggle}>
+          <View style={styles.togglePill}>
+            <Animated.View style={[styles.toggleActive, { left: pillAnim }]} />
+            <Pressable style={styles.toggleOption} onPress={() => {
+              Animated.timing(pillAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start();
+              router.back();
+            }}>
+              <Text style={styles.toggleText}>Weekly</Text>
+            </Pressable>
+            <Pressable style={styles.toggleOption}>
+              <Text style={[styles.toggleText, styles.toggleTextActive]}>Monthly</Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* ── Month Navigator ── */}
@@ -496,22 +505,31 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fdf3ff" },
   content:   { padding: 20, paddingTop: 60, paddingBottom: 40 },
 
-  // header
-  header:  { flexDirection: "row", alignItems: "center", marginBottom: 20 },
-  backBtn: {
-    width: 36,
+  // ── toggle ──
+  toggle: { alignItems: "center", marginBottom: 20 },
+  togglePill: {
+    flexDirection: "row",
+    backgroundColor: "#ede4f7",
+    borderRadius: 20,
+    padding: 4,
+    position: "relative",
+    width: 240,
+  },
+  toggleActive: {
+    position: "absolute",
+    top: 4,
+    width: 116,
     height: 36,
-    alignItems: "center",
-    justifyContent: "center",
     backgroundColor: "#fff",
-    borderRadius: 12,
-    marginRight: 12,
+    borderRadius: 16,
     shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
     elevation: 2,
   },
-  title: { fontSize: 26, fontFamily: "RobotoSerif_600SemiBold", color: "#333" },
+  toggleOption: { flex: 1, height: 36, alignItems: "center", justifyContent: "center" },
+  toggleText: { fontSize: 14, fontFamily: "RobotoSerif_600SemiBold", color: "#888" },
+  toggleTextActive: { color: "#5c2d91" },
 
   // month nav
   monthNav: {
