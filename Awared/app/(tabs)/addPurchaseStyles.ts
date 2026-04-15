@@ -32,7 +32,7 @@ export const styles = StyleSheet.create({
   },
   headerText: {
     fontSize: 14,
-    fontWeight: "500",
+    fontFamily: "RobotoSerif_500Medium",
     color: "#333",
   },
   headerTime: {
@@ -60,7 +60,7 @@ export const styles = StyleSheet.create({
   },
   amountInput: {
     fontSize: 56,
-    fontWeight: "700",
+    fontFamily: "RobotoSerif_700Bold",
     color: "#111",
     letterSpacing: -2,
     textAlign: "center",
@@ -71,7 +71,7 @@ export const styles = StyleSheet.create({
   currencySymbol: {
     fontSize: 20,
     color: "#888",
-    fontWeight: "400",
+    fontFamily: "RobotoSerif_400Regular",
     marginLeft: 2,
     marginTop: 8,
   },
@@ -86,7 +86,7 @@ export const styles = StyleSheet.create({
   // Item
   itemInput: {
     fontSize: 22,
-    fontWeight: "600",
+    fontFamily: "RobotoSerif_600SemiBold",
     color: "#111",
     textAlign: "center",
     textDecorationLine: "underline",
@@ -118,7 +118,7 @@ export const styles = StyleSheet.create({
   },
   feelingChipText: {
     fontSize: 13,
-    fontWeight: "500",
+    fontFamily: "RobotoSerif_500Medium",
   },
   selectedFeeling: {
     borderWidth: 2,
@@ -141,7 +141,7 @@ export const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: "#333",
-    fontWeight: "500",
+    fontFamily: "RobotoSerif_500Medium",
     padding: 0,
     marginLeft: 8,
   },
@@ -160,7 +160,7 @@ export const styles = StyleSheet.create({
   },
   autoDetectText: {
     fontSize: 11,
-    fontWeight: "500",
+    fontFamily: "RobotoSerif_500Medium",
     color: "#2a7a2a",
   },
 
@@ -189,7 +189,7 @@ export const styles = StyleSheet.create({
   buttonText: {
     color: "#fff",
     fontSize: 15,
-    fontWeight: "600",
+    fontFamily: "RobotoSerif_600SemiBold",
     letterSpacing: 0.3,
   },
 });

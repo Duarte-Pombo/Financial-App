@@ -3,6 +3,13 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import React from "react";
+import {
+  useFonts,
+  RobotoSerif_400Regular,
+  RobotoSerif_500Medium,
+  RobotoSerif_600SemiBold,
+  RobotoSerif_700Bold,
+} from "@expo-google-fonts/roboto-serif";
 
 import { getDb } from "../database/db";
 import { seedDatabase } from "../database/seed";
@@ -50,6 +57,12 @@ async function resetDatabase(): Promise<void> {
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
+  const [fontsLoaded] = useFonts({
+    RobotoSerif_400Regular,
+    RobotoSerif_500Medium,
+    RobotoSerif_600SemiBold,
+    RobotoSerif_700Bold,
+  });
 
   useEffect(() => {
     async function init() {
@@ -78,7 +91,7 @@ export default function RootLayout() {
     init();
   }, []);
 
-  if (!ready) {
+  if (!ready || !fontsLoaded) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fdf3ff" }}>
         <ActivityIndicator color="#9b72cf" size="large" />
@@ -93,6 +106,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="register" options={{ headerShown: false }} />
+        <Stack.Screen name="monthlyHeatmap" options={{ headerShown: false, animation: "slide_from_right" }} />
       </Stack>
     </>
   );

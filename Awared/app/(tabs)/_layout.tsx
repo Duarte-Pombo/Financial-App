@@ -1,6 +1,21 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { View, StyleSheet, Platform } from "react-native";
 import React from "react";
+
+type IconProps = { focused: boolean; name: [string, string]; size?: number };
+
+function TabIcon({ focused, name, size = 28 }: IconProps) {
+  return (
+    <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+      <Ionicons
+        name={focused ? name[0] : name[1]}
+        color={focused ? "#6b21a8" : "#c4a8e0"}
+        size={size}
+      />
+    </View>
+  );
+}
 
 export default function TabsLayout() {
   return (
@@ -12,21 +27,24 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: "#c4a8e0",
         tabBarStyle: {
           position: "absolute",
-          bottom: 50,
-          left: 70,
-          right: 70,
-          height: 60,
-          borderRadius: 15,
-          backgroundColor: "#e8d5f5",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: Platform.OS === "ios" ? 85 : 72,
+          backgroundColor: "#f3e8ff",
           borderTopWidth: 0,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
           shadowColor: "#9b72cf",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.2,
-          shadowRadius: 12,
-          elevation: 8,
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.12,
+          shadowRadius: 16,
+          elevation: 16,
+          paddingBottom: Platform.OS === "ios" ? 24 : 8,
+          paddingTop: 10,
         },
         tabBarItemStyle: {
-          paddingVertical: 10,
+          height: "100%",
         },
       }}
     >
@@ -34,11 +52,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           tabBarIcon: ({ focused }) => (
-            <Ionicons
-              name={focused ? "home-sharp" : "home-outline"}
-              color={focused ? "#6b21a8" : "#c4a8e0"}
-              size={22}
-            />
+            <TabIcon focused={focused} name={["home-sharp", "home-outline"]} />
           ),
         }}
       />
@@ -46,11 +60,7 @@ export default function TabsLayout() {
         name="addPurchase"
         options={{
           tabBarIcon: ({ focused }) => (
-            <Ionicons
-              name={focused ? "add-circle" : "add-circle-outline"}
-              color={focused ? "#6b21a8" : "#c4a8e0"}
-              size={24}
-            />
+            <TabIcon focused={focused} name={["add-circle", "add-circle-outline"]} size={32} />
           ),
         }}
       />
@@ -58,11 +68,7 @@ export default function TabsLayout() {
         name="calendar"
         options={{
           tabBarIcon: ({ focused }) => (
-            <Ionicons
-              name={focused ? "calendar" : "calendar-outline"}
-              color={focused ? "#6b21a8" : "#c4a8e0"}
-              size={22}
-            />
+            <TabIcon focused={focused} name={["calendar", "calendar-outline"]} />
           ),
         }}
       />
@@ -70,14 +76,23 @@ export default function TabsLayout() {
         name="insights"
         options={{
           tabBarIcon: ({ focused }) => (
-            <Ionicons
-              name={focused ? "newspaper" : "newspaper-outline"}
-              color={focused ? "#6b21a8" : "#c4a8e0"}
-              size={22}
-            />
+            <TabIcon focused={focused} name={["newspaper", "newspaper-outline"]} />
           ),
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  iconWrap: {
+    width: 52,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
+  },
+  iconWrapActive: {
+    backgroundColor: "#e0c8f8",
+  },
+});
