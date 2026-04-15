@@ -37,7 +37,7 @@ export default function Index() {
 
   let recents = [];
   if (activity != null) {
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < activity.length; i++) {
       recents.push(
         <View style={styles.entry} key={i}>
           <Text style={{ fontSize: 30 }}>😟</Text>

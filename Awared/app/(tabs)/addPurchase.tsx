@@ -6,10 +6,9 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { styles } from "./addPurchaseStyles";
 import { getDb } from "../../database/db";
 import { insertTransaction } from "../../database/transactions";
+import * as Location from "expo-location";
+import { ActivityIndicator } from "react-native";
 import React from "react";
-
-// ─── Temporary hardcoded user until you build auth ───────────────────────────
-const TEMP_USER_ID = "local-user";
 
 type Emotion = {
   id: number;
@@ -44,6 +43,7 @@ function getTextColor(hex: string | null): string {
 export default function AddPurchase() {
   const router = useRouter();
 
+  const [detectingLocation, setDetectingLocation] = useState(false);
   const [rawDigits, setRawDigits] = useState("");
   const [item, setItem] = useState("");
   const [location, setLocation] = useState("");
@@ -54,7 +54,72 @@ export default function AddPurchase() {
   const [now, setNow] = useState(new Date());
   const clockRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load emotions from DB
+  async function handleAutoDetectLocation() {
+    try {
+      setDetectingLocation(true);
+
+      // Ask permission
+      const { status } = await Location.requestForegroundPermissionsAsync();
+
+      if (status !== "granted") {
+        Alert.alert("Permission denied", "Allow location access to use this feature.");
+        setDetectingLocation(false);
+        return;
+      }
+
+      const lastLoc = await Location.getLastKnownPositionAsync();
+
+      if (lastLoc) {
+        const address = await Location.reverseGeocodeAsync({
+          latitude: lastLoc.coords.latitude,
+          longitude: lastLoc.coords.longitude,
+        });
+
+        if (address.length > 0) {
+          const place = address[0];
+          const formatted = [
+            place.street,
+            place.city,
+          ].filter(Boolean).join(", ");
+
+          setLocation(formatted);
+        }
+      }
+
+      // Get current position
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced, 
+      });
+
+      // Convert to readable address
+      const address = await Location.reverseGeocodeAsync({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
+
+      if (address.length > 0) {
+        const place = address[0];
+
+        // Build a readable string
+        const formatted = [
+          place.street,
+          place.name,
+          place.city,
+        ].filter(Boolean).join(", ");
+
+        setLocation(formatted); 
+      }
+
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Error", "Could not get location.");
+    } finally {
+      setDetectingLocation(false);
+    }
+  }
+
+
+  // Load emotions
   useEffect(() => {
     getDb()
       .then((db) => db.getAllAsync<Emotion>("SELECT id, name, emoji, color_hex FROM emotions ORDER BY name ASC;"))
@@ -68,7 +133,7 @@ export default function AddPurchase() {
     return () => { if (clockRef.current) clearInterval(clockRef.current); };
   }, []);
 
-  // Reset form every time screen comes into focus
+  // Reset form on focus
   useFocusEffect(
     useCallback(() => {
       setRawDigits("");
@@ -98,10 +163,15 @@ export default function AddPurchase() {
       return;
     }
 
+    if (!global.userID) {
+      Alert.alert("Error", "User not logged in.");
+      return;
+    }
+
     setSaving(true);
     try {
       await insertTransaction({
-        user_id: TEMP_USER_ID,
+        user_id: global.userID, 
         amount,
         merchant_name: item || undefined,
         note: note || undefined,
@@ -110,10 +180,11 @@ export default function AddPurchase() {
         currency_code: "EUR",
         type: "cash",
       });
-      router.replace("/");
+
+      router.back(); // ✅ cleaner than replace
     } catch (e) {
       console.error(e);
-      Alert.alert("Error", "Could not save the purchase. Please try again.");
+      Alert.alert("Error", "Could not save the purchase.");
       setSaving(false);
     }
   };
@@ -126,7 +197,7 @@ export default function AddPurchase() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
+
           <View style={styles.header}>
             <Pressable style={styles.backButton} onPress={() => router.back()}>
               <Ionicons name="arrow-back" size={16} color="#555" />
@@ -135,7 +206,6 @@ export default function AddPurchase() {
             <Text style={styles.headerTime}>{getTimeLabel(now)}</Text>
           </View>
 
-          {/* Amount */}
           <Text style={styles.label}>How much was it?</Text>
           <View style={styles.centeredSection}>
             <View style={styles.amountRow}>
@@ -152,7 +222,6 @@ export default function AddPurchase() {
             <View style={styles.amountUnderline} />
           </View>
 
-          {/* Item */}
           <Text style={styles.label}>What did you buy?</Text>
           <View style={styles.centeredSection}>
             <TextInput
@@ -164,7 +233,6 @@ export default function AddPurchase() {
             />
           </View>
 
-          {/* Feelings */}
           <Text style={styles.label}>How were you feeling?</Text>
           <ScrollView
             horizontal
@@ -193,7 +261,6 @@ export default function AddPurchase() {
             })}
           </ScrollView>
 
-          {/* Location */}
           <Text style={styles.label}>Where were you?</Text>
           <View style={styles.locationInputRow}>
             <Ionicons name="search-outline" size={14} color="#999" />
@@ -205,13 +272,20 @@ export default function AddPurchase() {
               placeholderTextColor="#bbb"
             />
           </View>
+
           <View style={styles.autoDetectWrapper}>
-            <Pressable style={styles.autoDetectBadge}>
-              <Text style={styles.autoDetectText}>Auto-detect?</Text>
+            <Pressable style={styles.autoDetectBadge} onPress={handleAutoDetectLocation}>
+              {detectingLocation ? (
+                <ActivityIndicator size="small" color="#2a7a2a" />
+              ) : (
+                <>
+                  <Ionicons name="location-outline" size={12} color="#2a7a2a" />
+                  <Text style={styles.autoDetectText}> Auto-detect</Text>
+                </>
+              )}
             </Pressable>
           </View>
 
-          {/* Note */}
           <Text style={styles.label}>Do you want to add something?</Text>
           <TextInput
             style={styles.noteInput}
@@ -222,7 +296,6 @@ export default function AddPurchase() {
             placeholderTextColor="#bbb"
           />
 
-          {/* Submit */}
           <Pressable
             style={[styles.button, saving && { opacity: 0.6 }]}
             onPress={handleDone}
@@ -230,6 +303,7 @@ export default function AddPurchase() {
           >
             <Text style={styles.buttonText}>{saving ? "Saving..." : "Done"}</Text>
           </Pressable>
+
         </ScrollView>
       </KeyboardAvoidingView>
     </View>

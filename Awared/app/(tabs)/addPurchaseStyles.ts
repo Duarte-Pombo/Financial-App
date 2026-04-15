@@ -153,10 +153,14 @@ export const styles = StyleSheet.create({
     marginBottom: 24,
   },
   autoDetectBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     backgroundColor: "#d4f4d4",
     borderRadius: 20,
-    paddingVertical: 4,
-    paddingHorizontal: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    alignSelf: "center",
   },
   autoDetectText: {
     fontSize: 11,
