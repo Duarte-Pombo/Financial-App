@@ -4,6 +4,7 @@ import Button from "@/components/button";
 import React, { useCallback } from "react";
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getDb } from "@/database/db";
+import { useFocusEffect } from "expo-router";
 
 async function getUserActivity() {
   let db = await getDb();
@@ -19,39 +20,55 @@ export default function Index() {
 
   const [activity, setActivity] = React.useState(null);
 
-  React.useEffect(() => {
-    async function getActivity() {
-      const db = await getDb();
-      const userID = global.userID;
-      const transactions = await db.getAllAsync(
-        `SELECT * FROM transactions as t
-        JOIN spending_categories as s
-        on t.category_id = s.id
+  const getActivity = async () => {
+    const db = await getDb();
+    const userID = global.userID;
+    const transactions = await db.getAllAsync(
+      `SELECT * FROM transactions as t
         WHERE t.user_id = ? ORDER BY t.created_at DESC LIMIT 3`,
-        [userID]
-      );
-      setActivity(transactions);
-    }
-    getActivity();
-  }, []);
+      [userID]
+    );
+    setActivity(transactions);
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      getActivity();
+    }, [getActivity])
+  );
 
   let recents = [];
   if (activity != null) {
-    for (let i = 0; i < activity.length; i++) {
+    if (activity.length == 0) {
       recents.push(
-        <View style={styles.entry} key={i}>
-          <Text style={{ fontSize: 30 }}>😟</Text>
-          <View>
-            <Text style={{ fontSize: 18 }}>{activity[i].icon} {activity[i].name}</Text>
-            <Text style={{ fontSize: 16 }}>{activity[i].merchant_name}</Text>
-            <Text>{activity[i].created_at}</Text>
-          </View>
-          <Text>{activity[i].amount} {activity[i].currency_code}</Text>
+        <View style={styles.entry} key={1}>
+          <Text style={{ fontSize: 18, textAlign: "center" }}>It seems you have not registered any transactions yet!</Text>
         </View>
+      )
+    } else {
+      recents.push(
+        <Text style={{ alignSelf: 'center', fontSize: 18, padding: 6 }} key={"Emotion"}>Emotion of the day:😟</Text>
+      )
+      for (let i = 0; i < activity.length; i++) {
+        recents.push(
+          <View style={styles.entry} key={i}>
+            <Text style={{ fontSize: 30 }}>😟</Text>
+            <View>
+              <Text style={{ fontSize: 18 }}>{activity[i].icon} {activity[i].name}</Text>
+              <Text style={{ fontSize: 16 }}>{activity[i].merchant_name}</Text>
+              <Text>{new Date(activity[i].created_at).toLocaleString()}</Text>
+            </View>
+            <Text>{activity[i].amount} {activity[i].currency_code}</Text>
+          </View>
+        );
+      }
+      recents.push(
+        <Pressable key={"History"} style={{ width: '100%', padding: 8, marginTop: 2 }} onPress={() => alert("View History")}>
+          <Text style={{ alignSelf: 'center', fontSize: 18 }}>View More</Text>
+        </Pressable>
       );
     }
   }
-
   return (
     <View style={styles.container}>
       <View style={styles.budget}>
@@ -70,11 +87,7 @@ export default function Index() {
       {activity ? (
         <View style={styles.activityContainer}>
           <Text style={{ alignSelf: 'center', fontSize: 30, padding: 5 }}>Activity</Text>
-          <Text style={{ alignSelf: 'center', fontSize: 18, padding: 6 }}>Emotion of the day:😟</Text>
           {recents}
-          <Pressable style={{ width: '100%', padding: 8, marginTop: 2 }} onPress={() => alert("View History")}>
-            <Text style={{ alignSelf: 'center', fontSize: 18 }}>View More</Text>
-          </Pressable>
         </View>
       ) : (
         <Text>Loading</Text>
