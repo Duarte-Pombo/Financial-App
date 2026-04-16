@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { useRouter, useSegments } from "expo-router";
+import { useRouter, useSegments, useRootNavigationState } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getDb } from "@/database/db";
 import * as Crypto from "expo-crypto";
@@ -25,6 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	const [isLoading, setIsLoading] = useState(true);
 	const router = useRouter();
 	const segments = useSegments();
+	const rootNavigationState = useRootNavigationState();
 
 	// Load stored session
 	useEffect(() => {
@@ -54,17 +55,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 	// Protect routes
 	useEffect(() => {
-		if (isLoading) return;
+		if (isLoading || !rootNavigationState?.key) return;
 
-		const inAuthGroup = segments[0] === "(tabs)";
-		const inPublicRoute = segments[0] === "index" || segments[0] === "register";
+		const currentSegment = segments[0];
 
-		if (!user && !inPublicRoute) {
+		const isAuthScreen = !currentSegment || currentSegment === "index" || currentSegment === "register";
+
+		if (!user && !isAuthScreen) {
 			router.replace("/");
-		} else if (user && inPublicRoute) {
+		} else if (user && isAuthScreen) {
 			router.replace("/(tabs)");
 		}
-	}, [user, segments, isLoading]);
+	}, [user, segments, isLoading, rootNavigationState]);
 
 	const login = async (emailOrUsername: string, password: string): Promise<boolean> => {
 		try {
