@@ -5,6 +5,8 @@ let _db: SQLite.SQLiteDatabase | null = null;
 export async function getDb(): Promise<SQLite.SQLiteDatabase> {
   if (_db) return _db;
 
+  //TODO: remove this line once database is fully tested, this deletes the entire database before creating it again
+  SQLite.deleteDatabaseAsync("awared.db");
   _db = await SQLite.openDatabaseAsync("awared.db");
 
   await _db.execAsync("PRAGMA journal_mode = WAL;");
@@ -12,7 +14,7 @@ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
 
   await _db.execAsync(`
     CREATE TABLE IF NOT EXISTS users (
-      id            TEXT PRIMARY KEY,
+      id            INTEGER PRIMARY KEY,
       email         TEXT NOT NULL UNIQUE,
       username      TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,

@@ -42,10 +42,12 @@ async function registerNewUser(email: string, username: string, password: string
   }
   let db = await getDb();
   let hash = btoa(password)
-  await db.runAsync(
+  let insert = await db.runAsync(
     "INSERT INTO users (email, username, password_hash) VALUES (?, ?, ?)",
     [email, username, hash]
   );
+  global.userID = insert.lastInsertRowId;
+  console.log("UserID:" + global.userID);
   navigate("/(tabs)");
 }
 
