@@ -1,56 +1,77 @@
-import React from "react";
+import React, { useState } from "react";
 import { Text, View, StyleSheet, Pressable, TextInput } from "react-native";
-import { navigate } from "expo-router/build/global-state/routing";
-import { getDb } from "@/database/db";
+import { useRouter } from "expo-router";
+import { useAuth } from "../context/AuthContext";
 
-export default function Login() {
-  let email: string;
-  let username: string;
-  let password: string;
-  let passwordConfirm: string;
+export default function Register() {
+  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const { register } = useAuth();
+  const router = useRouter();
+
+  const handleRegister = async () => {
+    if (password !== passwordConfirm) {
+      alert("Passwords don't match!");
+      return;
+    }
+    if (!password) {
+      alert("Password cannot be empty!");
+      return;
+    }
+    const success = await register(email, username, password);
+    if (success) {
+      router.replace("/(tabs)");
+    } else {
+      alert("Registration failed. Email or username may already exist.");
+    }
+  };
+
   return (
     <View style={{ flex: 1, flexDirection: "column" }}>
       <View style={{ flex: 1, flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
         <Text style={{ fontSize: 20, marginBottom: 25 }}>Welcome to Awared!</Text>
-        <TextInput style={styles.input} placeholder="Email" onChangeText={(value) => email = value} />
-        <TextInput style={styles.input} placeholder="Username" onChangeText={(value) => username = value} />
-        <TextInput style={styles.input} secureTextEntry={true} placeholder="Password" onChangeText={(value) => password = value} />
-        <TextInput style={styles.input} secureTextEntry={true} placeholder="Confirm Password" onChangeText={(value) => passwordConfirm = value} />
-        <Pressable style={styles.button} onPress={() => registerNewUser(email, username, password, passwordConfirm)}>
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Username"
+          value={username}
+          onChangeText={setUsername}
+          autoCapitalize="none"
+        />
+        <TextInput
+          style={styles.input}
+          secureTextEntry={true}
+          placeholder="Password"
+          value={password}
+          onChangeText={setPassword}
+        />
+        <TextInput
+          style={styles.input}
+          secureTextEntry={true}
+          placeholder="Confirm Password"
+          value={passwordConfirm}
+          onChangeText={setPasswordConfirm}
+        />
+        <Pressable style={styles.button} onPress={handleRegister}>
           <Text style={{ textAlign: "center" }}>Register</Text>
         </Pressable>
-
       </View>
       <View style={{ flex: 1 / 4, flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
         <Text>Already have an account?</Text>
-        <Pressable style={styles.button} onPress={gotoLogin}>
+        <Pressable style={styles.button} onPress={() => router.push("/")}>
           <Text style={{ textAlign: "center" }}>Login</Text>
         </Pressable>
       </View>
     </View>
   );
-}
-
-async function registerNewUser(email: string, username: string, password: string, passwordConfirm: string): Promise<void> {
-  if (password != passwordConfirm) {
-    alert("Passwords don't match!");
-    return;
-  }
-  if (password == undefined) {
-    alert("Password cannot be empty!");
-    return;
-  }
-  let db = await getDb();
-  let hash = btoa(password)
-  await db.runAsync(
-    "INSERT INTO users (email, username, password_hash) VALUES (?, ?, ?)",
-    [email, username, hash]
-  );
-  navigate("/(tabs)");
-}
-
-function gotoLogin() {
-  navigate("/");
 }
 
 const styles = StyleSheet.create({

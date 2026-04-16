@@ -32,20 +32,8 @@ export type NewTransaction = {
   type?: "debit" | "cash" | "bank transfer" | "credit";
 };
 
-// Ensures the local placeholder user exists (needed because user_id is a FK)
-async function ensureLocalUser(user_id: string): Promise<void> {
-  const db = await getDb();
-  await db.runAsync(
-    `INSERT OR IGNORE INTO users (id, email, username, password_hash)
-     VALUES (?, ?, ?, ?)`,
-    [user_id, "local@app.com", "local_user", "no-auth"]
-  );
-}
-
 // ─── Insert a transaction ─────────────────────────────────────────────────────
 export async function insertTransaction(data: NewTransaction): Promise<string> {
-  await ensureLocalUser(data.user_id);
-
   const db = await getDb();
   const id = randomUUID();
   const now = new Date().toISOString();

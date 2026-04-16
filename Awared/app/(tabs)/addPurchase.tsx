@@ -3,7 +3,7 @@ import { Text } from "@/components/Text";
 import { Ionicons } from "@expo/vector-icons";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
-import { styles } from "./addPurchaseStyles";
+import { styles } from "./addPurchase.styles";
 import { getDb } from "../../database/db";
 import { insertTransaction } from "../../database/transactions";
 import React from "react";

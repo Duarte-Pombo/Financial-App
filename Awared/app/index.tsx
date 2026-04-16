@@ -1,49 +1,53 @@
-import React from "react";
+import React, { useState } from "react";
 import { Text, View, StyleSheet, Pressable, TextInput } from "react-native";
-import { navigate } from "expo-router/build/global-state/routing";
-import { getDb } from "@/database/db";
+import { useRouter } from "expo-router";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
-  let email: string;
-  let password: string;
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const { login } = useAuth();
+  const router = useRouter();
+
+  const handleLogin = async () => {
+    const success = await login(email, password);
+    if (success) {
+      router.replace("/(tabs)");
+    } else {
+      alert("Invalid credentials");
+    }
+  };
+
   return (
     <View style={{ flex: 1, flexDirection: "column" }}>
       <View style={{ flex: 1, flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
         <Text style={{ fontSize: 20, marginBottom: 25 }}>Welcome Back!</Text>
-        <TextInput style={styles.input} placeholder="Email or Username" onChangeText={(value) => email = value} />
-        <TextInput style={styles.input} placeholder="Password" secureTextEntry={true} onChangeText={(value) => password = value} />
-        <Pressable style={styles.button} onPress={() => attemptLogin(email, password)}>
+        <TextInput
+          style={styles.input}
+          placeholder="Email or Username"
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          secureTextEntry={true}
+          value={password}
+          onChangeText={setPassword}
+        />
+        <Pressable style={styles.button} onPress={handleLogin}>
           <Text style={{ textAlign: "center" }}>Login</Text>
         </Pressable>
-
       </View>
       <View style={{ flex: 1 / 4, flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
         <Text>New here?</Text>
-        <Pressable style={styles.button} onPress={gotoRegister}>
+        <Pressable style={styles.button} onPress={() => router.push("/register")}>
           <Text style={{ textAlign: "center" }}>Register</Text>
         </Pressable>
       </View>
     </View>
   );
-}
-
-async function attemptLogin(email: string, password: string): Promise<void> {
-  let db = await getDb();
-  let hash = btoa(password);
-  const user = await db.getFirstAsync(
-    "SELECT id, email, username, password_hash FROM users WHERE (email = ? or username = ?) AND password_hash = ?",
-    [email, email, hash]
-  );
-  if (user != null) {
-    global.userID = user.id;
-    console.log("UserID:" + global.userID);
-    navigate("/(tabs)");
-  }
-  else alert("Wrong Credentials");
-}
-
-function gotoRegister() {
-  navigate("/register");
 }
 
 const styles = StyleSheet.create({
