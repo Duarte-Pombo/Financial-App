@@ -1,13 +1,15 @@
-import { View, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, Alert } from "react-native";
+import { 
+  View, TextInput, Pressable, ScrollView, KeyboardAvoidingView, 
+  Platform, Alert, ActivityIndicator, Modal 
+} from "react-native";
 import { Text } from "@/components/Text";
 import { Ionicons } from "@expo/vector-icons";
-import { useState, useCallback, useEffect } from "react"; // Removed useRef
+import { useState, useCallback, useEffect } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
 import { styles } from "./addPurchaseStyles";
 import { getDb } from "../../database/db";
 import { insertTransaction } from "../../database/transactions";
 import * as Location from "expo-location";
-import { ActivityIndicator } from "react-native";
 import React from "react";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 
@@ -49,24 +51,31 @@ export default function AddPurchase() {
   const [item, setItem] = useState("");
   const [location, setLocation] = useState("");
   const [note, setNote] = useState("");
-  const [selectedEmotionIds, setSelectedEmotionIds] = useState<number[]>([]);
-  const [emotions, setEmotions] = useState<Emotion[]>([]);
   const [saving, setSaving] = useState(false);
   
-  // 2. Date & Picker States
   const [date, setDate] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
 
-  // Load emotions
+  const [emotions, setEmotions] = useState<Emotion[]>([]);
+  const [selectedEmotionIds, setSelectedEmotionIds] = useState<number[]>([]);
+  const [visibleEmotionIds, setVisibleEmotionIds] = useState<number[]>([]); 
+  const [showEmotionOverlay, setShowEmotionOverlay] = useState(false);
+
   useEffect(() => {
     getDb()
       .then((db) => db.getAllAsync<Emotion>("SELECT id, name, emoji, color_hex FROM emotions ORDER BY name ASC;"))
-      .then(setEmotions)
+      .then((data) => {
+        setEmotions(data);
+        if (data.length >= 3) {
+          setVisibleEmotionIds([data[0].id, data[1].id, data[2].id]);
+        } else {
+          setVisibleEmotionIds(data.map(e => e.id));
+        }
+      })
       .catch(console.error);
   }, []);
 
-  // 3. Reset form on focus (set to "new Date()" so it's fresh each time)
   useFocusEffect(
     useCallback(() => {
       setRawDigits("");
@@ -80,12 +89,8 @@ export default function AddPurchase() {
   );
 
   const onDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    // Hide picker for Android immediately; iOS keeps it open in certain modes
     setShowPicker(Platform.OS === 'ios');
-    
-    if (selectedDate) {
-      setDate(selectedDate);
-    }
+    if (selectedDate) setDate(selectedDate);
   };
 
   const openPicker = (mode: 'date' | 'time') => {
@@ -99,23 +104,56 @@ export default function AddPurchase() {
     );
   };
 
+  const handleSelectFromOverlay = (id: number) => {
+    if (!visibleEmotionIds.includes(id)) {
+      setVisibleEmotionIds((prev) => [id, prev[0], prev[1]]);
+    }
+    if (!selectedEmotionIds.includes(id)) {
+      toggleEmotion(id);
+    }
+    setShowEmotionOverlay(false);
+  };
+
   const handleAmountChange = (text: string) => {
     setRawDigits(text.replace(/[^0-9.,]/g, ""));
   };
 
+  async function handleAutoDetectLocation() {
+    try {
+      setDetectingLocation(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission denied", "Allow location access to use this feature.");
+        setDetectingLocation(false);
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const address = await Location.reverseGeocodeAsync({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
+      if (address.length > 0) {
+        const place = address[0];
+        setLocation([place.street, place.name, place.city].filter(Boolean).join(", ")); 
+      }
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Error", "Could not get location.");
+    } finally {
+      setDetectingLocation(false);
+    }
+  }
+
   const handleDone = async () => {
     const amount = parseFloat(rawDigits.replace(",", "."));
-
     if (!rawDigits || isNaN(amount) || amount <= 0) {
       Alert.alert("Missing amount", "Please enter how much you spent.");
       return;
     }
-
     if (!global.userID) {
       Alert.alert("Error", "User not logged in.");
       return;
     }
-
     setSaving(true);
     try {
       await insertTransaction({
@@ -129,7 +167,6 @@ export default function AddPurchase() {
         type: "cash",
         created_at: date.toISOString(), 
       });
-
       router.back();
     } catch (e) {
       console.error(e);
@@ -138,78 +175,34 @@ export default function AddPurchase() {
     }
   };
 
-  async function handleAutoDetectLocation() {
-    try {
-      setDetectingLocation(true);
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Permission denied", "Allow location access to use this feature.");
-        setDetectingLocation(false);
-        return;
-      }
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const address = await Location.reverseGeocodeAsync({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-      if (address.length > 0) {
-        const place = address[0];
-        const formatted = [place.street, place.name, place.city].filter(Boolean).join(", ");
-        setLocation(formatted); 
-      }
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Could not get location.");
-    } finally {
-      setDetectingLocation(false);
-    }
-  }
-
   return (
     <View style={styles.container}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="automatic">
 
-          {/* 5. Interactive Header */}
           <View style={styles.header}>
             <Pressable style={styles.backButton} onPress={() => router.back()}>
               <Ionicons name="arrow-back" size={16} color="#555" />
             </Pressable>
-
             <View style={styles.headerCenterAbsolute}>
               <Pressable onPress={() => openPicker('date')}>
                 <Text style={styles.headerText}>{getDateLabel(date)}</Text>
               </Pressable>
             </View>
-
             <Pressable onPress={() => openPicker('time')}>
               <Text style={styles.headerTime}>{getTimeLabel(date)}</Text>
             </Pressable>
           </View>
 
-          {/* 6. The Picker Component */}
           {showPicker && (
-            <DateTimePicker
-              value={date}
-              mode={pickerMode}
-              is24Hour={true}
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={onDateChange}
-            />
+            <DateTimePicker value={date} mode={pickerMode} is24Hour={true}
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onDateChange} />
           )}
 
           <Text style={styles.label}>How much was it?</Text>
           <View style={styles.centeredSection}>
             <View style={styles.amountRow}>
-              <TextInput
-                style={[styles.amountInput, { color: "#000" }]}
-                keyboardType="decimal-pad"
-                value={rawDigits}
-                onChangeText={handleAmountChange}
-                placeholder="0.00"
-                placeholderTextColor="#999"
-              />
+              <TextInput style={styles.amountInput} keyboardType="decimal-pad" value={rawDigits} onChangeText={handleAmountChange} placeholder="0.00" placeholderTextColor="#999" />
               <Text style={styles.currencySymbol}>€</Text>
             </View>
             <View style={styles.amountUnderline} />
@@ -217,83 +210,95 @@ export default function AddPurchase() {
 
           <Text style={styles.label}>What did you buy?</Text>
           <View style={styles.centeredSection}>
-            <TextInput
-              style={styles.itemInput}
-              value={item}
-              onChangeText={setItem}
-              placeholder="e.g. Coffee"
-              placeholderTextColor="#ccc"
-            />
+            <TextInput style={styles.itemInput} value={item} onChangeText={setItem} placeholder="e.g. Coffee" placeholderTextColor="#ccc" />
           </View>
 
           <Text style={styles.label}>How were you feeling?</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.feelingsScroll}
-            contentContainerStyle={styles.feelingsScrollContent}
-          >
-            {emotions.map((emotion) => {
+          <View style={styles.emotionGrid}>
+            {visibleEmotionIds.map((id) => {
+              const emotion = emotions.find(e => e.id === id);
+              if (!emotion) return null;
               const isSelected = selectedEmotionIds.includes(emotion.id);
+              const baseColor = emotion.color_hex ?? "#e0d4ea";
+
               return (
                 <Pressable
                   key={emotion.id}
-                  style={[
-                    styles.feelingChip,
-                    { backgroundColor: emotion.color_hex ?? "#e0d4ea" },
-                    isSelected && styles.selectedFeeling,
+                  style={({ pressed }) => [
+                    styles.emotionSquare,
+                    { backgroundColor: pressed ? `${baseColor}BB` : baseColor },
+                    isSelected ? styles.selectedSquare : styles.unselectedSquare,
                   ]}
                   onPress={() => toggleEmotion(emotion.id)}
+                  android_ripple={{ color: 'rgba(0,0,0,0.1)' }}
                 >
-                  {emotion.emoji && <Text style={styles.feelingEmoji}>{emotion.emoji}</Text>}
-                  <Text style={[styles.feelingChipText, { color: getTextColor(emotion.color_hex) }]}>
+                  {emotion.emoji && <Text style={styles.squareEmoji}>{emotion.emoji}</Text>}
+                  <Text style={[styles.squareText, { color: getTextColor(emotion.color_hex) }]} numberOfLines={1}>
                     {emotion.name}
                   </Text>
                 </Pressable>
               );
             })}
-          </ScrollView>
+
+            <Pressable 
+              style={({ pressed }) => [styles.plusSquare, pressed && { backgroundColor: '#f0f0f0' }]} 
+              onPress={() => setShowEmotionOverlay(true)}
+            >
+              <Ionicons name="add" size={28} color="#999" />
+            </Pressable>
+          </View>
+
+          <Modal visible={showEmotionOverlay} animationType="slide" transparent={true}>
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>All Emotions</Text>
+                  <Pressable onPress={() => setShowEmotionOverlay(false)}>
+                    <Ionicons name="close" size={24} color="#333" />
+                  </Pressable>
+                </View>
+                <ScrollView contentContainerStyle={styles.modalScroll}>
+                  {emotions.map((emotion) => {
+                    const eColor = emotion.color_hex ?? "#e0d4ea";
+                    const isSelected = selectedEmotionIds.includes(emotion.id);
+                    return (
+                      <Pressable
+                        key={emotion.id}
+                        style={({ pressed }) => [
+                          styles.emotionSquare,
+                          { backgroundColor: pressed ? `${eColor}BB` : eColor, width: '30%' },
+                          isSelected ? styles.selectedSquare : styles.unselectedSquare,
+                        ]}
+                        onPress={() => handleSelectFromOverlay(emotion.id)}
+                      >
+                        <Text style={styles.squareEmoji}>{emotion.emoji}</Text>
+                        <Text style={styles.squareText} numberOfLines={1}>{emotion.name}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
 
           <Text style={styles.label}>Where were you?</Text>
           <View style={styles.locationInputRow}>
             <Ionicons name="search-outline" size={14} color="#999" />
-            <TextInput
-              style={styles.locationInput}
-              value={location}
-              onChangeText={setLocation}
-              placeholder="e.g. FEUP"
-              placeholderTextColor="#bbb"
-            />
+            <TextInput style={styles.locationInput} value={location} onChangeText={setLocation} placeholder="e.g. FEUP" placeholderTextColor="#bbb" />
           </View>
 
           <View style={styles.autoDetectWrapper}>
             <Pressable style={styles.autoDetectBadge} onPress={handleAutoDetectLocation}>
-              {detectingLocation ? (
-                <ActivityIndicator size="small" color="#2a7a2a" />
-              ) : (
-                <>
-                  <Ionicons name="location-outline" size={12} color="#2a7a2a" />
-                  <Text style={styles.autoDetectText}> Auto-detect</Text>
-                </>
+              {detectingLocation ? <ActivityIndicator size="small" color="#2a7a2a" /> : (
+                <><Ionicons name="location-outline" size={12} color="#2a7a2a" /><Text style={styles.autoDetectText}> Auto-detect</Text></>
               )}
             </Pressable>
           </View>
 
           <Text style={styles.label}>Do you want to add something?</Text>
-          <TextInput
-            style={styles.noteInput}
-            multiline
-            value={note}
-            onChangeText={setNote}
-            placeholder="e.g. I was stressed so I bought coffee..."
-            placeholderTextColor="#bbb"
-          />
+          <TextInput style={styles.noteInput} multiline value={note} onChangeText={setNote} placeholder="e.g. I was stressed so I bought coffee.." placeholderTextColor="#bbb" />
 
-          <Pressable
-            style={[styles.button, saving && { opacity: 0.6 }]}
-            onPress={handleDone}
-            disabled={saving}
-          >
+          <Pressable style={[styles.button, saving && { opacity: 0.6 }]} onPress={handleDone} disabled={saving}>
             <Text style={styles.buttonText}>{saving ? "Saving..." : "Done"}</Text>
           </Pressable>
 

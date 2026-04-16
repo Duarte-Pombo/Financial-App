@@ -1,4 +1,4 @@
-import { StyleSheet } from "react-native";
+import { Platform, StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
   container: {
@@ -11,7 +11,8 @@ export const styles = StyleSheet.create({
     alignSelf: "center",
     paddingHorizontal: 22,
     paddingTop: 56,
-    paddingBottom: 110,
+    paddingBottom: 20,
+
   },
 
   // Header
@@ -20,19 +21,9 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 28,
+    height: 34,
+    position: 'relative',
   },
-
-  headerCenterAbsolute: {
-    position: 'absolute',
-  left: 0,
-  right: 0,
-  top: 0,
-  bottom: 0,
-  justifyContent: 'center',
-  alignItems: 'center',
-  zIndex: -1,
-  },
-
   backButton: {
     width: 34,
     height: 34,
@@ -41,6 +32,16 @@ export const styles = StyleSheet.create({
     borderColor: "#d0c4dc",
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 1,
+  },
+  headerCenterAbsolute: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerText: {
     fontSize: 14,
@@ -108,33 +109,91 @@ export const styles = StyleSheet.create({
     maxWidth: 260,
   },
 
-  // Feelings
-  feelingsScroll: {
+  // Emotions (New Square Grid)
+  emotionGrid: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 12,
     marginBottom: 24,
+    flexWrap: "wrap",
   },
-  feelingsScrollContent: {
-    flexDirection: "row",
-    gap: 8,
-    paddingVertical: 4,
-  },
-  feelingChip: {
-    flexDirection: "row",
+  emotionSquare: {
+    width: 80,
+    height: 80,
+    borderRadius: 16,
+    justifyContent: "center",
     alignItems: "center",
-    gap: 4,
-    borderRadius: 20,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
+    padding: 8,
+    // Add overflow hidden to prevent ripple from going outside the border
+    overflow: 'hidden', 
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    // Add position relative for selected border layering
+    position: 'relative',
   },
-  feelingEmoji: {
-    fontSize: 13,
+  selectedSquare: {
+    borderWidth: 3,
+    borderColor: "#1a1a1a",
   },
-  feelingChipText: {
-    fontSize: 13,
-    fontFamily: "RobotoSerif_500Medium",
+
+  unselectedSquare: {
+    borderWidth: 3,
+    borderColor: 'transparent',
   },
-  selectedFeeling: {
+
+  squareEmoji: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  squareText: {
+    fontSize: 11,
+    fontFamily: "RobotoSerif_600SemiBold",
+    textAlign: "center",
+  },
+  plusSquare: {
+    width: 80,
+    height: 80,
+    borderRadius: 16,
     borderWidth: 2,
-    borderColor: "#333",
+    borderColor: "#d0c4dc",
+    borderStyle: "dashed",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "transparent",
+  },
+
+  // Modal Overlay
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
+    maxHeight: "80%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: "RobotoSerif_700Bold",
+  },
+  modalScroll: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    justifyContent: "center",
+    paddingBottom: 40,
   },
 
   // Location
@@ -157,8 +216,6 @@ export const styles = StyleSheet.create({
     padding: 0,
     marginLeft: 8,
   },
-
-  // Auto-detect badge
   autoDetectWrapper: {
     alignItems: "center",
     marginTop: 8,
