@@ -61,7 +61,7 @@ export default function Index() {
           <View style={[styles.entry, { marginLeft: margin, marginRight: margin }]} key={i}>
             <Text style={{ fontSize: 30 - i * 2 }}>{activity[i].emoji}</Text>
             <View>
-              <Text style={{ fontSize: 20 - i * 2 }}>{activity[i].merchant_name}</Text>
+              <Text style={{ fontSize: 22 - i * 4 }}>{activity[i].merchant_name}</Text>
               <Text>{new Date(activity[i].created_at).toLocaleString()}</Text>
             </View>
             <Text>{activity[i].amount} {activity[i].currency_code}</Text>
