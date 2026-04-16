@@ -1,7 +1,7 @@
 import { View, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, Alert } from "react-native";
 import { Text } from "@/components/Text";
 import { Ionicons } from "@expo/vector-icons";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react"; // Removed useRef
 import { useRouter, useFocusEffect } from "expo-router";
 import { styles } from "./addPurchaseStyles";
 import { getDb } from "../../database/db";
@@ -9,6 +9,7 @@ import { insertTransaction } from "../../database/transactions";
 import * as Location from "expo-location";
 import { ActivityIndicator } from "react-native";
 import React from "react";
+import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 
 type Emotion = {
   id: number;
@@ -51,73 +52,11 @@ export default function AddPurchase() {
   const [selectedEmotionIds, setSelectedEmotionIds] = useState<number[]>([]);
   const [emotions, setEmotions] = useState<Emotion[]>([]);
   const [saving, setSaving] = useState(false);
-  const [now, setNow] = useState(new Date());
-  const clockRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  async function handleAutoDetectLocation() {
-    try {
-      setDetectingLocation(true);
-
-      // Ask permission
-      const { status } = await Location.requestForegroundPermissionsAsync();
-
-      if (status !== "granted") {
-        Alert.alert("Permission denied", "Allow location access to use this feature.");
-        setDetectingLocation(false);
-        return;
-      }
-
-      const lastLoc = await Location.getLastKnownPositionAsync();
-
-      if (lastLoc) {
-        const address = await Location.reverseGeocodeAsync({
-          latitude: lastLoc.coords.latitude,
-          longitude: lastLoc.coords.longitude,
-        });
-
-        if (address.length > 0) {
-          const place = address[0];
-          const formatted = [
-            place.street,
-            place.city,
-          ].filter(Boolean).join(", ");
-
-          setLocation(formatted);
-        }
-      }
-
-      // Get current position
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced, 
-      });
-
-      // Convert to readable address
-      const address = await Location.reverseGeocodeAsync({
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-      });
-
-      if (address.length > 0) {
-        const place = address[0];
-
-        // Build a readable string
-        const formatted = [
-          place.street,
-          place.name,
-          place.city,
-        ].filter(Boolean).join(", ");
-
-        setLocation(formatted); 
-      }
-
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Could not get location.");
-    } finally {
-      setDetectingLocation(false);
-    }
-  }
-
+  
+  // 2. Date & Picker States
+  const [date, setDate] = useState(new Date());
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
 
   // Load emotions
   useEffect(() => {
@@ -127,13 +66,7 @@ export default function AddPurchase() {
       .catch(console.error);
   }, []);
 
-  // Live clock
-  useEffect(() => {
-    clockRef.current = setInterval(() => setNow(new Date()), 1000);
-    return () => { if (clockRef.current) clearInterval(clockRef.current); };
-  }, []);
-
-  // Reset form on focus
+  // 3. Reset form on focus (set to "new Date()" so it's fresh each time)
   useFocusEffect(
     useCallback(() => {
       setRawDigits("");
@@ -142,8 +75,23 @@ export default function AddPurchase() {
       setNote("");
       setSelectedEmotionIds([]);
       setSaving(false);
+      setDate(new Date()); 
     }, [])
   );
+
+  const onDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    // Hide picker for Android immediately; iOS keeps it open in certain modes
+    setShowPicker(Platform.OS === 'ios');
+    
+    if (selectedDate) {
+      setDate(selectedDate);
+    }
+  };
+
+  const openPicker = (mode: 'date' | 'time') => {
+    setPickerMode(mode);
+    setShowPicker(true);
+  };
 
   const toggleEmotion = (id: number) => {
     setSelectedEmotionIds((prev) =>
@@ -179,15 +127,40 @@ export default function AddPurchase() {
         emotion_ids: selectedEmotionIds,
         currency_code: "EUR",
         type: "cash",
+        created_at: date.toISOString(), 
       });
 
-      router.back(); // ✅ cleaner than replace
+      router.back();
     } catch (e) {
       console.error(e);
       Alert.alert("Error", "Could not save the purchase.");
       setSaving(false);
     }
   };
+
+  async function handleAutoDetectLocation() {
+    try {
+      setDetectingLocation(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission denied", "Allow location access to use this feature.");
+        setDetectingLocation(false);
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const address = await Location.reverseGeocodeAsync({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+      if (address.length > 0) {
+        const place = address[0];
+        const formatted = [place.street, place.name, place.city].filter(Boolean).join(", ");
+        setLocation(formatted); 
+      }
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Error", "Could not get location.");
+    } finally {
+      setDetectingLocation(false);
+    }
+  }
 
   return (
     <View style={styles.container}>
@@ -198,13 +171,33 @@ export default function AddPurchase() {
           keyboardShouldPersistTaps="handled"
         >
 
+          {/* 5. Interactive Header */}
           <View style={styles.header}>
             <Pressable style={styles.backButton} onPress={() => router.back()}>
               <Ionicons name="arrow-back" size={16} color="#555" />
             </Pressable>
-            <Text style={styles.headerText}>{getDateLabel(now)}</Text>
-            <Text style={styles.headerTime}>{getTimeLabel(now)}</Text>
+
+            <View style={styles.headerCenterAbsolute}>
+              <Pressable onPress={() => openPicker('date')}>
+                <Text style={styles.headerText}>{getDateLabel(date)}</Text>
+              </Pressable>
+            </View>
+
+            <Pressable onPress={() => openPicker('time')}>
+              <Text style={styles.headerTime}>{getTimeLabel(date)}</Text>
+            </Pressable>
           </View>
+
+          {/* 6. The Picker Component */}
+          {showPicker && (
+            <DateTimePicker
+              value={date}
+              mode={pickerMode}
+              is24Hour={true}
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={onDateChange}
+            />
+          )}
 
           <Text style={styles.label}>How much was it?</Text>
           <View style={styles.centeredSection}>

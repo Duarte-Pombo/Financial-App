@@ -82,7 +82,6 @@ export default function RootLayout() {
         await seed_06_edge_cases();
         await seed_07_anger_spender();
         await seed_08_happy_excited_spender();
-
         setReady(true);
       } catch (e) {
         console.error("[layout] init error:", e);
@@ -103,9 +102,9 @@ export default function RootLayout() {
     <>
       <StatusBar style="dark" backgroundColor="#fdf3ff" />
       <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="register" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="monthlyHeatmap" options={{ headerShown: false, animation: "slide_from_right" }} />
       </Stack>
     </>
