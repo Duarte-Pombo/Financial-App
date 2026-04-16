@@ -217,10 +217,54 @@ export const styles = StyleSheet.create({
     marginLeft: 8,
   },
   autoDetectWrapper: {
+    flexDirection: "row",
+    justifyContent: "center",
     alignItems: "center",
+    gap: 12,
     marginTop: 8,
     marginBottom: 24,
+    width: "100%",
   },
+
+  mapCenterPin: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -20 }, { translateY: -40 }],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mapOverlayControls: {
+    position: 'absolute',
+    bottom: 40,
+    left: 20,
+    right: 20,
+    gap: 12,
+  },
+  mapConfirmBtn: {
+    backgroundColor: '#1a1a1a',
+    padding: 18,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  mapConfirmBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  mapCancelBtn: {
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  mapCancelBtnText: {
+    color: '#999',
+    fontWeight: '600'
+  },
+
   autoDetectBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -230,6 +274,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 16,
     alignSelf: "center",
+    minWidth: 120,
   },
   autoDetectText: {
     fontSize: 11,
