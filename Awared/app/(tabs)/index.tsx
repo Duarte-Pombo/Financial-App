@@ -25,9 +25,14 @@ export default function Index() {
     const userID = global.userID;
     const transactions = await db.getAllAsync(
       `SELECT * FROM transactions as t
+       JOIN emotion_logs l ON t.emotion_log_id = l.id 
+       JOIN emotions e on l.emotion_id = e.id 
         WHERE t.user_id = ? ORDER BY t.created_at DESC LIMIT 3`,
       [userID]
     );
+    for (const t of transactions) {
+      console.log(t);
+    }
     setActivity(transactions);
   }
 
@@ -50,12 +55,13 @@ export default function Index() {
         <Text style={{ alignSelf: 'center', fontSize: 18, padding: 6 }} key={"Emotion"}>Emotion of the day:😟</Text>
       )
       for (let i = 0; i < activity.length; i++) {
+        let margin = 20 * i ** 1.2;
+        console.log(margin);
         recents.push(
-          <View style={styles.entry} key={i}>
-            <Text style={{ fontSize: 30 }}>😟</Text>
+          <View style={[styles.entry, { marginLeft: margin, marginRight: margin }]} key={i}>
+            <Text style={{ fontSize: 30 - i * 2 }}>{activity[i].emoji}</Text>
             <View>
-              <Text style={{ fontSize: 18 }}>{activity[i].icon} {activity[i].name}</Text>
-              <Text style={{ fontSize: 16 }}>{activity[i].merchant_name}</Text>
+              <Text style={{ fontSize: 20 - i * 2 }}>{activity[i].merchant_name}</Text>
               <Text>{new Date(activity[i].created_at).toLocaleString()}</Text>
             </View>
             <Text>{activity[i].amount} {activity[i].currency_code}</Text>
@@ -63,8 +69,8 @@ export default function Index() {
         );
       }
       recents.push(
-        <Pressable key={"History"} style={{ width: '100%', padding: 8, marginTop: 2 }} onPress={() => alert("View History")}>
-          <Text style={{ alignSelf: 'center', fontSize: 18 }}>View More</Text>
+        <Pressable key={"History"} style={{ alignSelf: "center", width: '50%', padding: 8, marginTop: 20, borderRadius: 20, backgroundColor: '#FFBAE0', }} onPress={() => alert("View History")}>
+          <Text style={{ alignSelf: 'center', fontSize: 18, color: '#AB2156' }}>View More</Text>
         </Pressable>
       );
     }
@@ -115,7 +121,7 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
     paddingRight: 20,
     flexDirection: "column",
-    marginBottom: 60,
+    marginBottom: 20,
   },
   entry: {
     flex: 1,
@@ -123,7 +129,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 10,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0.8,
+    borderColor: '#AB2156',
+    borderRadius: 10,
   },
   budget: {
     width: '100%',
