@@ -28,7 +28,7 @@ export default function Index() {
       `SELECT * FROM transactions as t
        JOIN emotion_logs l ON t.emotion_log_id = l.id
        JOIN emotions e on l.emotion_id = e.id
-        WHERE t.user_id = ? ORDER BY t.created_at DESC LIMIT 3`,
+        WHERE t.user_id = ? ORDER BY t.transacted_at DESC LIMIT 3`,
       [userID]
     );
     setActivity(transactions);
@@ -71,7 +71,7 @@ export default function Index() {
             <Text style={{ fontSize: 30 - i * 2 }}>{activity[i].emoji}</Text>
             <View>
               <Text style={{ fontSize: 22 - i * 4 }}>{activity[i].merchant_name}</Text>
-              <Text>{new Date(activity[i].created_at).toLocaleString()}</Text>
+              <Text>{new Date(activity[i].transacted_at).toLocaleString()}</Text>
             </View>
             <Text>{activity[i].amount} {activity[i].currency_code}</Text>
           </View>

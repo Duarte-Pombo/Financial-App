@@ -54,13 +54,13 @@ export default function AddPurchase() {
   const [location, setLocation] = useState("");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
-  
+
   const [date, setDate] = useState(new Date());
   const [editingField, setEditingField] = useState<'date' | 'time' | null>(null);
 
   const [emotions, setEmotions] = useState<Emotion[]>([]);
   const [selectedEmotionIds, setSelectedEmotionIds] = useState<number[]>([]);
-  const [visibleEmotionIds, setVisibleEmotionIds] = useState<number[]>([]); 
+  const [visibleEmotionIds, setVisibleEmotionIds] = useState<number[]>([]);
   const [showEmotionOverlay, setShowEmotionOverlay] = useState(false);
   const SHEET_H = Dimensions.get("window").height * 0.6;
   const sheetAnim = useRef(new Animated.Value(SHEET_H)).current;
@@ -76,10 +76,9 @@ export default function AddPurchase() {
       .start(() => setShowEmotionOverlay(false));
   }
 
-  // --- Map States ---
   const [showMap, setShowMap] = useState(false);
   const [mapRegion, setMapRegion] = useState<Region>({
-    latitude: 41.1780, // Default to Porto/FEUP area
+    latitude: 41.1780,
     longitude: -8.5980,
     latitudeDelta: 0.005,
     longitudeDelta: 0.005,
@@ -141,7 +140,6 @@ export default function AddPurchase() {
     setRawDigits(text.replace(/[^0-9.,]/g, ""));
   };
 
-  // Turn Lat/Lng into a readable address string
   async function reverseGeocode(lat: number, lng: number) {
     const address = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
     if (address.length > 0) {
@@ -195,7 +193,7 @@ export default function AddPurchase() {
     setSaving(true);
     try {
       await insertTransaction({
-        user_id: global.userID, 
+        user_id: global.userID,
         amount,
         merchant_name: item || undefined,
         note: note || undefined,
@@ -203,7 +201,7 @@ export default function AddPurchase() {
         emotion_ids: selectedEmotionIds,
         currency_code: "EUR",
         type: "cash",
-        created_at: date.toISOString(), 
+        created_at: date.toISOString(),
       });
       router.back();
     } catch (e) {
@@ -215,9 +213,16 @@ export default function AddPurchase() {
 
   return (
     <View style={styles.container}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-        <View style={styles.scrollContent}>
-
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        {/* ↓ ScrollView replaces the plain View here */}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           {/* Header */}
           <View style={styles.header}>
             <Pressable onPress={() => toggleField('date')} style={styles.dateTimeBtn}>
@@ -260,7 +265,6 @@ export default function AddPurchase() {
               />
               <Text style={styles.currencySymbol}>€</Text>
             </View>
-
           </View>
 
           {/* Item Name */}
@@ -277,7 +281,6 @@ export default function AddPurchase() {
               if (!emotion) return null;
               const isSelected = selectedEmotionIds.includes(emotion.id);
               const baseColor = emotion.color_hex ?? "#e0d4ea";
-
               return (
                 <Pressable
                   key={emotion.id}
@@ -313,7 +316,6 @@ export default function AddPurchase() {
                 <><Ionicons name="location-outline" size={12} color="#2a7a2a" /><Text style={styles.autoDetectText}> Auto-detect</Text></>
               )}
             </Pressable>
-            
             <Pressable style={[styles.autoDetectBadge, { backgroundColor: '#e0f0ff' }]} onPress={() => setShowMap(true)}>
               <Ionicons name="map-outline" size={12} color="#0066cc" />
               <Text style={[styles.autoDetectText, { color: '#0066cc' }]}> Pick on Map</Text>
@@ -329,56 +331,53 @@ export default function AddPurchase() {
             <Text style={styles.buttonText}>{saving ? "Saving..." : "Done"}</Text>
           </Pressable>
 
-          {/* All Emotions Modal */}
-          <Modal visible={showEmotionOverlay} animationType="none" transparent={true} onRequestClose={closeEmotionSheet}>
-            <TouchableWithoutFeedback onPress={closeEmotionSheet}>
-              <View style={styles.modalOverlay} />
-            </TouchableWithoutFeedback>
-            <Animated.View style={[styles.modalContent, { transform: [{ translateY: sheetAnim }] }]}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>All Emotions</Text>
-                <Pressable onPress={closeEmotionSheet}><Ionicons name="close" size={24} color="#333" /></Pressable>
-              </View>
-              <ScrollView contentContainerStyle={styles.modalScroll}>
-                {emotions.map((emotion) => (
-                  <Pressable key={emotion.id} onPress={() => handleSelectFromOverlay(emotion.id)}
-                    style={[styles.emotionSquare, { backgroundColor: emotion.color_hex ?? "#e0d4ea", width: '30%' }, selectedEmotionIds.includes(emotion.id) ? styles.selectedSquare : styles.unselectedSquare]}
-                  >
-                    <Text style={styles.squareEmoji}>{emotion.emoji}</Text>
-                    <Text style={styles.squareText} numberOfLines={1}>{emotion.name}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </Animated.View>
-          </Modal>
-
-          {/* Map Selector Modal */}
-          <Modal visible={showMap} animationType="slide" presentationStyle="pageSheet">
-            <View style={{ flex: 1 }}>
-              <MapView 
-                style={{ flex: 1 }} 
-                initialRegion={mapRegion} 
-                onRegionChangeComplete={setMapRegion}
-                showsUserLocation={true}
-              />
-              
-              {/* Static Pin in Center of Screen */}
-              <View style={styles.mapCenterPin}>
-                <Ionicons name="location" size={40} color="#ff4444" />
-              </View>
-
-              <View style={styles.mapOverlayControls}>
-                <Pressable style={styles.mapConfirmBtn} onPress={handleConfirmMapLocation}>
-                  <Text style={styles.mapConfirmBtnText}>Confirm Location</Text>
-                </Pressable>
-                <Pressable style={styles.mapCancelBtn} onPress={() => setShowMap(false)}>
-                  <Text style={styles.mapCancelBtnText}>Cancel</Text>
-                </Pressable>
-              </View>
+        {/* All Emotions Modal */}
+        <Modal visible={showEmotionOverlay} animationType="none" transparent={true} onRequestClose={closeEmotionSheet}>
+          <TouchableWithoutFeedback onPress={closeEmotionSheet}>
+            <View style={styles.modalOverlay} />
+          </TouchableWithoutFeedback>
+          <Animated.View style={[styles.modalContent, { transform: [{ translateY: sheetAnim }] }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>All Emotions</Text>
+              <Pressable onPress={closeEmotionSheet}><Ionicons name="close" size={24} color="#333" /></Pressable>
             </View>
-          </Modal>
+            <ScrollView contentContainerStyle={styles.modalScroll}>
+              {emotions.map((emotion) => (
+                <Pressable key={emotion.id} onPress={() => handleSelectFromOverlay(emotion.id)}
+                  style={[styles.emotionSquare, { backgroundColor: emotion.color_hex ?? "#e0d4ea", width: '30%' }, selectedEmotionIds.includes(emotion.id) ? styles.selectedSquare : styles.unselectedSquare]}
+                >
+                  <Text style={styles.squareEmoji}>{emotion.emoji}</Text>
+                  <Text style={styles.squareText} numberOfLines={1}>{emotion.name}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Animated.View>
+        </Modal>
 
-        </View>
+        {/* Map Selector Modal */}
+        <Modal visible={showMap} animationType="slide" presentationStyle="pageSheet">
+          <View style={{ flex: 1 }}>
+            <MapView
+              style={{ flex: 1 }}
+              initialRegion={mapRegion}
+              onRegionChangeComplete={setMapRegion}
+              showsUserLocation={true}
+            />
+            <View style={styles.mapCenterPin}>
+              <Ionicons name="location" size={40} color="#ff4444" />
+            </View>
+            <View style={styles.mapOverlayControls}>
+              <Pressable style={styles.mapConfirmBtn} onPress={handleConfirmMapLocation}>
+                <Text style={styles.mapConfirmBtnText}>Confirm Location</Text>
+              </Pressable>
+              <Pressable style={styles.mapCancelBtn} onPress={() => setShowMap(false)}>
+                <Text style={styles.mapCancelBtnText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+
+        </ScrollView>
       </KeyboardAvoidingView>
     </View>
   );

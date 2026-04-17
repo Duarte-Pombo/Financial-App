@@ -30,6 +30,7 @@ export type NewTransaction = {
   emotion_ids?: number[];
   currency_code?: string;
   type?: "debit" | "cash" | "bank transfer" | "credit";
+  created_at?: string;
 };
 
 // Ensures the local placeholder user exists (needed because user_id is a FK)
@@ -49,6 +50,7 @@ export async function insertTransaction(data: NewTransaction): Promise<string> {
   const db = await getDb();
   const id = randomUUID();
   const now = new Date().toISOString();
+  const transacted_at = data.created_at ?? now;
 
   // Use merchant_name for the item name, fall back to location if provided
   const merchantName = data.merchant_name || data.location || null;
@@ -62,7 +64,7 @@ export async function insertTransaction(data: NewTransaction): Promise<string> {
       await db.runAsync(
         `INSERT INTO emotion_logs (id, user_id, emotion_id, intensity, source, logged_at, created_at)
          VALUES (?, ?, ?, 5, 'manual', ?, ?)`,
-        [logId, data.user_id, emotion_id, now, now]
+        [logId, data.user_id, emotion_id, transacted_at, now]
       );
       if (!firstLogId) firstLogId = logId;
     }
@@ -82,7 +84,7 @@ export async function insertTransaction(data: NewTransaction): Promise<string> {
         merchantName,
         data.note ?? null,
         data.type ?? "cash",
-        now,
+        transacted_at,
         now,
       ]
     );

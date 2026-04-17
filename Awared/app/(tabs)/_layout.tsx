@@ -46,6 +46,10 @@ export default function TabsLayout() {
         tabBarItemStyle: {
           height: "100%",
         },
+        // ← ADD THIS: pushes screen content up so nothing hides under the tab bar
+        sceneStyle: {
+          paddingBottom: Platform.OS === "ios" ? 85 : 72,
+        },
       }}
     >
       <Tabs.Screen
