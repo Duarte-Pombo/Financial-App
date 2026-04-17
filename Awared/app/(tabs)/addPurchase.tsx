@@ -1,7 +1,7 @@
 import {
   View, TextInput, Pressable, ScrollView, KeyboardAvoidingView,
   Platform, Alert, ActivityIndicator, Modal, StyleSheet, Animated,
-  TouchableWithoutFeedback, Dimensions
+  TouchableWithoutFeedback, Dimensions, Keyboard
 } from "react-native";
 import { Text } from "@/components/Text";
 import { Ionicons } from "@expo/vector-icons";
@@ -247,10 +247,20 @@ export default function AddPurchase() {
           <Text style={styles.label}>How much was it?</Text>
           <View style={styles.centeredSection}>
             <View style={styles.amountRow}>
-              <TextInput style={styles.amountInput} keyboardType="decimal-pad" value={rawDigits} onChangeText={handleAmountChange} placeholder="0.00" placeholderTextColor="#999" />
+              <TextInput
+                style={styles.amountInput}
+                keyboardType="decimal-pad"
+                value={rawDigits}
+                onChangeText={handleAmountChange}
+                placeholder="0.00"
+                placeholderTextColor="#999"
+                underlineColorAndroid="transparent"
+                returnKeyType="done"
+                onSubmitEditing={() => Keyboard.dismiss()}
+              />
               <Text style={styles.currencySymbol}>€</Text>
             </View>
-            <View style={styles.amountUnderline} />
+
           </View>
 
           {/* Item Name */}

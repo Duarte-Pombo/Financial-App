@@ -6,15 +6,15 @@ import MonthlyHeatmapPanel from "@/components/MonthlyHeatmapPanel";
 import { getWeekHeatmapData, WeekDayData, WeekEmotionStat } from "@/database/transactions";
 import { getDb } from "@/database/db";
 
-const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_LABELS       = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const DAY_LABELS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const MONTHS_LONG = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 const BAR_MAX_H = 120;
 const ITEM_W = 82;
-const WEEKS_BACK = 7; // how many past weeks to allow navigation
+const WEEKS_BACK = 7;
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
 function getMonday(d: Date): Date {
   const day = d.getDay();
   const diff = (day === 0 ? -6 : 1 - day);
@@ -40,7 +40,6 @@ function aggregateEmotions(days: WeekDayData[]): WeekEmotionStat[] {
   return Array.from(map.values()).sort((a, b) => b.count - a.count);
 }
 
-// Build array of week-start Mondays: index 0 = WEEKS_BACK ago, last = this week
 function buildWeekStarts(): Date[] {
   const thisMonday = getMonday(new Date());
   return Array.from({ length: WEEKS_BACK + 1 }, (_, i) => {
@@ -53,7 +52,6 @@ function buildWeekStarts(): Date[] {
 const WEEK_STARTS = buildWeekStarts();
 const THIS_WEEK_IDX = WEEK_STARTS.length - 1;
 
-// ─── Component ─────────────────────────────────────────────────────────────────
 export default function Calendar() {
   const today = new Date();
 
@@ -66,11 +64,9 @@ export default function Calendar() {
   const pillAnim  = useRef(new Animated.Value(0)).current;
   const [activeTab, setActiveTab] = useState<0 | 1>(0);
 
-  // Monthly state
   const [monthYear,  setMonthYear]  = useState(today.getFullYear());
   const [monthMonth, setMonthMonth] = useState(today.getMonth());
 
-  // Load all emotions once (for the filter slider)
   useEffect(() => {
     (async () => {
       const db = await getDb();
@@ -81,7 +77,6 @@ export default function Calendar() {
     })();
   }, []);
 
-  // Load week data whenever weekIdx changes
   const loadWeek = useCallback(async () => {
     const days = await getWeekHeatmapData(global.userID, WEEK_STARTS[weekIdx]);
     setWeekDays(days);
@@ -92,7 +87,6 @@ export default function Calendar() {
     loadWeek();
   }, [loadWeek]);
 
-  // Infinite scroll list (triple for loop effect)
   const LOOPED = [...allEmotions, ...allEmotions, ...allEmotions];
 
   const canGoBackMonth    = !(monthYear === today.getFullYear() && monthMonth === today.getMonth() - 11);
@@ -161,6 +155,7 @@ export default function Calendar() {
     ? weekEmotions.reduce((s, e) => s + e.count, 0)
     : activeEmotions.reduce((s, e) => s + e.count, 0);
 
+  const totalPurchases = weekDays.reduce((s, d) => s + d.count, 0);
   const weekLabel = isThisWeek ? "This week" : formatWeekLabel(WEEK_STARTS[weekIdx]);
 
   let sectionTitle = "Emotions this week";
@@ -172,44 +167,57 @@ export default function Calendar() {
 
   return (
     <View style={styles.screen}>
-      {/* ── Fixed toggle header ── */}
+
+      {/* ── Header with underline tabs ── */}
       <View style={styles.header}>
-        <Text style={styles.screenTitle}>Expense Heatmap</Text>
-        <View style={styles.togglePill}>
-          <Animated.View style={[styles.toggleActive, { transform: [{ translateX: pillAnim }] }]} />
-          <Pressable style={styles.toggleOption} onPress={goWeekly}>
-            <Text style={[styles.toggleText, activeTab === 0 && styles.toggleTextActive]}>Weekly</Text>
-          </Pressable>
-          <Pressable style={styles.toggleOption} onPress={goMonthly}>
-            <Text style={[styles.toggleText, activeTab === 1 && styles.toggleTextActive]}>Monthly</Text>
-          </Pressable>
+        <View style={styles.headerTop}>
+          <Text style={styles.screenTitle}>Expense Heatmap</Text>
+          <View style={styles.tabRow}>
+            <Pressable onPress={goWeekly} style={styles.tabItem}>
+              <Text style={[styles.tabText, activeTab === 0 && styles.tabTextActive]}>Weekly</Text>
+              {activeTab === 0 && <View style={styles.tabUnderline} />}
+            </Pressable>
+            <Pressable onPress={goMonthly} style={styles.tabItem}>
+              <Text style={[styles.tabText, activeTab === 1 && styles.tabTextActive]}>Monthly</Text>
+              {activeTab === 1 && <View style={styles.tabUnderline} />}
+            </Pressable>
+          </View>
         </View>
+        <View style={styles.headerBorder} />
       </View>
 
       {/* ── Navigator strip ── */}
       <View style={styles.navRow}>
         {activeTab === 0 ? (
           <View style={styles.weekNav}>
-            <Pressable style={[styles.navArrow, !canGoBack && styles.navDisabled]} onPress={() => canGoBack && handleWeekChange(-1)}>
-              <Ionicons name="chevron-back" size={18} color={canGoBack ? "#444" : "#ccc"} />
+            <Pressable
+              style={[styles.navArrow, !canGoBack && styles.navDisabled]}
+              onPress={() => canGoBack && handleWeekChange(-1)}
+            >
+              <Ionicons name="chevron-back" size={18} color={canGoBack ? "#6b21a8" : "#d8b4fe"} />
             </Pressable>
-            <View style={styles.navLabel}>
-              <Text style={styles.navLabelText}>{weekLabel}</Text>
-            </View>
-            <Pressable style={[styles.navArrow, !canGoForward && styles.navDisabled]} onPress={() => canGoForward && handleWeekChange(1)}>
-              <Ionicons name="chevron-forward" size={18} color={canGoForward ? "#444" : "#ccc"} />
+            <Text style={styles.navLabelText}>{weekLabel}</Text>
+            <Pressable
+              style={[styles.navArrow, !canGoForward && styles.navDisabled]}
+              onPress={() => canGoForward && handleWeekChange(1)}
+            >
+              <Ionicons name="chevron-forward" size={18} color={canGoForward ? "#6b21a8" : "#d8b4fe"} />
             </Pressable>
           </View>
         ) : (
           <View style={styles.weekNav}>
-            <Pressable style={[styles.navArrow, !canGoBackMonth && styles.navDisabled]} onPress={() => canGoBackMonth && changeMonth(-1)}>
-              <Ionicons name="chevron-back" size={18} color={canGoBackMonth ? "#444" : "#ccc"} />
+            <Pressable
+              style={[styles.navArrow, !canGoBackMonth && styles.navDisabled]}
+              onPress={() => canGoBackMonth && changeMonth(-1)}
+            >
+              <Ionicons name="chevron-back" size={18} color={canGoBackMonth ? "#6b21a8" : "#d8b4fe"} />
             </Pressable>
-            <View style={styles.navLabel}>
-              <Text style={styles.navLabelText}>{MONTHS_LONG[monthMonth]} {monthYear}</Text>
-            </View>
-            <Pressable style={[styles.navArrow, !canGoForwardMonth && styles.navDisabled]} onPress={() => canGoForwardMonth && changeMonth(1)}>
-              <Ionicons name="chevron-forward" size={18} color={canGoForwardMonth ? "#444" : "#ccc"} />
+            <Text style={styles.navLabelText}>{MONTHS_LONG[monthMonth]} {monthYear}</Text>
+            <Pressable
+              style={[styles.navArrow, !canGoForwardMonth && styles.navDisabled]}
+              onPress={() => canGoForwardMonth && changeMonth(1)}
+            >
+              <Ionicons name="chevron-forward" size={18} color={canGoForwardMonth ? "#6b21a8" : "#d8b4fe"} />
             </Pressable>
           </View>
         )}
@@ -221,7 +229,7 @@ export default function Calendar() {
 
           {/* ── Emotion slider ── */}
           {allEmotions.length > 0 && (
-            <View style={styles.sliderCard}>
+            <View style={styles.sliderWrap}>
               <FlatList
                 ref={flatRef}
                 data={LOOPED}
@@ -237,12 +245,17 @@ export default function Calendar() {
                   const isOn = selectedEmotion === item.name;
                   return (
                     <Pressable
-                      style={[styles.sliderItem, isOn && { borderColor: item.color_hex, borderWidth: 2 }]}
+                      style={[
+                        styles.sliderItem,
+                        isOn && {
+                          backgroundColor: item.color_hex + "22",
+                          borderColor: item.color_hex,
+                          borderWidth: 1,
+                        },
+                      ]}
                       onPress={() => toggleEmotion(item.name)}
                     >
-                      <View style={[styles.sliderEmojiWrap, { backgroundColor: item.color_hex + (isOn ? "55" : "22") }]}>
-                        <Text style={styles.sliderEmoji}>{item.emoji}</Text>
-                      </View>
+                      <Text style={styles.sliderEmoji}>{item.emoji}</Text>
                       <Text style={[styles.sliderLabel, isOn && { color: "#1a1a1a", fontFamily: "RobotoSerif_600SemiBold" }]}>
                         {item.name}
                       </Text>
@@ -254,11 +267,22 @@ export default function Calendar() {
           )}
 
           {/* ── Bar chart ── */}
-          <View style={styles.card}>
+          <View style={styles.chartCard}>
+            <View style={styles.chartHeader}>
+              <Text style={styles.chartStatNum}>{totalPurchases}</Text>
+              <Text style={styles.chartStatLabel}> purchases this week</Text>
+            </View>
             <View style={styles.barsRow}>
               {barData.map((bar, i) => {
                 const isSelected = !hasFilter && selectedDay === i;
-                const color = hasFilter ? bar.color : isSelected ? "#1a1a1a" : "#d4d4d4";
+                let barColor: string;
+                if (hasFilter) {
+                  barColor = bar.color;
+                } else if (isSelected) {
+                  barColor = "#6b21a8";
+                } else {
+                  barColor = "#d8b4fe";
+                }
                 return (
                   <Pressable
                     key={i}
@@ -266,29 +290,38 @@ export default function Calendar() {
                     onPress={() => !hasFilter && setSelectedDay(isSelected ? null : i)}
                     disabled={hasFilter}
                   >
-                    <Text style={styles.barCount}>{bar.count > 0 ? bar.count : ""}</Text>
+                    <Text style={[styles.barCount, isSelected && styles.barCountSelected]}>
+                      {bar.count > 0 ? bar.count : ""}
+                    </Text>
                     <View style={styles.barTrack}>
                       <View
                         style={[
                           styles.bar,
                           {
                             height: bar.count > 0 ? Math.max((bar.count / maxCount) * BAR_MAX_H, 6) : 0,
-                            backgroundColor: color,
+                            backgroundColor: barColor,
                           },
                         ]}
                       />
                     </View>
-                    <Text style={[styles.dayLabel, isSelected && styles.dayLabelSelected]}>
-                      {DAY_LABELS[i]}
-                    </Text>
                   </Pressable>
                 );
               })}
             </View>
+            <View style={styles.baseline} />
+            <View style={styles.dayLabelsRow}>
+              {DAY_LABELS_SHORT.map((lbl, i) => (
+                <View key={i} style={styles.dayLabelCell}>
+                  <Text style={[styles.dayLabel, !hasFilter && selectedDay === i && styles.dayLabelSelected]}>
+                    {lbl}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </View>
 
           {/* ── Emotion breakdown ── */}
-          <View style={styles.card}>
+          <View style={styles.emotionCard}>
             <Text style={styles.sectionTitle}>{sectionTitle}</Text>
             {hasFilter ? (
               <View style={styles.filterCount}>
@@ -301,15 +334,13 @@ export default function Calendar() {
               activeEmotions.map((stat) => {
                 const pct = totalEmotions > 0 ? Math.round((stat.count / totalEmotions) * 100) : 0;
                 return (
-                  <View key={stat.name} style={styles.emotionRow}>
-                    <View style={styles.emotionLeft}>
-                      <Text style={styles.emotionEmoji}>{stat.emoji}</Text>
-                      <Text style={styles.emotionName}>{stat.name}</Text>
-                    </View>
-                    <View style={styles.emotionTrack}>
-                      <View style={[styles.emotionFill, { width: `${pct}%`, backgroundColor: stat.color_hex }]} />
-                    </View>
+                  <View key={stat.name} style={[styles.emotionRow, { borderLeftColor: stat.color_hex }]}>
+                    <Text style={styles.emotionEmoji}>{stat.emoji}</Text>
+                    <Text style={styles.emotionName}>{stat.name}</Text>
                     <Text style={styles.emotionPct}>{pct}%</Text>
+                    <View style={[styles.emotionCountBadge, { backgroundColor: stat.color_hex + "28" }]}>
+                      <Text style={[styles.emotionCountText, { color: stat.color_hex }]}>{stat.count}</Text>
+                    </View>
                   </View>
                 );
               })
@@ -329,68 +360,158 @@ export default function Calendar() {
 }
 
 const styles = StyleSheet.create({
-  screen:  { flex: 1, backgroundColor: "#fdf3ff" },
-  header:  { paddingTop: 60, paddingBottom: 12, alignItems: "center", backgroundColor: "#fdf3ff" },
-  screenTitle: { fontSize: 26, fontFamily: "RobotoSerif_600SemiBold", color: "#000", marginBottom: 12, marginTop: 8 },
+  screen: { flex: 1, backgroundColor: "#fdf3ff" },
 
-  navRow: { paddingHorizontal: 16, paddingBottom: 10 },
+  header: {
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    backgroundColor: "#fdf3ff",
+  },
+  headerTop: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    paddingBottom: 12,
+  },
+  screenTitle: {
+    fontSize: 22,
+    fontFamily: "RobotoSerif_700Bold",
+    color: "#1a1a1a",
+    letterSpacing: -0.3,
+  },
+  headerBorder: { height: 1, backgroundColor: "#ede4f7" },
+
+  tabRow: { flexDirection: "row", gap: 18, alignItems: "flex-end" },
+  tabItem: { paddingBottom: 12, position: "relative" },
+  tabText: { fontSize: 13, fontFamily: "RobotoSerif_400Regular", color: "#c4a8e0" },
+  tabTextActive: { color: "#6b21a8", fontFamily: "RobotoSerif_600SemiBold" },
+  tabUnderline: {
+    position: "absolute",
+    bottom: -1,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: "#6b21a8",
+    borderRadius: 1,
+  },
+
+  navRow: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4 },
   monthlyPanel: { flex: 1 },
-  panelContent: { flex: 1, padding: 16 },
-
-  togglePill: {
-    flexDirection: "row", backgroundColor: "#ede4f7", borderRadius: 20,
-    padding: 4, position: "relative", width: 240,
-  },
-  toggleActive: {
-    position: "absolute", top: 4, left: 4, width: 116, height: 36,
-    backgroundColor: "#fff", borderRadius: 16,
-    shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 4, elevation: 2,
-  },
-  toggleOption: { flex: 1, height: 36, alignItems: "center", justifyContent: "center" },
-  toggleText: { fontSize: 14, fontFamily: "RobotoSerif_600SemiBold", color: "#888" },
-  toggleTextActive: { color: "#5c2d91" },
-
-  sliderCard: {
-    backgroundColor: "#fff", borderRadius: 14, paddingVertical: 8, marginBottom: 16,
-    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
-  },
-  sliderItem: { width: ITEM_W, alignItems: "center", paddingVertical: 2, borderRadius: 10 },
-  sliderEmojiWrap: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", marginBottom: 4 },
-  sliderEmoji: { fontSize: 18 },
-  sliderLabel: { fontSize: 10, color: "#888", textAlign: "center" },
-
-  card: {
-    backgroundColor: "#fff", borderRadius: 16, padding: 16, marginBottom: 16,
-    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
-  },
-  barsRow:    { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", height: BAR_MAX_H + 44, paddingTop: 20 },
-  barColumn:  { flex: 1, alignItems: "center", justifyContent: "flex-end" },
-  barCount:   { fontSize: 11, color: "#999", marginBottom: 2, height: 14 },
-  barTrack:   { width: "55%", height: BAR_MAX_H, justifyContent: "flex-end" },
-  bar:        { width: "100%", borderRadius: 5 },
-  dayLabel:   { fontSize: 12, color: "#999", marginTop: 6 },
-  dayLabelSelected: { color: "#1a1a1a", fontFamily: "RobotoSerif_600SemiBold" },
+  panelContent: { flex: 1, paddingHorizontal: 20, paddingTop: 4 },
 
   weekNav: {
-    flexDirection: "row", alignItems: "center", backgroundColor: "#fff",
-    borderRadius: 16, marginBottom: 16,
-    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8, elevation: 2, overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
   },
-  navArrow:   { width: 44, height: 48, alignItems: "center", justifyContent: "center" },
-  navDisabled: { opacity: 0.4 },
-  navLabel:   { flex: 1, height: 48, alignItems: "center", justifyContent: "center", borderLeftWidth: 1, borderRightWidth: 1, borderColor: "#f0f0f0" },
-  navLabelText: { fontSize: 14, fontFamily: "RobotoSerif_600SemiBold", color: "#333" },
+  navArrow: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
+  navDisabled: { opacity: 0.35 },
+  navLabelText: { fontSize: 15, fontFamily: "RobotoSerif_600SemiBold", color: "#333" },
 
-  sectionTitle: { fontSize: 15, fontFamily: "RobotoSerif_600SemiBold", color: "#444", marginBottom: 14 },
-  emotionRow:   { flexDirection: "row", alignItems: "center", marginBottom: 10 },
-  emotionLeft:  { flexDirection: "row", alignItems: "center", width: 110 },
-  emotionEmoji: { fontSize: 16, marginRight: 6 },
-  emotionName:  { fontSize: 13, color: "#555", flexShrink: 1 },
-  emotionTrack: { flex: 1, height: 10, backgroundColor: "#eee", borderRadius: 5, marginHorizontal: 8, overflow: "hidden" },
-  emotionFill:  { height: "100%", borderRadius: 5 },
-  emotionPct:   { fontSize: 13, color: "#777", width: 36, textAlign: "right" },
-  emptyText:    { color: "#bbb", fontSize: 14, paddingVertical: 4 },
-  filterCount:  { alignItems: "center", paddingVertical: 8 },
+  sliderWrap: { marginBottom: 20, marginHorizontal: -20 },
+  sliderItem: {
+    width: ITEM_W,
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  sliderEmoji: { fontSize: 20, marginBottom: 4 },
+  sliderLabel: { fontSize: 10, color: "#bbb", textAlign: "center" },
+
+  chartCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    paddingBottom: 12,
+    marginBottom: 16,
+    shadowColor: "#a78bda",
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  chartHeader: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    marginBottom: 12,
+  },
+  chartStatNum: {
+    fontSize: 22,
+    fontFamily: "RobotoSerif_700Bold",
+    color: "#6b21a8",
+  },
+  chartStatLabel: {
+    fontSize: 13,
+    fontFamily: "RobotoSerif_400Regular",
+    color: "#bbb",
+  },
+  barsRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    paddingTop: 4,
+    paddingBottom: 0,
+  },
+  barColumn: { flex: 1, alignItems: "center", justifyContent: "flex-end" },
+  barCount: { fontSize: 11, color: "#d8b4fe", marginBottom: 3, height: 14 },
+  barCountSelected: { color: "#6b21a8", fontFamily: "RobotoSerif_600SemiBold" },
+  barTrack: { width: "45%", height: BAR_MAX_H, justifyContent: "flex-end" },
+  bar: {
+    width: "100%",
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  baseline: { height: 1, backgroundColor: "#ede4f7", marginTop: 0 },
+  dayLabelsRow: { flexDirection: "row", paddingTop: 8 },
+  dayLabelCell: { flex: 1, alignItems: "center" },
+  dayLabel: { fontSize: 11, color: "#bbb" },
+  dayLabelSelected: { color: "#6b21a8", fontFamily: "RobotoSerif_600SemiBold" },
+
+  emotionCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#a78bda",
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontFamily: "RobotoSerif_600SemiBold",
+    color: "#333",
+    marginBottom: 12,
+  },
+  emotionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderLeftWidth: 3,
+    marginBottom: 7,
+    backgroundColor: "#fff",
+    borderTopRightRadius: 6,
+    borderBottomRightRadius: 6,
+  },
+  emotionEmoji: { fontSize: 15, marginRight: 8 },
+  emotionName: { fontSize: 13, color: "#444", fontFamily: "RobotoSerif_500Medium", flex: 1 },
+  emotionPct: { fontSize: 11, color: "#bbb", marginRight: 8 },
+  emotionCountBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    minWidth: 30,
+    alignItems: "center",
+  },
+  emotionCountText: { fontSize: 11, fontFamily: "RobotoSerif_600SemiBold" },
+  emptyText: { color: "#ccc", fontSize: 14, paddingVertical: 4 },
+  filterCount: { alignItems: "center", paddingVertical: 16 },
   filterCountNumber: { fontSize: 52, fontFamily: "RobotoSerif_700Bold", lineHeight: 58 },
-  filterCountLabel:  { fontSize: 13, color: "#999", marginTop: 2 },
+  filterCountLabel: { fontSize: 13, color: "#999", marginTop: 2 },
 });

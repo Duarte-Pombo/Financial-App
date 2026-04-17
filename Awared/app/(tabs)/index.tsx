@@ -1,6 +1,4 @@
 import { Text, View, StyleSheet, Pressable } from "react-native";
-import Gauge from "@/components/gauge";
-import Button from "@/components/button";
 import React, { useCallback } from "react";
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getDb } from "@/database/db";
@@ -16,24 +14,35 @@ async function getUserActivity() {
   return [transactions[0], transactions[1], transactions[2]];
 }
 
+const MONTHS_LONG = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
 export default function Index() {
 
   const [activity, setActivity] = React.useState(null);
+  const [monthlySpent, setMonthlySpent] = React.useState<number>(0);
 
   const getActivity = async () => {
     const db = await getDb();
     const userID = global.userID;
     const transactions = await db.getAllAsync(
       `SELECT * FROM transactions as t
-       JOIN emotion_logs l ON t.emotion_log_id = l.id 
-       JOIN emotions e on l.emotion_id = e.id 
+       JOIN emotion_logs l ON t.emotion_log_id = l.id
+       JOIN emotions e on l.emotion_id = e.id
         WHERE t.user_id = ? ORDER BY t.created_at DESC LIMIT 3`,
       [userID]
     );
-    for (const t of transactions) {
-      console.log(t);
-    }
     setActivity(transactions);
+
+    const now = new Date();
+    const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const row = await db.getFirstAsync<{ total: number }>(
+      `SELECT COALESCE(SUM(amount), 0) as total
+       FROM transactions
+       WHERE user_id = ?
+         AND strftime('%Y-%m', transacted_at) = ?`,
+      [userID, yearMonth]
+    );
+    setMonthlySpent(row?.total ?? 0);
   }
 
   useFocusEffect(
@@ -78,17 +87,9 @@ export default function Index() {
   return (
     <View style={styles.container}>
       <View style={styles.budget}>
-        <Text style={{ fontSize: 28 }}>You Have</Text>
-        <View style={{ paddingLeft: 20, flexDirection: "row", gap: 10 }}>
-          <Text style={{ fontSize: 48 }}>202,30€</Text>
-          <Pressable onPress={() => alert("Edit Budget")}>
-            <Ionicons name="pencil" size={24} color="#555" />
-          </Pressable>
-        </View>
-        <Text style={{ fontSize: 28, paddingLeft: 50 }}>to spend</Text>
-        <View style={{ alignSelf: 'center', marginTop: 20, marginBottom: 30 }}>
-          <Gauge value={0.7} />
-        </View>
+        <Text style={{ fontSize: 28, paddingLeft: 20 }}>You have spent</Text>
+        <Text style={{ fontSize: 48, paddingLeft: 90 }}>€{monthlySpent.toFixed(2)}</Text>
+        <Text style={{ fontSize: 28, paddingLeft: 198 }}>This Month</Text>
       </View>
       {activity ? (
         <View style={styles.activityContainer}>

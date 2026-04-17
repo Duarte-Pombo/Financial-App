@@ -10,7 +10,7 @@ export const styles = StyleSheet.create({
     maxWidth: 420,
     alignSelf: "center",
     paddingHorizontal: 24,
-    paddingTop: 44,
+    paddingTop: 64,
     paddingBottom: 20,
   },
 
@@ -66,6 +66,8 @@ export const styles = StyleSheet.create({
     padding: 0,
     minWidth: 60,
     maxWidth: 240,
+    textDecorationLine: "underline",
+    textDecorationColor: "#c9b8d8",
   },
   currencySymbol: {
     fontSize: 24,
@@ -99,14 +101,14 @@ export const styles = StyleSheet.create({
   emotionGrid: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 12,
+    gap: 8,
     marginBottom: 26,
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
   },
   emotionSquare: {
-    width: 86,
-    height: 86,
-    borderRadius: 18,
+    width: 76,
+    height: 76,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
     padding: 8,
@@ -131,18 +133,18 @@ export const styles = StyleSheet.create({
   },
 
   squareEmoji: {
-    fontSize: 26,
-    marginBottom: 4,
+    fontSize: 22,
+    marginBottom: 3,
   },
   squareText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: "RobotoSerif_600SemiBold",
     textAlign: "center",
   },
   plusSquare: {
-    width: 86,
-    height: 86,
-    borderRadius: 18,
+    width: 76,
+    height: 76,
+    borderRadius: 16,
     borderWidth: 2,
     borderColor: "#d0c4dc",
     borderStyle: "dashed",
