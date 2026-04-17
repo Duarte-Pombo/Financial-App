@@ -14,7 +14,7 @@ async function getUserActivity() {
   return [transactions[0], transactions[1], transactions[2]];
 }
 
-const MONTHS_LONG = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 export default function Index() {
 
@@ -61,7 +61,7 @@ export default function Index() {
       )
     } else {
       recents.push(
-        <Text style={{ alignSelf: 'center', fontSize: 18, padding: 6 }} key={"Emotion"}>Emotion of the day:😟</Text>
+        <Text style={{ alignSelf: 'center', fontSize: 18, padding: 6 }} key={"Emotion"}>Emotion of the day: {activity[0].emoji}</Text>
       )
       for (let i = 0; i < activity.length; i++) {
         let margin = 20 * i ** 1.2;
