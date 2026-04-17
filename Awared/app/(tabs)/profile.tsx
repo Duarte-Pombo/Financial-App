@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useNavigation } from "@react-navigation/native";
 import { getDb } from "@/database/db";
+import { useFocusEffect } from "expo-router";
 
 type ProfileStats = {
   username: string;
@@ -65,13 +66,16 @@ export default function Profile() {
   const navigation = useNavigation();
   const [stats, setStats] = useState<ProfileStats | null>(null);
 
-  const load = useCallback(async () => {
+  const load = async () => {
     const data = await loadProfileStats(global.userID);
     setStats(data);
-  }, []);
+  };
 
-  useEffect(() => { load(); }, [load]);
-
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
   async function handlePickPhoto() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -210,10 +214,10 @@ export default function Profile() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fdf3ff" },
-  content:   { padding: 20, paddingTop: 70 },
+  content: { padding: 20, paddingTop: 70 },
 
   avatarSection: { alignItems: "center", marginBottom: 28 },
-  avatarWrap:    { position: "relative", marginBottom: 12 },
+  avatarWrap: { position: "relative", marginBottom: 12 },
   avatarImage: {
     width: 96, height: 96, borderRadius: 48,
     borderWidth: 3, borderColor: "#6b21a8",
@@ -238,29 +242,29 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff", borderRadius: 20, padding: 18, marginBottom: 16,
     shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
   },
-  cardTitle:    { fontSize: 15, fontFamily: "RobotoSerif_600SemiBold", color: "#444", marginBottom: 16 },
+  cardTitle: { fontSize: 15, fontFamily: "RobotoSerif_600SemiBold", color: "#444", marginBottom: 16 },
   cardTitleRow: { flexDirection: "row", alignItems: "center", marginBottom: 16, gap: 10 },
   comingSoonBadge: {
     backgroundColor: "#f3e8ff", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
   },
   comingSoonText: { fontSize: 10, color: "#6b21a8", fontFamily: "RobotoSerif_500Medium" },
 
-  statsRow:   { flexDirection: "row", alignItems: "center" },
-  statItem:   { flex: 1, alignItems: "center", gap: 4 },
-  statValue:  { fontSize: 32, fontFamily: "RobotoSerif_700Bold", color: "#1a1a1a" },
-  statEmoji:  { fontSize: 36 },
+  statsRow: { flexDirection: "row", alignItems: "center" },
+  statItem: { flex: 1, alignItems: "center", gap: 4 },
+  statValue: { fontSize: 32, fontFamily: "RobotoSerif_700Bold", color: "#1a1a1a" },
+  statEmoji: { fontSize: 36 },
   statEmotionName: { fontSize: 14, fontFamily: "RobotoSerif_600SemiBold", textAlign: "center" },
-  statLabel:  { fontSize: 12, color: "#888", textAlign: "center", fontFamily: "RobotoSerif_500Medium" },
+  statLabel: { fontSize: 12, color: "#888", textAlign: "center", fontFamily: "RobotoSerif_500Medium" },
   statSubLabel: { fontSize: 10, color: "#bbb", textAlign: "center" },
-  statDivider:  { width: 1, height: 60, backgroundColor: "#f0f0f0" },
+  statDivider: { width: 1, height: 60, backgroundColor: "#f0f0f0" },
 
   achievementsPlaceholder: {
     alignItems: "center", paddingVertical: 20, gap: 10,
   },
   placeholderText: { fontSize: 13, color: "#c4a8e0", fontFamily: "RobotoSerif_500Medium" },
 
-  actionRow:    { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 4 },
-  actionIcon:   { width: 38, height: 38, borderRadius: 11, alignItems: "center", justifyContent: "center" },
-  actionLabel:  { flex: 1, fontSize: 15, fontFamily: "RobotoSerif_500Medium", color: "#333" },
-  actionDivider:{ height: 1, backgroundColor: "#f5f5f5", marginVertical: 10 },
+  actionRow: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 4 },
+  actionIcon: { width: 38, height: 38, borderRadius: 11, alignItems: "center", justifyContent: "center" },
+  actionLabel: { flex: 1, fontSize: 15, fontFamily: "RobotoSerif_500Medium", color: "#333" },
+  actionDivider: { height: 1, backgroundColor: "#f5f5f5", marginVertical: 10 },
 });
