@@ -1,10 +1,11 @@
-import { 
-  View, TextInput, Pressable, ScrollView, KeyboardAvoidingView, 
-  Platform, Alert, ActivityIndicator, Modal, StyleSheet
+import {
+  View, TextInput, Pressable, ScrollView, KeyboardAvoidingView,
+  Platform, Alert, ActivityIndicator, Modal, StyleSheet, Animated,
+  TouchableWithoutFeedback, Dimensions
 } from "react-native";
 import { Text } from "@/components/Text";
 import { Ionicons } from "@expo/vector-icons";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
 import { styles } from "./addPurchaseStyles";
 import { getDb } from "../../database/db";
@@ -55,13 +56,25 @@ export default function AddPurchase() {
   const [saving, setSaving] = useState(false);
   
   const [date, setDate] = useState(new Date());
-  const [showPicker, setShowPicker] = useState(false);
-  const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
+  const [editingField, setEditingField] = useState<'date' | 'time' | null>(null);
 
   const [emotions, setEmotions] = useState<Emotion[]>([]);
   const [selectedEmotionIds, setSelectedEmotionIds] = useState<number[]>([]);
   const [visibleEmotionIds, setVisibleEmotionIds] = useState<number[]>([]); 
   const [showEmotionOverlay, setShowEmotionOverlay] = useState(false);
+  const SHEET_H = Dimensions.get("window").height * 0.6;
+  const sheetAnim = useRef(new Animated.Value(SHEET_H)).current;
+
+  function openEmotionSheet() {
+    setShowEmotionOverlay(true);
+    sheetAnim.setValue(SHEET_H);
+    Animated.spring(sheetAnim, { toValue: 0, useNativeDriver: true, bounciness: 2 }).start();
+  }
+
+  function closeEmotionSheet() {
+    Animated.timing(sheetAnim, { toValue: SHEET_H, duration: 220, useNativeDriver: true })
+      .start(() => setShowEmotionOverlay(false));
+  }
 
   // --- Map States ---
   const [showMap, setShowMap] = useState(false);
@@ -94,18 +107,18 @@ export default function AddPurchase() {
       setNote("");
       setSelectedEmotionIds([]);
       setSaving(false);
-      setDate(new Date()); 
+      setDate(new Date());
+      setEditingField(null);
     }, [])
   );
 
   const onDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    setShowPicker(Platform.OS === 'ios');
+    if (Platform.OS === 'android') setEditingField(null);
     if (selectedDate) setDate(selectedDate);
   };
 
-  const openPicker = (mode: 'date' | 'time') => {
-    setPickerMode(mode);
-    setShowPicker(true);
+  const toggleField = (field: 'date' | 'time') => {
+    setEditingField((prev) => (prev === field ? null : field));
   };
 
   const toggleEmotion = (id: number) => {
@@ -203,25 +216,30 @@ export default function AddPurchase() {
   return (
     <View style={styles.container}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="automatic">
+        <View style={styles.scrollContent}>
 
           {/* Header */}
           <View style={styles.header}>
-            <Pressable style={styles.backButton} onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={16} color="#555" />
+            <Pressable onPress={() => toggleField('date')} style={styles.dateTimeBtn}>
+              <Text style={[styles.headerText, editingField === 'date' && styles.headerTextEditing]}>
+                {getDateLabel(date)}
+              </Text>
+              {editingField === 'date' && (
+                <Ionicons name="checkmark-circle" size={15} color="#6b21a8" style={{ marginLeft: 4 }} />
+              )}
             </Pressable>
-            <View style={styles.headerCenterAbsolute}>
-              <Pressable onPress={() => openPicker('date')}>
-                <Text style={styles.headerText}>{getDateLabel(date)}</Text>
-              </Pressable>
-            </View>
-            <Pressable onPress={() => openPicker('time')}>
-              <Text style={styles.headerTime}>{getTimeLabel(date)}</Text>
+            <Pressable onPress={() => toggleField('time')} style={styles.dateTimeBtn}>
+              <Text style={[styles.headerTime, editingField === 'time' && styles.headerTextEditing]}>
+                {getTimeLabel(date)}
+              </Text>
+              {editingField === 'time' && (
+                <Ionicons name="checkmark-circle" size={15} color="#6b21a8" style={{ marginLeft: 4 }} />
+              )}
             </Pressable>
           </View>
 
-          {showPicker && (
-            <DateTimePicker value={date} mode={pickerMode} is24Hour={true}
+          {editingField !== null && (
+            <DateTimePicker value={date} mode={editingField} is24Hour={true}
               display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onDateChange} />
           )}
 
@@ -267,7 +285,7 @@ export default function AddPurchase() {
                 </Pressable>
               );
             })}
-            <Pressable style={styles.plusSquare} onPress={() => setShowEmotionOverlay(true)}>
+            <Pressable style={styles.plusSquare} onPress={openEmotionSheet} android_ripple={null}>
               <Ionicons name="add" size={28} color="#999" />
             </Pressable>
           </View>
@@ -302,25 +320,26 @@ export default function AddPurchase() {
           </Pressable>
 
           {/* All Emotions Modal */}
-          <Modal visible={showEmotionOverlay} animationType="slide" transparent={true}>
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>All Emotions</Text>
-                  <Pressable onPress={() => setShowEmotionOverlay(false)}><Ionicons name="close" size={24} color="#333" /></Pressable>
-                </View>
-                <ScrollView contentContainerStyle={styles.modalScroll}>
-                  {emotions.map((emotion) => (
-                    <Pressable key={emotion.id} onPress={() => handleSelectFromOverlay(emotion.id)}
-                      style={[styles.emotionSquare, { backgroundColor: emotion.color_hex ?? "#e0d4ea", width: '30%' }, selectedEmotionIds.includes(emotion.id) ? styles.selectedSquare : styles.unselectedSquare]}
-                    >
-                      <Text style={styles.squareEmoji}>{emotion.emoji}</Text>
-                      <Text style={styles.squareText} numberOfLines={1}>{emotion.name}</Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
+          <Modal visible={showEmotionOverlay} animationType="none" transparent={true} onRequestClose={closeEmotionSheet}>
+            <TouchableWithoutFeedback onPress={closeEmotionSheet}>
+              <View style={styles.modalOverlay} />
+            </TouchableWithoutFeedback>
+            <Animated.View style={[styles.modalContent, { transform: [{ translateY: sheetAnim }] }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>All Emotions</Text>
+                <Pressable onPress={closeEmotionSheet}><Ionicons name="close" size={24} color="#333" /></Pressable>
               </View>
-            </View>
+              <ScrollView contentContainerStyle={styles.modalScroll}>
+                {emotions.map((emotion) => (
+                  <Pressable key={emotion.id} onPress={() => handleSelectFromOverlay(emotion.id)}
+                    style={[styles.emotionSquare, { backgroundColor: emotion.color_hex ?? "#e0d4ea", width: '30%' }, selectedEmotionIds.includes(emotion.id) ? styles.selectedSquare : styles.unselectedSquare]}
+                  >
+                    <Text style={styles.squareEmoji}>{emotion.emoji}</Text>
+                    <Text style={styles.squareText} numberOfLines={1}>{emotion.name}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </Animated.View>
           </Modal>
 
           {/* Map Selector Modal */}
@@ -349,7 +368,7 @@ export default function AddPurchase() {
             </View>
           </Modal>
 
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     </View>
   );

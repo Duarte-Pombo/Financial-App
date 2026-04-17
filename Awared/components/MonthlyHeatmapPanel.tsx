@@ -1,130 +1,30 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
   StyleSheet,
-  ScrollView,
   Pressable,
   Modal,
   Animated,
   TouchableWithoutFeedback,
+  ScrollView,
   Platform,
   Dimensions,
 } from "react-native";
 import { Text } from "@/components/Text";
 import { Ionicons } from "@expo/vector-icons";
+import { getMonthHeatmapData, HeatmapMonthData } from "@/database/transactions";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const MONTHS_LONG  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const DAY_LABELS   = ["Mo","Tu","We","Th","Fr","Sa","Su"];
 const WEEKDAYS     = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-
-const HEAT_COLORS = ["#f0f0f0", "#c8e6c9", "#fff176", "#ffb74d", "#ef5350"] as const;
+const HEAT_COLORS  = ["#f0f0f0", "#c8e6c9", "#fff176", "#ffb74d", "#ef5350"] as const;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CELL_SIZE   = Math.floor((SCREEN_WIDTH - 72 - 24) / 7);
+const CELL_SIZE   = Math.floor((SCREEN_WIDTH - 64 - 24) / 7); // 16*2 container + 16*2 card = 64
 const CELL_GAP    = 4;
 const SHEET_MAX_H = 500;
-
-const TODAY         = { year: 2026, month: 3, day: 5 };
-const CURRENT_MONTH = { year: 2026, month: 3 };
-const MIN_MONTH     = { year: 2026, month: 2 };
-
-// ─── Types ─────────────────────────────────────────────────────────────────────
-type DayTransaction = {
-  merchant_name: string;
-  amount: number;
-  category_name: string | null;
-  category_icon: string | null;
-  emotion_emoji: string | null;
-  emotion_name: string | null;
-};
-
-type MonthDayData = {
-  totalAmount: number;
-  transactions: DayTransaction[];
-};
-
-type MonthDataMap = Record<string, MonthDayData>;
-
-// ─── Mock Data ─────────────────────────────────────────────────────────────────
-const MARCH_DATA: MonthDataMap = {
-  "2026-03-02": { totalAmount: 16.30, transactions: [
-    { merchant_name: "Coffee & Co",   amount: 4.80,  category_name: "Food & Drink",  category_icon: "🍔", emotion_emoji: "😊", emotion_name: "Happy"  },
-    { merchant_name: "Bus ticket",    amount: 2.50,  category_name: "Transport",     category_icon: "🚗", emotion_emoji: null, emotion_name: null     },
-    { merchant_name: "Sandwich Shop", amount: 9.00,  category_name: "Food & Drink",  category_icon: "🍔", emotion_emoji: "😑", emotion_name: "Bored"  },
-  ]},
-  "2026-03-05": { totalAmount: 85.90, transactions: [
-    { merchant_name: "Zara", amount: 67.90, category_name: "Shopping",  category_icon: "🛍️", emotion_emoji: "😤", emotion_name: "Stressed" },
-    { merchant_name: "Uber", amount: 18.00, category_name: "Transport", category_icon: "🚗", emotion_emoji: "😑", emotion_name: "Bored"   },
-  ]},
-  "2026-03-07": { totalAmount: 6.50, transactions: [
-    { merchant_name: "Bakery", amount: 6.50, category_name: "Food & Drink", category_icon: "🍔", emotion_emoji: "😊", emotion_name: "Happy" },
-  ]},
-  "2026-03-10": { totalAmount: 47.70, transactions: [
-    { merchant_name: "Cinema NOS",    amount: 13.50, category_name: "Entertainment", category_icon: "🎬", emotion_emoji: "🤩", emotion_name: "Excited" },
-    { merchant_name: "Tasca do João", amount: 34.20, category_name: "Food & Drink",  category_icon: "🍔", emotion_emoji: "😊", emotion_name: "Happy"   },
-  ]},
-  "2026-03-12": { totalAmount: 29.00, transactions: [
-    { merchant_name: "Gym membership", amount: 29.00, category_name: "Health", category_icon: "💊", emotion_emoji: null, emotion_name: null },
-  ]},
-  "2026-03-14": { totalAmount: 11.20, transactions: [
-    { merchant_name: "McDonald's", amount: 11.20, category_name: "Food & Drink", category_icon: "🍔", emotion_emoji: "😟", emotion_name: "Anxious" },
-  ]},
-  "2026-03-15": { totalAmount: 42.10, transactions: [
-    { merchant_name: "Continente", amount: 42.10, category_name: "Food & Drink", category_icon: "🍔", emotion_emoji: "😑", emotion_name: "Bored" },
-  ]},
-  "2026-03-17": { totalAmount: 7.60, transactions: [
-    { merchant_name: "Coffee & Co", amount: 3.80, category_name: "Food & Drink", category_icon: "🍔", emotion_emoji: "😐", emotion_name: "Calm" },
-    { merchant_name: "Metro",       amount: 3.80, category_name: "Transport",    category_icon: "🚗", emotion_emoji: null, emotion_name: null  },
-  ]},
-  "2026-03-20": { totalAmount: 111.90, transactions: [
-    { merchant_name: "FNAC",  amount: 89.50, category_name: "Shopping",     category_icon: "🛍️", emotion_emoji: "😟", emotion_name: "Anxious" },
-    { merchant_name: "Glovo", amount: 22.40, category_name: "Food & Drink", category_icon: "🍔", emotion_emoji: "😟", emotion_name: "Anxious" },
-  ]},
-  "2026-03-21": { totalAmount: 4.80, transactions: [
-    { merchant_name: "Café Bica", amount: 4.80, category_name: "Food & Drink", category_icon: "🍔", emotion_emoji: "😐", emotion_name: "Calm" },
-  ]},
-  "2026-03-24": { totalAmount: 70.70, transactions: [
-    { merchant_name: "Galp",    amount: 55.00, category_name: "Transport",    category_icon: "🚗", emotion_emoji: "😐", emotion_name: "Calm"  },
-    { merchant_name: "O Corvo", amount: 15.70, category_name: "Food & Drink", category_icon: "🍔", emotion_emoji: "😊", emotion_name: "Happy" },
-  ]},
-  "2026-03-26": { totalAmount: 23.40, transactions: [
-    { merchant_name: "Netflix", amount: 15.99, category_name: "Entertainment", category_icon: "🎬", emotion_emoji: null, emotion_name: null },
-    { merchant_name: "Spotify", amount: 7.41,  category_name: "Entertainment", category_icon: "🎬", emotion_emoji: null, emotion_name: null },
-  ]},
-  "2026-03-28": { totalAmount: 78.00, transactions: [
-    { merchant_name: "NOS Alive tickets", amount: 78.00, category_name: "Entertainment", category_icon: "🎬", emotion_emoji: "🤩", emotion_name: "Excited" },
-  ]},
-  "2026-03-30": { totalAmount: 38.20, transactions: [
-    { merchant_name: "Continente", amount: 38.20, category_name: "Food & Drink", category_icon: "🍔", emotion_emoji: "😑", emotion_name: "Bored" },
-  ]},
-  "2026-03-31": { totalAmount: 120.00, transactions: [
-    { merchant_name: "EDP Energia", amount: 120.00, category_name: "Bills", category_icon: "📋", emotion_emoji: "😟", emotion_name: "Anxious" },
-  ]},
-};
-
-const APRIL_DATA: MonthDataMap = {
-  "2026-04-01": { totalAmount: 6.30, transactions: [
-    { merchant_name: "Coffee & Co", amount: 3.80, category_name: "Food & Drink", category_icon: "🍔", emotion_emoji: "😊", emotion_name: "Happy" },
-    { merchant_name: "Bus ticket",  amount: 2.50, category_name: "Transport",    category_icon: "🚗", emotion_emoji: null, emotion_name: null   },
-  ]},
-  "2026-04-02": { totalAmount: 38.20, transactions: [
-    { merchant_name: "Pingo Doce", amount: 38.20, category_name: "Food & Drink", category_icon: "🍔", emotion_emoji: "😑", emotion_name: "Bored" },
-  ]},
-  "2026-04-04": { totalAmount: 44.49, transactions: [
-    { merchant_name: "Tasca do João", amount: 14.50, category_name: "Food & Drink", category_icon: "🍔", emotion_emoji: "😊", emotion_name: "Happy"   },
-    { merchant_name: "Udemy",         amount: 29.99, category_name: "Education",    category_icon: "📚", emotion_emoji: "🤩", emotion_name: "Excited" },
-  ]},
-  "2026-04-05": { totalAmount: 4.20, transactions: [
-    { merchant_name: "Coffee & Co", amount: 4.20, category_name: "Food & Drink", category_icon: "🍔", emotion_emoji: "😐", emotion_name: "Calm" },
-  ]},
-};
-
-const ALL_MOCK: Record<string, MonthDataMap> = {
-  "2026-2": MARCH_DATA,
-  "2026-3": APRIL_DATA,
-};
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 function daysInMonth(year: number, month: number) {
@@ -135,9 +35,6 @@ function firstWeekday(year: number, month: number) {
 }
 function dateKey(year: number, month: number, day: number) {
   return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
-function getMonthData(year: number, month: number): MonthDataMap {
-  return ALL_MOCK[`${year}-${month}`] ?? {};
 }
 function intensityLevel(amount: number, max: number) {
   if (amount <= 0 || max <= 0) return 0;
@@ -154,14 +51,27 @@ function fmtDayHeading(year: number, month: number, day: number) {
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────────
-type Props = { year: number; month: number; };
+type Props = { year: number; month: number };
 
 export default function MonthlyHeatmapPanel({ year, month }: Props) {
+  const today = new Date();
+  const TODAY = { year: today.getFullYear(), month: today.getMonth(), day: today.getDate() };
+
+  const [monthData,    setMonthData]    = useState<HeatmapMonthData>({});
   const [sheetDay,     setSheetDay]     = useState<number | null>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
   const sheetAnim = useRef(new Animated.Value(SHEET_MAX_H)).current;
 
-  const monthData  = getMonthData(year, month);
+  const loadData = useCallback(async () => {
+    const data = await getMonthHeatmapData(global.userID, year, month);
+    setMonthData(data);
+  }, [year, month]);
+
+  useEffect(() => {
+    closeSheet();
+    loadData();
+  }, [loadData]);
+
   const numDays    = daysInMonth(year, month);
   const firstWd    = firstWeekday(year, month);
   const maxAmount  = Object.values(monthData).reduce((m, d) => Math.max(m, d.totalAmount), 0);
@@ -190,14 +100,12 @@ export default function MonthlyHeatmapPanel({ year, month }: Props) {
       .start(() => { setSheetVisible(false); setSheetDay(null); });
   }
 
-  useEffect(() => { closeSheet(); }, [year, month]);
-
   const selectedKey  = sheetDay ? dateKey(year, month, sheetDay) : null;
   const selectedData = selectedKey ? monthData[selectedKey] : null;
 
   return (
     <>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.container}>
 
         {/* ── Calendar Grid ── */}
         <View style={styles.card}>
@@ -212,13 +120,13 @@ export default function MonthlyHeatmapPanel({ year, month }: Props) {
             <View key={wi} style={styles.weekRow}>
               {cells.slice(wi * 7, wi * 7 + 7).map((day, ci) => {
                 if (day === null) return <View key={ci} style={{ width: CELL_SIZE, height: CELL_SIZE }} />;
-                const key     = dateKey(year, month, day);
-                const data    = monthData[key];
-                const amount  = data?.totalAmount ?? 0;
-                const level   = intensityLevel(amount, maxAmount);
-                const bgColor = data ? HEAT_COLORS[level] : "#f5f5f5";
+                const key      = dateKey(year, month, day);
+                const data     = monthData[key];
+                const amount   = data?.totalAmount ?? 0;
+                const level    = intensityLevel(amount, maxAmount);
+                const bgColor  = data ? HEAT_COLORS[level] : "#f5f5f5";
                 const textDark = level >= 3;
-                const isToday = year === TODAY.year && month === TODAY.month && day === TODAY.day;
+                const isToday  = year === TODAY.year && month === TODAY.month && day === TODAY.day;
                 return (
                   <Pressable
                     key={ci}
@@ -267,8 +175,7 @@ export default function MonthlyHeatmapPanel({ year, month }: Props) {
           </View>
         </View>
 
-        <View style={{ height: 40 }} />
-      </ScrollView>
+      </View>
 
       {/* ── Bottom Sheet ── */}
       <Modal visible={sheetVisible} transparent animationType="none" onRequestClose={closeSheet} statusBarTranslucent>
@@ -317,27 +224,16 @@ export default function MonthlyHeatmapPanel({ year, month }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fdf3ff" },
-  content:   { padding: 20, paddingBottom: 40 },
-
-  monthNav: {
-    flexDirection: "row", alignItems: "center", backgroundColor: "#fff",
-    borderRadius: 16, marginBottom: 16,
-    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8, elevation: 2, overflow: "hidden",
-  },
-  navArrow:     { width: 44, height: 48, alignItems: "center", justifyContent: "center" },
-  navDisabled:  { opacity: 0.4 },
-  navLabel:     { flex: 1, height: 48, alignItems: "center", justifyContent: "center", borderLeftWidth: 1, borderRightWidth: 1, borderColor: "#f0f0f0" },
-  navLabelText: { fontSize: 14, fontFamily: "RobotoSerif_600SemiBold", color: "#333" },
+  container: { flex: 1, backgroundColor: "#fdf3ff", padding: 16 },
 
   card: {
     backgroundColor: "#fff", borderRadius: 16, padding: 16, marginBottom: 16,
     shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
   },
 
-  dayHeaderRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
+  dayHeaderRow: { flexDirection: "row", justifyContent: "center", gap: CELL_GAP, marginBottom: 8 },
   dayHeaderText: { fontSize: 11, color: "#bbb", fontFamily: "RobotoSerif_500Medium" },
-  weekRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: CELL_GAP },
+  weekRow: { flexDirection: "row", justifyContent: "center", gap: CELL_GAP, marginBottom: CELL_GAP },
   cell: { borderRadius: 8, alignItems: "center", justifyContent: "center" },
   todayCell: { borderWidth: 2, borderColor: "#6b21a8" },
   cellNum:      { fontSize: 11, color: "#555", fontFamily: "RobotoSerif_500Medium" },

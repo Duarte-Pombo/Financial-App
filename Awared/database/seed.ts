@@ -12,14 +12,14 @@ export async function seedDatabase(): Promise<void> {
   await db.withTransactionAsync(async () => {
     // ── Emotions ──────────────────────────────────────────────────────────────
     const emotions = [
-      { name: "Sadness", category: "negative", polarity: -3, energy: 2, emoji: "😢", color_hex: "#c8daf5", description: "Feeling of sorrow or unhappiness" },
-      { name: "Stress", category: "negative", polarity: -4, energy: 7, emoji: "😤", color_hex: "#d8b4fe", description: "Feeling overwhelmed or under pressure" },
-      { name: "Happy", category: "positive", polarity: 4, energy: 7, emoji: "😊", color_hex: "#f5e642", description: "Feeling of joy or contentment" },
-      { name: "Anxiety", category: "negative", polarity: -4, energy: 8, emoji: "😰", color_hex: "#fca5a5", description: "Feeling of worry or unease" },
-      { name: "Boredom", category: "neutral", polarity: -1, energy: 2, emoji: "😑", color_hex: "#d1d5db", description: "Feeling of disengagement" },
-      { name: "Excited", category: "positive", polarity: 5, energy: 9, emoji: "🤩", color_hex: "#6ee7b7", description: "Feeling of enthusiasm or eagerness" },
-      { name: "Calm", category: "positive", polarity: 2, energy: 3, emoji: "😌", color_hex: "#e9d5ff", description: "Feeling of peace and relaxation" },
-      { name: "Anger", category: "negative", polarity: -5, energy: 9, emoji: "😠", color_hex: "#fca5a5", description: "Feeling of frustration or rage" },
+      { name: "Sadness", category: "negative", polarity: -3, energy: 2, emoji: "😢", color_hex: "#B3E5FC", description: "Feeling of sorrow or unhappiness" },
+      { name: "Stress", category: "negative", polarity: -4, energy: 7, emoji: "😤", color_hex: "#FFB74D", description: "Feeling overwhelmed or under pressure" },
+      { name: "Happy", category: "positive", polarity: 4, energy: 7, emoji: "😊", color_hex: "#F8BBD0", description: "Feeling of joy or contentment" },
+      { name: "Anxiety", category: "negative", polarity: -4, energy: 8, emoji: "😰", color_hex: "#C7A4FF", description: "Feeling of worry or unease" },
+      { name: "Boredom", category: "neutral", polarity: -1, energy: 2, emoji: "😑", color_hex: "#E0E0E0", description: "Feeling of disengagement" },
+      { name: "Excited", category: "positive", polarity: 5, energy: 9, emoji: "🤩", color_hex: "#FFE066", description: "Feeling of enthusiasm or eagerness" },
+      { name: "Calm", category: "positive", polarity: 2, energy: 3, emoji: "😌", color_hex: "#C8E6C9", description: "Feeling of peace and relaxation" },
+      { name: "Anger", category: "negative", polarity: -5, energy: 9, emoji: "😡", color_hex: "#E57373", description: "Feeling of frustration or rage" },
     ];
 
     for (const e of emotions) {

@@ -17,8 +17,10 @@ import { randomUUID } from "expo-crypto";
 
 const USER_ID = 1;
 
+const SEED_ANCHOR = new Date("2026-04-17T12:00:00");
+
 function daysAgo(n: number, hour = 10, minute = 0): string {
-  const d = new Date();
+  const d = new Date(SEED_ANCHOR);
   d.setDate(d.getDate() - n);
   d.setHours(hour, minute, 0, 0);
   return d.toISOString();

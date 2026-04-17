@@ -1,4 +1,4 @@
-import { Platform, StyleSheet } from "react-native";
+import { Platform, StyleSheet, Dimensions } from "react-native";
 
 export const styles = StyleSheet.create({
   container: {
@@ -7,12 +7,11 @@ export const styles = StyleSheet.create({
   },
   scrollContent: {
     width: "100%",
-    maxWidth: 400,
+    maxWidth: 420,
     alignSelf: "center",
-    paddingHorizontal: 22,
-    paddingTop: 56,
+    paddingHorizontal: 24,
+    paddingTop: 44,
     paddingBottom: 20,
-
   },
 
   // Header
@@ -20,49 +19,36 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 28,
-    height: 34,
-    position: 'relative',
-  },
-  backButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: "#d0c4dc",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1,
-  },
-  headerCenterAbsolute: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginBottom: 32,
   },
   headerText: {
-    fontSize: 14,
+    fontSize: 16,
     fontFamily: "RobotoSerif_500Medium",
     color: "#333",
   },
   headerTime: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#666",
+  },
+  headerTextEditing: {
+    color: "#6b21a8",
+    fontFamily: "RobotoSerif_600SemiBold",
+  },
+  dateTimeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
   },
 
   // Shared
   label: {
-    fontSize: 13,
+    fontSize: 14,
     color: "#777",
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: 10,
   },
   centeredSection: {
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 26,
   },
 
   // Amount
@@ -72,21 +58,21 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
   },
   amountInput: {
-    fontSize: 56,
+    fontSize: 64,
     fontFamily: "RobotoSerif_700Bold",
     color: "#111",
     letterSpacing: -2,
     textAlign: "center",
     padding: 0,
     minWidth: 60,
-    maxWidth: 220,
+    maxWidth: 240,
   },
   currencySymbol: {
-    fontSize: 20,
+    fontSize: 24,
     color: "#888",
     fontFamily: "RobotoSerif_400Regular",
-    marginLeft: 2,
-    marginTop: 8,
+    marginLeft: 4,
+    marginTop: 10,
   },
   amountUnderline: {
     width: "55%",
@@ -98,7 +84,7 @@ export const styles = StyleSheet.create({
 
   // Item
   itemInput: {
-    fontSize: 22,
+    fontSize: 24,
     fontFamily: "RobotoSerif_600SemiBold",
     color: "#111",
     textAlign: "center",
@@ -106,7 +92,7 @@ export const styles = StyleSheet.create({
     textDecorationColor: "#c9b8d8",
     padding: 0,
     minWidth: 80,
-    maxWidth: 260,
+    maxWidth: 280,
   },
 
   // Emotions (New Square Grid)
@@ -114,13 +100,13 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 26,
     flexWrap: "wrap",
   },
   emotionSquare: {
-    width: 80,
-    height: 80,
-    borderRadius: 16,
+    width: 86,
+    height: 86,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
     padding: 8,
@@ -145,18 +131,18 @@ export const styles = StyleSheet.create({
   },
 
   squareEmoji: {
-    fontSize: 24,
+    fontSize: 26,
     marginBottom: 4,
   },
   squareText: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: "RobotoSerif_600SemiBold",
     textAlign: "center",
   },
   plusSquare: {
-    width: 80,
-    height: 80,
-    borderRadius: 16,
+    width: 86,
+    height: 86,
+    borderRadius: 18,
     borderWidth: 2,
     borderColor: "#d0c4dc",
     borderStyle: "dashed",
@@ -167,11 +153,14 @@ export const styles = StyleSheet.create({
 
   // Modal Overlay
   modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.4)",
   },
   modalContent: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: "#fff",
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
@@ -210,7 +199,7 @@ export const styles = StyleSheet.create({
   },
   locationInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 15,
     color: "#333",
     fontFamily: "RobotoSerif_500Medium",
     padding: 0,
@@ -288,8 +277,8 @@ export const styles = StyleSheet.create({
     borderColor: "#d0c4dc",
     borderRadius: 14,
     padding: 12,
-    height: 90,
-    fontSize: 13,
+    height: 96,
+    fontSize: 14,
     color: "#333",
     lineHeight: 20,
     backgroundColor: "#fff",
@@ -306,7 +295,7 @@ export const styles = StyleSheet.create({
   },
   buttonText: {
     color: "#fff",
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: "RobotoSerif_600SemiBold",
     letterSpacing: 0.3,
   },

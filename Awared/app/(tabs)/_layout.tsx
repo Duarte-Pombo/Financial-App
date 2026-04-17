@@ -57,14 +57,6 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="addPurchase"
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} name={["add-circle", "add-circle-outline"]} size={32} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="calendar"
         options={{
           tabBarIcon: ({ focused }) => (
@@ -73,10 +65,26 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="addPurchase"
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} name={["add-circle", "add-circle-outline"]} size={32} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="insights"
         options={{
           tabBarIcon: ({ focused }) => (
             <TabIcon focused={focused} name={["newspaper", "newspaper-outline"]} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} name={["person", "person-outline"]} />
           ),
         }}
       />
