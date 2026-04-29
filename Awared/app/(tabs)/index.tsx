@@ -1,12 +1,13 @@
 import React, { useState, useCallback } from "react";
 import { Text, View, StyleSheet, Pressable, ScrollView, ActivityIndicator } from "react-native";
-import { useFocusEffect, router } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router"; // Added useRouter
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getDb } from "@/database/db";
 
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 export default function Index() {
+  const router = useRouter(); // Initialize router
   const [activity, setActivity] = useState<any[] | null>(null);
   const [monthlySpent, setMonthlySpent] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -17,11 +18,13 @@ export default function Index() {
       const db = await getDb();
       const userID = global.userID;
       
+      // Explicitly select t.id to ensure the routing gets the transaction ID
       const transactions = await db.getAllAsync(
-        `SELECT * FROM transactions as t
+        `SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.created_at, e.emoji 
+         FROM transactions as t
          JOIN emotion_logs l ON t.emotion_log_id = l.id
          JOIN emotions e on l.emotion_id = e.id
-          WHERE t.user_id = ? ORDER BY t.created_at DESC LIMIT 3`,
+         WHERE t.user_id = ? ORDER BY t.created_at DESC LIMIT 3`,
         [userID]
       );
       setActivity(transactions);
@@ -32,7 +35,7 @@ export default function Index() {
         `SELECT COALESCE(SUM(amount), 0) as total
          FROM transactions
          WHERE user_id = ?
-           AND strftime('%Y-%m', transacted_at) = ?`,
+           AND strftime('%Y-%m', created_at) = ?`, // Assuming created_at is your timestamp column
         [userID, yearMonth]
       );
       
@@ -91,22 +94,30 @@ export default function Index() {
         ) : (
           <>
             {activity?.map((item, index) => (
-              <View key={index} style={[styles.transactionRow, index === activity.length - 1 && { borderBottomWidth: 0 }]}>
+              <Pressable 
+                key={item.id} 
+                style={({ pressed }) => [
+                  styles.transactionRow, 
+                  index === activity.length - 1 && { borderBottomWidth: 0 },
+                  pressed && { opacity: 0.6 } // Adds a nice click effect
+                ]}
+                onPress={() => router.push(`/transaction/${item.id}`)}
+              >
                 <View style={styles.emojiCircle}>
                   <Text style={styles.emojiSize}>{item.emoji}</Text>
                 </View>
                 
                 <View style={styles.transactionDetails}>
-                  <Text style={styles.merchantName}>{item.merchant_name}</Text>
+                  <Text style={styles.merchantName}>{item.merchant_name || "Unknown Item"}</Text>
                   <Text style={styles.transactionDate}>
                     {new Date(item.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </Text>
                 </View>
                 
                 <Text style={styles.transactionAmount}>
-                  {item.amount} {item.currency_code}
+                  {item.amount} {item.currency_code === "EUR" ? "€" : item.currency_code}
                 </Text>
-              </View>
+              </Pressable>
             ))}
 
             <Pressable style={styles.viewMoreButton} onPress={() => alert("History coming soon!")}>
@@ -124,7 +135,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fdf3ff" },
   scrollContent: { padding: 20, paddingTop: 60, paddingBottom: 40 },
 
-  // Hero Card (Monthly Spent)
   heroCard: {
     backgroundColor: "#9b72cf",
     borderRadius: 24,
@@ -142,7 +152,6 @@ const styles = StyleSheet.create({
   heroAmount: { color: "#ffffff", fontSize: 48, fontFamily: "RobotoSerif_700Bold", marginVertical: 4 },
   heroSubtitleBottom: { color: "#e0c8f8", fontSize: 16, fontFamily: "RobotoSerif_500Medium", marginTop: 8 },
 
-  // Emotion Pill
   emotionPill: {
     backgroundColor: "#fff",
     borderRadius: 20,
@@ -155,7 +164,6 @@ const styles = StyleSheet.create({
   },
   emotionText: { color: "#444", fontSize: 15, fontFamily: "RobotoSerif_600SemiBold", alignItems: "center" },
 
-  // Activity Section
   sectionHeader: { marginBottom: 12, paddingLeft: 4 },
   sectionTitle: { fontSize: 20, fontFamily: "RobotoSerif_700Bold", color: "#1a1a1a" },
 
@@ -169,7 +177,6 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: "center", paddingVertical: 30 },
   emptyStateText: { color: "#888", fontFamily: "RobotoSerif_400Regular", fontSize: 15 },
 
-  // Transaction Rows
   transactionRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -192,7 +199,6 @@ const styles = StyleSheet.create({
   
   transactionAmount: { fontSize: 16, fontFamily: "RobotoSerif_700Bold", color: "#1a1a1a" },
 
-  // Secondary Button
   viewMoreButton: {
     height: 44, width: "100%",
     backgroundColor: "#e0c8f8",

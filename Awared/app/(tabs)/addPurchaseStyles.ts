@@ -6,12 +6,9 @@ export const styles = StyleSheet.create({
     backgroundColor: "#fdf3ff",
   },
   scrollContent: {
-    width: "100%",
-    maxWidth: 420,
-    alignSelf: "center",
     paddingHorizontal: 24,
-    paddingTop: 64,
-    paddingBottom: 20,
+    paddingTop: 40,
+    flexGrow: 1, 
   },
 
   // Header
@@ -19,286 +16,301 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 32,
+    marginBottom: 20,
+    backgroundColor: "#fff",
+    padding: 16,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  headerText: {
-    fontSize: 16,
-    fontFamily: "RobotoSerif_500Medium",
-    color: "#333",
+  headerText: { 
+    fontSize: 16, 
+    fontFamily: "RobotoSerif_500Medium", 
+    color: "#333" 
   },
-  headerTime: {
-    fontSize: 16,
-    color: "#666",
+  headerTime: { 
+    fontSize: 16, 
+    color: "#666", 
+    fontFamily: "RobotoSerif_400Regular" 
   },
-  headerTextEditing: {
-    color: "#6b21a8",
-    fontFamily: "RobotoSerif_600SemiBold",
+  headerTextEditing: { 
+    color: "#6b21a8", 
+    fontFamily: "RobotoSerif_700Bold" 
   },
-  dateTimeBtn: {
-    flexDirection: "row",
-    alignItems: "center",
+  dateTimeBtn: { 
+    flexDirection: "row", 
+    alignItems: "center" 
+  },
+  pickerContainer: { 
+    backgroundColor: '#fff', 
+    borderRadius: 20, 
+    padding: 10, 
+    marginBottom: 20 
   },
 
   // Shared
-  label: {
-    fontSize: 14,
-    color: "#777",
-    textAlign: "center",
-    marginBottom: 10,
+  label: { 
+    fontSize: 14, 
+    color: "#666", 
+    textAlign: "center", 
+    marginBottom: 12, 
+    fontFamily: "RobotoSerif_500Medium" 
   },
-  centeredSection: {
-    alignItems: "center",
-    marginBottom: 26,
+  centeredSection: { 
+    alignItems: "center", 
+    marginBottom: 32 
   },
 
-  // Amount
-  amountRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+  // Amount & Item
+  amountRow: { 
+    flexDirection: "row", 
+    alignItems: "flex-end", 
+    justifyContent: "center" 
   },
   amountInput: {
-    fontSize: 64,
-    fontFamily: "RobotoSerif_700Bold",
-    color: "#111",
-    letterSpacing: -2,
-    textAlign: "center",
-    padding: 0,
-    minWidth: 60,
+    fontSize: 60, 
+    fontFamily: "RobotoSerif_700Bold", 
+    color: "#1a1a1a",
+    letterSpacing: -1, 
+    textAlign: "center", 
+    padding: 0, 
+    minWidth: 60, 
     maxWidth: 240,
-    textDecorationLine: "underline",
-    textDecorationColor: "#c9b8d8",
   },
-  currencySymbol: {
-    fontSize: 24,
-    color: "#888",
-    fontFamily: "RobotoSerif_400Regular",
-    marginLeft: 4,
-    marginTop: 10,
+  currencySymbol: { 
+    fontSize: 28, 
+    color: "#888", 
+    fontFamily: "RobotoSerif_400Regular", 
+    marginLeft: 4, 
+    marginBottom: 8 
   },
-  amountUnderline: {
-    width: "55%",
-    height: 2,
-    backgroundColor: "#c9b8d8",
-    borderRadius: 2,
-    marginTop: 6,
-  },
-
-  // Item
   itemInput: {
-    fontSize: 24,
-    fontFamily: "RobotoSerif_600SemiBold",
-    color: "#111",
-    textAlign: "center",
-    textDecorationLine: "underline",
-    textDecorationColor: "#c9b8d8",
-    padding: 0,
-    minWidth: 80,
+    fontSize: 24, 
+    fontFamily: "RobotoSerif_600SemiBold", 
+    color: "#1a1a1a",
+    textAlign: "center", 
+    padding: 0, 
+    minWidth: 80, 
     maxWidth: 280,
   },
+  inputUnderline: { 
+    width: "40%", 
+    height: 3, 
+    backgroundColor: "#e0d4ea", 
+    borderRadius: 2, 
+    marginTop: 4 
+  },
 
-  // Emotions (New Square Grid)
-  emotionGrid: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 8,
-    marginBottom: 26,
-    flexWrap: "nowrap",
+  // Emotions
+  emotionGrid: { 
+    flexDirection: "row", 
+    justifyContent: "center", 
+    gap: 10, 
+    marginBottom: 32 
   },
   emotionSquare: {
-    width: 76,
-    height: 76,
-    borderRadius: 16,
-    justifyContent: "center",
+    width: 76, 
+    height: 76, 
+    borderRadius: 18, 
+    justifyContent: "center", 
     alignItems: "center",
-    padding: 8,
-    // Add overflow hidden to prevent ripple from going outside the border
+    padding: 6, 
     overflow: 'hidden', 
-    shadowColor: "#000",
+    shadowColor: "#000", 
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-    // Add position relative for selected border layering
+    shadowOpacity: 0.05, 
+    shadowRadius: 4, 
+    elevation: 2, 
     position: 'relative',
   },
-  selectedSquare: {
-    borderWidth: 3,
-    borderColor: "#1a1a1a",
+  selectedSquare: { 
+    borderWidth: 3, 
+    borderColor: "#1a1a1a" 
   },
-
-  unselectedSquare: {
-    borderWidth: 3,
-    borderColor: 'transparent',
+  unselectedSquare: { 
+    borderWidth: 3, 
+    borderColor: 'transparent' 
   },
-
-  squareEmoji: {
-    fontSize: 22,
-    marginBottom: 3,
+  squareEmoji: { 
+    fontSize: 24, 
+    marginBottom: 4 
   },
-  squareText: {
-    fontSize: 11,
-    fontFamily: "RobotoSerif_600SemiBold",
-    textAlign: "center",
+  squareText: { 
+    fontSize: 11, 
+    fontFamily: "RobotoSerif_600SemiBold", 
+    textAlign: "center" 
   },
   plusSquare: {
-    width: 76,
-    height: 76,
-    borderRadius: 16,
-    borderWidth: 2,
+    width: 76, 
+    height: 76, 
+    borderRadius: 18, 
+    borderWidth: 2, 
     borderColor: "#d0c4dc",
-    borderStyle: "dashed",
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "transparent",
+    borderStyle: "dashed", 
+    justifyContent: "center", 
+    alignItems: "center", 
+    backgroundColor: "#faf5ff",
   },
 
   // Modal Overlay
-  modalOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.4)",
+  modalOverlay: { 
+    ...StyleSheet.absoluteFillObject, 
+    backgroundColor: "rgba(0,0,0,0.4)" 
   },
   modalContent: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
+    position: "absolute", 
+    bottom: 0, 
+    left: 0, 
+    right: 0, 
     backgroundColor: "#fff",
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 24,
-    maxHeight: "80%",
+    borderTopLeftRadius: 32, 
+    borderTopRightRadius: 32, 
+    padding: 24, 
+    maxHeight: "85%",
   },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
+  modalHeader: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+    marginBottom: 24 
   },
-  modalTitle: {
-    fontSize: 18,
-    fontFamily: "RobotoSerif_700Bold",
+  modalTitle: { 
+    fontSize: 20, 
+    fontFamily: "RobotoSerif_700Bold", 
+    color: "#1a1a1a" 
   },
-  modalScroll: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    justifyContent: "center",
-    paddingBottom: 40,
+  modalScroll: { 
+    flexDirection: "row", 
+    flexWrap: "wrap", 
+    gap: 12, 
+    justifyContent: "center", 
+    paddingBottom: 40 
   },
 
   // Location
   locationInputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#d0c4dc",
-    borderRadius: 24,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    backgroundColor: "#fff",
-    marginBottom: 6,
+    flexDirection: "row", 
+    alignItems: "center", 
+    borderWidth: 1, 
+    borderColor: "#e0e0e0",
+    borderRadius: 16, 
+    paddingHorizontal: 16, 
+    paddingVertical: 12, 
+    backgroundColor: "#fff", 
+    marginBottom: 12,
   },
-  locationInput: {
-    flex: 1,
-    fontSize: 15,
-    color: "#333",
-    fontFamily: "RobotoSerif_500Medium",
-    padding: 0,
-    marginLeft: 8,
+  locationInput: { 
+    flex: 1, 
+    fontSize: 15, 
+    color: "#333", 
+    fontFamily: "RobotoSerif_400Regular", 
+    marginLeft: 10 
   },
-  autoDetectWrapper: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 12,
-    marginTop: 8,
-    marginBottom: 24,
-    width: "100%",
+  autoDetectWrapper: { 
+    flexDirection: "row", 
+    justifyContent: "center", 
+    alignItems: "center", 
+    gap: 12, 
+    marginBottom: 32 
   },
-
-  mapCenterPin: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -20 }, { translateY: -40 }],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  mapOverlayControls: {
-    position: 'absolute',
-    bottom: 40,
-    left: 20,
-    right: 20,
-    gap: 12,
-  },
-  mapConfirmBtn: {
-    backgroundColor: '#1a1a1a',
-    padding: 18,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
-  mapConfirmBtnText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  mapCancelBtn: {
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  mapCancelBtnText: {
-    color: '#999',
-    fontWeight: '600'
-  },
-
   autoDetectBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#d4f4d4",
-    borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    alignSelf: "center",
-    minWidth: 120,
+    flexDirection: "row", 
+    alignItems: "center", 
+    gap: 6, 
+    backgroundColor: "#e8f5e9",
+    borderRadius: 20, 
+    paddingVertical: 8, 
+    paddingHorizontal: 16, 
+    minWidth: 120, 
+    justifyContent: "center"
   },
-  autoDetectText: {
-    fontSize: 11,
-    fontFamily: "RobotoSerif_500Medium",
-    color: "#2a7a2a",
+  autoDetectText: { 
+    fontSize: 13, 
+    fontFamily: "RobotoSerif_600SemiBold", 
+    color: "#2a7a2a" 
   },
 
   // Note
   noteInput: {
-    borderWidth: 1,
-    borderColor: "#d0c4dc",
-    borderRadius: 14,
-    padding: 12,
-    height: 96,
-    fontSize: 14,
-    color: "#333",
-    lineHeight: 20,
-    backgroundColor: "#fff",
-    textAlignVertical: "top",
-    marginBottom: 28,
+    borderWidth: 1, 
+    borderColor: "#e0e0e0", 
+    borderRadius: 16, 
+    padding: 16, 
+    height: 100,
+    fontSize: 15, 
+    color: "#333", 
+    backgroundColor: "#fff", 
+    textAlignVertical: "top", 
+    marginBottom: 32,
+    fontFamily: "RobotoSerif_400Regular"
+  },
+
+  // Map
+  mapHeader: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    padding: 16, 
+    backgroundColor: '#fff', 
+    borderBottomWidth: 1, 
+    borderBottomColor: '#f0f0f0' 
+  },
+  mapHeaderText: { 
+    fontSize: 18, 
+    fontFamily: "RobotoSerif_700Bold", 
+    color: '#1a1a1a' 
+  },
+  mapHeaderClose: { 
+    position: 'absolute', 
+    right: 16, 
+    padding: 4 
+  },
+  mapCenterPin: { 
+    position: 'absolute', 
+    top: '50%', 
+    left: '50%', 
+    transform: [{ translateX: -22 }, { translateY: -44 }], 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  mapOverlayControls: { 
+    position: 'absolute', 
+    bottom: 40, 
+    left: 24, 
+    right: 24 
+  },
+  mapConfirmBtn: { 
+    backgroundColor: '#1a1a1a', 
+    padding: 18, 
+    borderRadius: 16, 
+    alignItems: 'center', 
+    shadowColor: "#000", 
+    shadowOpacity: 0.1, 
+    shadowRadius: 10, 
+    elevation: 4 
+  },
+  mapConfirmBtnText: { 
+    color: '#fff', 
+    fontFamily: "RobotoSerif_700Bold", 
+    fontSize: 16 
   },
 
   // Button
-  button: {
-    backgroundColor: "#1a1a1a",
-    paddingVertical: 15,
-    borderRadius: 14,
-    alignItems: "center",
+  button: { 
+    backgroundColor: "#9b72cf", 
+    paddingVertical: 16, 
+    borderRadius: 16, 
+    alignItems: "center", 
+    shadowColor: "#9b72cf", 
+    shadowOpacity: 0.3, 
+    shadowRadius: 8, 
+    elevation: 4 
   },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontFamily: "RobotoSerif_600SemiBold",
-    letterSpacing: 0.3,
+  buttonText: { 
+    color: "#fff", 
+    fontSize: 16, 
+    fontFamily: "RobotoSerif_700Bold" 
   },
 });
