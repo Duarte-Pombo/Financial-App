@@ -12,7 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useNavigation } from "@react-navigation/native";
 import { getDb } from "@/database/db";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 
 type ProfileStats = {
   username: string;
@@ -126,6 +126,11 @@ export default function Profile() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+
+      {/* ── Settings Button (Top Right) ── */}
+      <Pressable style={styles.settingsButton} onPress={() => router.push("/settings")}>
+        <Ionicons name="settings-outline" size={26} color="#1a1a1a" />
+      </Pressable>
 
       {/* ── Avatar + name ── */}
       <View style={styles.avatarSection}>
@@ -267,4 +272,17 @@ const styles = StyleSheet.create({
   actionIcon: { width: 38, height: 38, borderRadius: 11, alignItems: "center", justifyContent: "center" },
   actionLabel: { flex: 1, fontSize: 15, fontFamily: "RobotoSerif_500Medium", color: "#333" },
   actionDivider: { height: 1, backgroundColor: "#f5f5f5", marginVertical: 10 },
+  settingsButton: {
+    position: "absolute",
+    top: 50, // Adjust this based on your safe area / header
+    right: 20,
+    zIndex: 10,
+    padding: 8,
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
 });
