@@ -9,6 +9,7 @@ export type Transaction = {
   amount: number;
   currency_code: string;
   merchant_name: string | null;
+  location: string | null;
   note: string | null;
   type: string;
   transacted_at: string;
@@ -30,6 +31,7 @@ export type NewTransaction = {
   emotion_ids?: number[];
   currency_code?: string;
   type?: "debit" | "cash" | "bank transfer" | "credit";
+  transacted_at?: string; 
 };
 
 // Ensures the local placeholder user exists (needed because user_id is a FK)
@@ -49,9 +51,8 @@ export async function insertTransaction(data: NewTransaction): Promise<string> {
   const db = await getDb();
   const id = randomUUID();
   const now = new Date().toISOString();
-
-  // Use merchant_name for the item name, fall back to location if provided
-  const merchantName = data.merchant_name || data.location || null;
+  const transacted_at = data.transacted_at ?? now;
+  const txType = data.type ?? "cash";
 
   await db.withTransactionAsync(async () => {
     // 1. Insert one emotion_log per selected emotion
@@ -62,7 +63,7 @@ export async function insertTransaction(data: NewTransaction): Promise<string> {
       await db.runAsync(
         `INSERT INTO emotion_logs (id, user_id, emotion_id, intensity, source, logged_at, created_at)
          VALUES (?, ?, ?, 5, 'manual', ?, ?)`,
-        [logId, data.user_id, emotion_id, now, now]
+        [logId, data.user_id, emotion_id, transacted_at, now]
       );
       if (!firstLogId) firstLogId = logId;
     }
@@ -70,8 +71,8 @@ export async function insertTransaction(data: NewTransaction): Promise<string> {
     // 2. Insert the transaction
     await db.runAsync(
       `INSERT INTO transactions
-         (id, user_id, category_id, emotion_log_id, amount, currency_code, merchant_name, note, type, transacted_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, user_id, category_id, emotion_log_id, amount, currency_code, merchant_name, location, note, type, transacted_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         data.user_id,
@@ -79,10 +80,11 @@ export async function insertTransaction(data: NewTransaction): Promise<string> {
         firstLogId,
         data.amount,
         data.currency_code ?? "EUR",
-        merchantName,
+        data.merchant_name ?? null, 
+        data.location ?? null,
         data.note ?? null,
-        data.type ?? "cash",
-        now,
+        txType,
+        transacted_at,
         now,
       ]
     );

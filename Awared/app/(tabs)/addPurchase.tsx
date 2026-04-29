@@ -205,7 +205,7 @@ export default function AddPurchase() {
         emotion_ids: selectedEmotionIds,
         currency_code: "EUR",
         type: "cash",
-        created_at: date.toISOString(), 
+        transacted_at: date.toISOString(), 
       });
       router.back();
     } catch (e) {
