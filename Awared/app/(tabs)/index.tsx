@@ -120,7 +120,7 @@ export default function Index() {
               </Pressable>
             ))}
 
-            <Pressable style={styles.viewMoreButton} onPress={() => alert("History coming soon!")}>
+            <Pressable style={styles.viewMoreButton} onPress={() => router.push("/history")}>
               <Text style={styles.viewMoreText}>View History</Text>
             </Pressable>
           </>
