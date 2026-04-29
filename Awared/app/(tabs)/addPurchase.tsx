@@ -253,7 +253,7 @@ export default function AddPurchase() {
           )}
 
           {/* Amount Section */}
-          <Text style={styles.label}>How much was it?</Text>
+          <Text style={[styles.label, { marginBottom: 0 }]}>How much was it?</Text>
           <View style={styles.centeredSection}>
             <View style={styles.amountRow}>
               <TextInput

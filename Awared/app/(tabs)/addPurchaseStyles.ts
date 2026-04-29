@@ -16,9 +16,9 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 20,
+    marginBottom: 16,
     backgroundColor: "#fff",
-    padding: 16,
+    padding: 14,
     borderRadius: 20,
     shadowColor: "#000",
     shadowOpacity: 0.04,
@@ -26,12 +26,12 @@ export const styles = StyleSheet.create({
     elevation: 2,
   },
   headerText: { 
-    fontSize: 16, 
+    fontSize: 15, 
     fontFamily: "RobotoSerif_500Medium", 
     color: "#333" 
   },
   headerTime: { 
-    fontSize: 16, 
+    fontSize: 15, 
     color: "#666", 
     fontFamily: "RobotoSerif_400Regular" 
   },
@@ -46,8 +46,8 @@ export const styles = StyleSheet.create({
   pickerContainer: { 
     backgroundColor: '#fff', 
     borderRadius: 20, 
-    padding: 10, 
-    marginBottom: 20 
+    padding: 6, 
+    marginBottom: 12 
   },
 
   // Shared
@@ -55,12 +55,12 @@ export const styles = StyleSheet.create({
     fontSize: 14, 
     color: "#666", 
     textAlign: "center", 
-    marginBottom: 12, 
+    marginBottom: 6, 
     fontFamily: "RobotoSerif_500Medium" 
   },
   centeredSection: { 
     alignItems: "center", 
-    marginBottom: 32 
+    marginBottom: 16 
   },
 
   // Amount & Item
@@ -80,11 +80,11 @@ export const styles = StyleSheet.create({
     maxWidth: 240,
   },
   currencySymbol: { 
-    fontSize: 28, 
+    fontSize: 26, 
     color: "#888", 
     fontFamily: "RobotoSerif_400Regular", 
     marginLeft: 4, 
-    marginBottom: 8 
+    marginBottom: 6 
   },
   itemInput: {
     fontSize: 24, 
@@ -107,8 +107,8 @@ export const styles = StyleSheet.create({
   emotionGrid: { 
     flexDirection: "row", 
     justifyContent: "center", 
-    gap: 10, 
-    marginBottom: 32 
+    gap: 8, 
+    marginBottom: 16 
   },
   emotionSquare: {
     width: 76, 
@@ -135,7 +135,7 @@ export const styles = StyleSheet.create({
   },
   squareEmoji: { 
     fontSize: 24, 
-    marginBottom: 4 
+    marginBottom: 4
   },
   squareText: { 
     fontSize: 11, 
@@ -195,15 +195,15 @@ export const styles = StyleSheet.create({
     alignItems: "center", 
     borderWidth: 1, 
     borderColor: "#e0e0e0",
-    borderRadius: 16, 
-    paddingHorizontal: 16, 
-    paddingVertical: 12, 
+    borderRadius: 14, 
+    paddingHorizontal: 14, 
+    paddingVertical: 9, 
     backgroundColor: "#fff", 
-    marginBottom: 12,
+    marginBottom: 8,
   },
   locationInput: { 
     flex: 1, 
-    fontSize: 15, 
+    fontSize: 14, 
     color: "#333", 
     fontFamily: "RobotoSerif_400Regular", 
     marginLeft: 10 
@@ -213,7 +213,7 @@ export const styles = StyleSheet.create({
     justifyContent: "center", 
     alignItems: "center", 
     gap: 12, 
-    marginBottom: 32 
+    marginBottom: 16 
   },
   autoDetectBadge: {
     flexDirection: "row", 
@@ -221,13 +221,13 @@ export const styles = StyleSheet.create({
     gap: 6, 
     backgroundColor: "#e8f5e9",
     borderRadius: 20, 
-    paddingVertical: 8, 
-    paddingHorizontal: 16, 
+    paddingVertical: 7, 
+    paddingHorizontal: 14, 
     minWidth: 120, 
     justifyContent: "center"
   },
   autoDetectText: { 
-    fontSize: 13, 
+    fontSize: 12, 
     fontFamily: "RobotoSerif_600SemiBold", 
     color: "#2a7a2a" 
   },
@@ -243,7 +243,7 @@ export const styles = StyleSheet.create({
     color: "#333", 
     backgroundColor: "#fff", 
     textAlignVertical: "top", 
-    marginBottom: 32,
+    marginBottom: 20,
     fontFamily: "RobotoSerif_400Regular"
   },
 
@@ -300,7 +300,7 @@ export const styles = StyleSheet.create({
   // Button
   button: { 
     backgroundColor: "#9b72cf", 
-    paddingVertical: 16, 
+    paddingVertical: 14, 
     borderRadius: 16, 
     alignItems: "center", 
     shadowColor: "#9b72cf", 
