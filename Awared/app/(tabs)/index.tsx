@@ -20,11 +20,11 @@ export default function Index() {
       
       // Explicitly select t.id to ensure the routing gets the transaction ID
       const transactions = await db.getAllAsync(
-        `SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.created_at, e.emoji 
+        `SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.transacted_at, e.emoji 
          FROM transactions as t
          JOIN emotion_logs l ON t.emotion_log_id = l.id
          JOIN emotions e on l.emotion_id = e.id
-         WHERE t.user_id = ? ORDER BY t.created_at DESC LIMIT 3`,
+         WHERE t.user_id = ? ORDER BY t.transacted_at DESC LIMIT 3`,
         [userID]
       );
       setActivity(transactions);
@@ -35,7 +35,7 @@ export default function Index() {
         `SELECT COALESCE(SUM(amount), 0) as total
          FROM transactions
          WHERE user_id = ?
-           AND strftime('%Y-%m', created_at) = ?`, // Assuming created_at is your timestamp column
+           AND strftime('%Y-%m', transacted_at) = ?`, // Assuming transacted_at is your timestamp column
         [userID, yearMonth]
       );
       
@@ -110,7 +110,7 @@ export default function Index() {
                 <View style={styles.transactionDetails}>
                   <Text style={styles.merchantName}>{item.merchant_name || "Unknown Item"}</Text>
                   <Text style={styles.transactionDate}>
-                    {new Date(item.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    {new Date(item.transacted_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </Text>
                 </View>
                 

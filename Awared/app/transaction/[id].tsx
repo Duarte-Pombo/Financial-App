@@ -63,7 +63,7 @@ export default function TransactionDetails() {
     );
   }
 
-  const txDate = new Date(transaction.created_at);
+  const txDate = new Date(transaction.transacted_at);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>

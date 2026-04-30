@@ -17,11 +17,11 @@ export default function History() {
       
       // Select all transactions without the LIMIT 3 constraint
       const transactions = await db.getAllAsync(
-        `SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.created_at, e.emoji 
+        `SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.transacted_at, e.emoji 
          FROM transactions as t
          JOIN emotion_logs l ON t.emotion_log_id = l.id
          JOIN emotions e on l.emotion_id = e.id
-         WHERE t.user_id = ? ORDER BY t.created_at DESC`,
+         WHERE t.user_id = ? ORDER BY t.transacted_at DESC`,
         [userID]
       );
       setHistory(transactions);
@@ -57,7 +57,7 @@ export default function History() {
         <View style={styles.transactionDetails}>
           <Text style={styles.merchantName}>{item.merchant_name || "Unknown Item"}</Text>
           <Text style={styles.transactionDate}>
-            {new Date(item.created_at).toLocaleDateString([], { 
+            {new Date(item.transacted_at).toLocaleDateString([], { 
               year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
             })}
           </Text>
