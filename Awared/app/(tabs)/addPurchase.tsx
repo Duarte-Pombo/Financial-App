@@ -125,7 +125,7 @@ export default function AddPurchase() {
 
   const toggleEmotion = (id: number) => {
     setSelectedEmotionIds((prev) =>
-      prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]
+      prev.includes(id) ? [] : [id]
     );
   };
 
@@ -133,9 +133,7 @@ export default function AddPurchase() {
     if (!visibleEmotionIds.includes(id)) {
       setVisibleEmotionIds((prev) => [id, prev[0], prev[1]]);
     }
-    if (!selectedEmotionIds.includes(id)) {
-      toggleEmotion(id);
-    }
+    setSelectedEmotionIds([id]);
     setShowEmotionOverlay(false);
   };
 
