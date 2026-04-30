@@ -5,11 +5,12 @@ import { View, ActivityIndicator } from "react-native";
 import React from "react";
 import {
   useFonts,
-  RobotoSerif_400Regular,
-  RobotoSerif_500Medium,
-  RobotoSerif_600SemiBold,
-  RobotoSerif_700Bold,
-} from "@expo-google-fonts/roboto-serif";
+  Manrope_400Regular,
+  Manrope_500Medium,
+  Manrope_600SemiBold,
+  Manrope_700Bold,
+  Manrope_800ExtraBold,
+} from "@expo-google-fonts/manrope";
 
 import { getDb } from "../database/db";
 import { seedDatabase } from "../database/seed";
@@ -58,10 +59,11 @@ async function resetDatabase(): Promise<void> {
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
   const [fontsLoaded] = useFonts({
-    RobotoSerif_400Regular,
-    RobotoSerif_500Medium,
-    RobotoSerif_600SemiBold,
-    RobotoSerif_700Bold,
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
   });
 
   useEffect(() => {
@@ -92,15 +94,15 @@ export default function RootLayout() {
 
   if (!ready || !fontsLoaded) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fdf3ff" }}>
-        <ActivityIndicator color="#9b72cf" size="large" />
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f9f9ff" }}>
+        <ActivityIndicator color="#630ed4" size="large" />
       </View>
     );
   }
 
   return (
     <>
-      <StatusBar style="dark" backgroundColor="#fdf3ff" />
+      <StatusBar style="dark" backgroundColor="#f9f9ff" />
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="register" options={{ headerShown: false }} />

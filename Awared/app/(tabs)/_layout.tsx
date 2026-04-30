@@ -1,18 +1,26 @@
 import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { MaterialIcons } from "@expo/vector-icons";
 import { View, StyleSheet, Platform } from "react-native";
 import React from "react";
+import { Text } from "@/components/Text";
+import { colors, fonts, radii, elevation } from "@/constants/theme";
 
-type IconProps = { focused: boolean; name: [string, string]; size?: number };
+type IconProps = {
+  focused: boolean;
+  name: keyof typeof MaterialIcons.glyphMap;
+  label: string;
+  size?: number;
+};
 
-function TabIcon({ focused, name, size = 28 }: IconProps) {
+function TabIcon({ focused, name, label, size = 24 }: IconProps) {
   return (
-    <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-      <Ionicons
-        name={focused ? name[0] : name[1]}
-        color={focused ? "#6b21a8" : "#c4a8e0"}
+    <View style={[styles.itemWrap, focused && styles.itemWrapActive]}>
+      <MaterialIcons
+        name={name}
+        color={focused ? colors.indigoActiveText : colors.navInactive}
         size={size}
       />
+      <Text style={[styles.label, focused && styles.labelActive]}>{label}</Text>
     </View>
   );
 }
@@ -23,44 +31,39 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarActiveTintColor: "#6b21a8",
-        tabBarInactiveTintColor: "#c4a8e0",
         tabBarStyle: {
           position: "absolute",
           bottom: 0,
           left: 0,
           right: 0,
-          height: Platform.OS === "ios" ? 85 : 72,
-          backgroundColor: "#f3e8ff",
-          borderTopWidth: 0,
+          height: Platform.OS === "ios" ? 96 : 78,
+          backgroundColor: "#ffffff",
+          borderTopWidth: 1,
+          borderTopColor: "#eef2ff",
           borderTopLeftRadius: 24,
           borderTopRightRadius: 24,
-          shadowColor: "#9b72cf",
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.12,
-          shadowRadius: 16,
-          elevation: 16,
-          paddingBottom: Platform.OS === "ios" ? 24 : 8,
-          paddingTop: 10,
+          paddingBottom: Platform.OS === "ios" ? 28 : 12,
+          paddingTop: 12,
+          paddingHorizontal: 8,
+          ...elevation.navTop,
         },
         tabBarItemStyle: {
           height: "100%",
+          paddingHorizontal: 4,
         },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} name={["home-sharp", "home-outline"]} />
-          ),
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} name="home" label="Home" />,
         }}
       />
       <Tabs.Screen
         name="calendar"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} name={["calendar", "calendar-outline"]} />
+            <TabIcon focused={focused} name="table-chart" label="Pulse" />
           ),
         }}
       />
@@ -68,7 +71,7 @@ export default function TabsLayout() {
         name="addPurchase"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} name={["add-circle", "add-circle-outline"]} size={32} />
+            <TabIcon focused={focused} name="add-circle" label="Add" size={28} />
           ),
         }}
       />
@@ -76,7 +79,7 @@ export default function TabsLayout() {
         name="insights"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} name={["newspaper", "newspaper-outline"]} />
+            <TabIcon focused={focused} name="insights" label="Insights" />
           ),
         }}
       />
@@ -84,7 +87,7 @@ export default function TabsLayout() {
         name="profile"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} name={["person", "person-outline"]} />
+            <TabIcon focused={focused} name="person" label="Profile" />
           ),
         }}
       />
@@ -93,14 +96,26 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
-  iconWrap: {
-    width: 52,
-    height: 44,
+  itemWrap: {
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: radii.base,
+    minWidth: 64,
   },
-  iconWrapActive: {
-    backgroundColor: "#e0c8f8",
+  itemWrapActive: {
+    backgroundColor: colors.indigoActiveBg,
+  },
+  label: {
+    fontFamily: fonts.semibold,
+    fontSize: 10,
+    color: colors.navInactive,
+    marginTop: 2,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  labelActive: {
+    color: colors.indigoActiveText,
   },
 });

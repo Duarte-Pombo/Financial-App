@@ -1,7 +1,10 @@
 import React, { useState } from "react";
-import { Text, View, StyleSheet, Pressable, TextInput, Alert } from "react-native";
+import { View, StyleSheet, Pressable, TextInput, Alert } from "react-native";
+import { Text } from "@/components/Text";
 import { router } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import { getDb } from "@/database/db";
+import { colors, fonts, radii, spacing, glassCard, elevation } from "@/constants/theme";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -13,19 +16,16 @@ export default function Login() {
       Alert.alert("Error", "Please enter both email/username and password.");
       return;
     }
-
     try {
-      let db = await getDb();
-      let hash = btoa(password); 
-      
+      const db = await getDb();
+      const hash = btoa(password);
       const user = await db.getFirstAsync<{ id: number }>(
         "SELECT id FROM users WHERE (email = ? or username = ?) AND password_hash = ?",
         [email.trim(), email.trim(), hash]
       );
-
       if (user != null) {
         global.userID = user.id;
-        router.replace("/(tabs)"); 
+        router.replace("/(tabs)");
       } else {
         Alert.alert("Login Failed", "Wrong Credentials. Please try again.");
       }
@@ -37,51 +37,62 @@ export default function Login() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.mainContent}>
-        
-        <Text style={styles.pageTitle}>Welcome Back!</Text>
-        
-        <View style={styles.card}>
-          <Text style={styles.inputLabel}>Email or Username</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="e.g. mindful@app.com" 
-            placeholderTextColor="#bbb"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
+      <View style={styles.brandBlock}>
+        <Text style={styles.brand}>Awared</Text>
+        <Text style={styles.tagline}>Steady financial flow, clear mind.</Text>
+      </View>
+
+      <View style={[styles.card, glassCard]}>
+        <Text style={styles.title}>Welcome back</Text>
+
+        <Text style={styles.label}>Email or username</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. mindful@app.com"
+          placeholderTextColor={colors.outline}
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+        />
+
+        <Text style={styles.label}>Password</Text>
+        <View style={styles.pwdRow}>
+          <TextInput
+            style={[styles.input, { flex: 1, marginBottom: 0, borderWidth: 0 }]}
+            placeholder="••••••••"
+            placeholderTextColor={colors.outline}
+            secureTextEntry={!showPassword}
+            value={password}
+            onChangeText={setPassword}
           />
-          
-          <Text style={styles.inputLabel}>Password</Text>
-          <View style={styles.passwordContainer}>
-            <TextInput 
-              style={styles.passwordInput} 
-              placeholder="••••••••" 
-              placeholderTextColor="#bbb"
-              secureTextEntry={!showPassword} 
-              value={password}
-              onChangeText={setPassword} 
-            />
-            <Pressable onPress={() => setShowPassword(!showPassword)}>
-              <Text style={styles.toggleText}>{showPassword ? "Hide" : "Show"}</Text>
-            </Pressable>
-          </View>
-
-          <Pressable onPress={() => Alert.alert("Forgot Password", "Password recovery coming soon.")}>
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-          </Pressable>
-
-          <Pressable style={styles.primaryButton} onPress={attemptLogin}>
-            <Text style={styles.primaryButtonText}>Login</Text>
+          <Pressable onPress={() => setShowPassword((v) => !v)}>
+            <Text style={styles.toggleText}>{showPassword ? "Hide" : "Show"}</Text>
           </Pressable>
         </View>
 
+        <Pressable
+          onPress={() => Alert.alert("Forgot Password", "Coming soon.")}
+          style={{ alignSelf: "flex-end" }}
+        >
+          <Text style={styles.forgot}>Forgot password?</Text>
+        </Pressable>
+
+        <Pressable onPress={attemptLogin} style={{ marginTop: spacing.md }}>
+          <LinearGradient
+            colors={[colors.primary, colors.secondary]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.primaryBtn}
+          >
+            <Text style={styles.primaryBtnText}>Login</Text>
+          </LinearGradient>
+        </Pressable>
       </View>
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>New here?</Text>
-        <Pressable style={styles.secondaryButton} onPress={() => router.push("/register")}>
-          <Text style={styles.secondaryButtonText}>Create an Account</Text>
+        <Pressable onPress={() => router.push("/register")}>
+          <Text style={styles.footerCta}>Create an account</Text>
         </Pressable>
       </View>
     </View>
@@ -89,46 +100,113 @@ export default function Login() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fdf3ff" },
-  mainContent: { flex: 1, justifyContent: "center", paddingHorizontal: 20 },
-  
-  pageTitle: {
-    fontSize: 28, fontFamily: "RobotoSerif_700Bold", color: "#1a1a1a",
-    marginBottom: 24, textAlign: "center"
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.containerMargin,
+    paddingTop: 96,
+    paddingBottom: 48,
+    justifyContent: "space-between",
+  },
+  brandBlock: {
+    alignItems: "center",
+    gap: 8,
+  },
+  brand: {
+    fontFamily: fonts.extrabold,
+    fontSize: 40,
+    color: colors.indigoText,
+    letterSpacing: -1,
+  },
+  tagline: {
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: colors.onSurfaceVariant,
   },
 
   card: {
-    backgroundColor: "#fff", borderRadius: 20, padding: 20,
-    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
   },
-
-  inputLabel: { fontSize: 13, color: "#666", marginBottom: 6, marginLeft: 4, fontFamily: "RobotoSerif_500Medium" },
+  title: {
+    fontFamily: fonts.bold,
+    fontSize: 24,
+    color: colors.onSurface,
+    marginBottom: spacing.lg,
+    letterSpacing: -0.32,
+  },
+  label: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: colors.outline,
+    marginBottom: 6,
+    marginLeft: 4,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
   input: {
-    height: 48, width: "100%", marginBottom: 16, borderWidth: 1,
-    borderColor: "#e0e0e0", borderRadius: 12, padding: 12, backgroundColor: "#fafafa",
-    fontFamily: "RobotoSerif_400Regular"
+    height: 48,
+    width: "100%",
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    borderRadius: radii.base,
+    paddingHorizontal: 14,
+    backgroundColor: colors.surfaceContainerLow,
+    fontFamily: fonts.regular,
+    color: colors.onSurface,
+    fontSize: 16,
   },
-  
-  passwordContainer: {
-    flexDirection: "row", alignItems: "center", width: "100%", marginBottom: 8,
-    borderWidth: 1, borderColor: "#e0e0e0", borderRadius: 12, backgroundColor: "#fafafa", paddingRight: 15
+  pwdRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    borderRadius: radii.base,
+    backgroundColor: colors.surfaceContainerLow,
+    paddingRight: 14,
   },
-  passwordInput: { flex: 1, height: 48, padding: 12, fontFamily: "RobotoSerif_400Regular" },
-  toggleText: { color: "#6b21a8", fontFamily: "RobotoSerif_600SemiBold", fontSize: 13 },
-  
-  forgotPasswordText: { color: "#6b21a8", alignSelf: "flex-end", marginBottom: 24, fontSize: 13, fontFamily: "RobotoSerif_500Medium" },
-  
-  primaryButton: {
-    height: 50, width: "100%", backgroundColor: "#9b72cf", borderRadius: 12,
-    justifyContent: "center", alignItems: "center"
+  toggleText: {
+    color: colors.primary,
+    fontFamily: fonts.semibold,
+    fontSize: 13,
   },
-  primaryButtonText: { color: "white", fontFamily: "RobotoSerif_700Bold", fontSize: 16 },
+  forgot: {
+    color: colors.primary,
+    fontFamily: fonts.medium,
+    fontSize: 13,
+  },
 
-  footer: { paddingBottom: 40, justifyContent: "center", alignItems: "center", gap: 10 },
-  footerText: { color: "#666", fontFamily: "RobotoSerif_400Regular" },
-  secondaryButton: {
-    height: 44, width: "60%", backgroundColor: "#e0c8f8", borderRadius: 12,
-    justifyContent: "center", alignItems: "center"
+  primaryBtn: {
+    height: 52,
+    borderRadius: radii.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    ...elevation.raised,
   },
-  secondaryButtonText: { color: "#6b21a8", fontFamily: "RobotoSerif_600SemiBold", fontSize: 15 },
+  primaryBtnText: {
+    color: colors.onPrimary,
+    fontFamily: fonts.bold,
+    fontSize: 16,
+    letterSpacing: 0.2,
+  },
+
+  footer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+  },
+  footerText: {
+    color: colors.onSurfaceVariant,
+    fontFamily: fonts.regular,
+    fontSize: 14,
+  },
+  footerCta: {
+    color: colors.primary,
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+  },
 });

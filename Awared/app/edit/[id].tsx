@@ -1,8 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, TextInput, Alert, KeyboardAvoidingView, Platform } from "react-native";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  Pressable,
+  TextInput,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import { Text } from "@/components/Text";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import Ionicons from '@expo/vector-icons/Ionicons';
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { getDb } from "@/database/db";
+import { colors, fonts, radii, spacing, elevation } from "@/constants/theme";
 
 export default function EditTransaction() {
   const { id } = useLocalSearchParams();
@@ -27,12 +39,10 @@ export default function EditTransaction() {
     async function fetchTransactionData() {
       try {
         const db = await getDb();
-        
-        // 1. Fetch all available emotions for the picker
+
         const emotions = await db.getAllAsync(`SELECT * FROM emotions`);
         setAvailableEmotions(emotions);
 
-        // 2. Fetch the transaction details
         const tx = await db.getFirstAsync<any>(
           `SELECT * FROM transactions WHERE id = ?`,
           [id]
@@ -46,7 +56,6 @@ export default function EditTransaction() {
           setCurrency(tx.currency_code || "EUR");
           setEmotionLogId(tx.emotion_log_id);
 
-          // 3. If the transaction has an emotion log, fetch its current emotion
           if (tx.emotion_log_id) {
             const log = await db.getFirstAsync<any>(
               `SELECT emotion_id FROM emotion_logs WHERE id = ?`,
@@ -67,7 +76,7 @@ export default function EditTransaction() {
   }, [id]);
 
   const handleSave = async () => {
-    const parsedAmount = parseFloat(amount.replace(',', '.'));
+    const parsedAmount = parseFloat(amount.replace(",", "."));
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       Alert.alert("Invalid Amount", "Please enter a valid number greater than 0.");
       return;
@@ -76,25 +85,21 @@ export default function EditTransaction() {
     setIsSaving(true);
     try {
       const db = await getDb();
-      
-      // 1. Update the main transaction details
+
       await db.runAsync(
-        `UPDATE transactions 
-         SET amount = ?, merchant_name = ?, location = ?, note = ? 
+        `UPDATE transactions
+         SET amount = ?, merchant_name = ?, location = ?, note = ?
          WHERE id = ?`,
         [parsedAmount, merchant, location, note, id]
       );
 
-      // 2. Update the emotion log if an emotion is selected
       if (selectedEmotionId) {
         if (emotionLogId) {
-          // Update existing log
           await db.runAsync(
             `UPDATE emotion_logs SET emotion_id = ? WHERE id = ?`,
             [selectedEmotionId, emotionLogId]
           );
         } else {
-          // Edge case: if it didn't have an emotion log before, create one and link it
           const result = await db.runAsync(
             `INSERT INTO emotion_logs (emotion_id) VALUES (?)`,
             [selectedEmotionId]
@@ -118,30 +123,28 @@ export default function EditTransaction() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#9b72cf" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        
         {/* Header */}
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.iconButton} disabled={isSaving}>
-            <Ionicons name="close" size={24} color="#1a1a1a" />
+            <Ionicons name="close" size={20} color={colors.onSurface} />
           </Pressable>
-          <Text style={styles.headerTitle}>Edit Expense</Text>
+          <Text style={styles.headerTitle}>Edit expense</Text>
           <View style={{ width: 40 }} />
         </View>
 
         {/* Form */}
         <View style={styles.card}>
-          
           {/* Amount Field */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Amount ({currency === "EUR" ? "€" : currency})</Text>
@@ -153,7 +156,7 @@ export default function EditTransaction() {
                 onChangeText={setAmount}
                 keyboardType="numeric"
                 placeholder="0.00"
-                placeholderTextColor="#ccc"
+                placeholderTextColor={colors.outlineVariant}
               />
             </View>
           </View>
@@ -166,7 +169,7 @@ export default function EditTransaction() {
               value={merchant}
               onChangeText={setMerchant}
               placeholder="Where did you spend?"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={colors.outline}
             />
           </View>
 
@@ -178,16 +181,16 @@ export default function EditTransaction() {
               value={location}
               onChangeText={setLocation}
               placeholder="City, Store branch, etc."
-              placeholderTextColor="#aaa"
+              placeholderTextColor={colors.outline}
             />
           </View>
 
           {/* Emotion Picker */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>How did this make you feel?</Text>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.emotionScroll}
             >
               {availableEmotions.map((emo) => {
@@ -198,7 +201,7 @@ export default function EditTransaction() {
                     style={[
                       styles.emotionPill,
                       isSelected && styles.emotionPillSelected,
-                      isSelected && { backgroundColor: emo.color_hex || "#e0c8f8" }
+                      isSelected && { backgroundColor: emo.color_hex || colors.surfaceContainerHighest },
                     ]}
                     onPress={() => setSelectedEmotionId(emo.id)}
                   >
@@ -220,31 +223,29 @@ export default function EditTransaction() {
               value={note}
               onChangeText={setNote}
               placeholder="Add any extra details here..."
-              placeholderTextColor="#aaa"
+              placeholderTextColor={colors.outline}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
             />
           </View>
-
         </View>
 
         {/* Save Button */}
-        <Pressable 
-          style={[styles.saveButton, isSaving && { opacity: 0.7 }]} 
+        <Pressable
+          style={[styles.saveButton, isSaving && { opacity: 0.7 }]}
           onPress={handleSave}
           disabled={isSaving}
         >
           {isSaving ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={colors.onPrimary} />
           ) : (
             <>
-              <Ionicons name="checkmark" size={20} color="#fff" />
-              <Text style={styles.saveButtonText}>Save Changes</Text>
+              <Ionicons name="checkmark" size={18} color={colors.onPrimary} />
+              <Text style={styles.saveButtonText}>Save changes</Text>
             </>
           )}
         </Pressable>
-
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -253,96 +254,93 @@ export default function EditTransaction() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fdf3ff",
+    backgroundColor: colors.background,
   },
   centered: {
     justifyContent: "center",
     alignItems: "center",
   },
   scrollContent: {
-    padding: 20,
+    padding: spacing.gutter,
     paddingTop: 60,
     paddingBottom: 40,
   },
-  
-  // Header
+
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 30,
+    marginBottom: spacing.lg,
   },
   iconButton: {
-    padding: 8,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 5, elevation: 2,
+    width: 40, height: 40,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
   },
   headerTitle: {
-    fontSize: 18,
-    fontFamily: "RobotoSerif_700Bold",
-    color: "#1a1a1a",
+    fontSize: 17,
+    fontFamily: fonts.bold,
+    color: colors.onSurface,
+    letterSpacing: -0.3,
   },
 
-  // Form Card
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 30,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 3,
+    backgroundColor: colors.surface,
+    borderRadius: radii.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    ...elevation.card,
   },
   inputGroup: {
-    marginBottom: 20,
-    paddingBottom: 20,
+    marginBottom: spacing.lg,
+    paddingBottom: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderBottomColor: colors.surfaceContainer,
   },
   label: {
-    fontSize: 13,
-    fontFamily: "RobotoSerif_500Medium",
-    color: "#888",
+    fontSize: 11,
+    fontFamily: fonts.medium,
+    color: colors.outline,
     marginBottom: 12,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
 
-  // Amount specific
   amountContainer: {
     flexDirection: "row",
     alignItems: "center",
   },
   currencySymbol: {
-    fontSize: 32,
-    color: "#1a1a1a",
-    fontFamily: "RobotoSerif_700Bold",
+    fontSize: 30,
+    color: colors.outline,
+    fontFamily: fonts.medium,
     marginRight: 8,
   },
   amountInput: {
     flex: 1,
-    fontSize: 40,
-    color: "#9b72cf",
-    fontFamily: "RobotoSerif_700Bold",
-    padding: 0, 
+    fontSize: 38,
+    color: colors.primary,
+    fontFamily: fonts.bold,
+    letterSpacing: -1,
+    padding: 0,
   },
 
-  // Text Inputs
   textInput: {
-    fontSize: 16,
-    fontFamily: "RobotoSerif_400Regular",
-    color: "#333",
-    backgroundColor: "#fdf3ff",
+    fontSize: 15,
+    fontFamily: fonts.regular,
+    color: colors.onSurface,
+    backgroundColor: colors.surfaceContainerLow,
     padding: 14,
-    borderRadius: 12,
+    borderRadius: radii.lg,
   },
   textArea: {
     minHeight: 100,
   },
 
-  // --- Emotion Styles ---
   emotionScroll: {
     gap: 12,
     paddingRight: 20,
@@ -350,52 +348,45 @@ const styles = StyleSheet.create({
   emotionPill: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fdf3ff",
+    backgroundColor: colors.surfaceContainerLow,
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 24,
+    borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: "#f0f0f0",
+    borderColor: colors.outlineVariant,
   },
   emotionPillSelected: {
-    borderColor: "transparent",
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 2,
+    borderColor: colors.primary,
+    ...elevation.card,
   },
   emotionEmoji: {
-    fontSize: 20,
+    fontSize: 18,
     marginRight: 8,
   },
   emotionName: {
-    fontSize: 14,
-    fontFamily: "RobotoSerif_500Medium",
-    color: "#666",
+    fontSize: 13,
+    fontFamily: fonts.medium,
+    color: colors.onSurfaceVariant,
   },
   emotionNameSelected: {
-    color: "#1a1a1a",
-    fontFamily: "RobotoSerif_700Bold",
+    color: colors.onSurface,
+    fontFamily: fonts.bold,
   },
 
-  // Save Button
   saveButton: {
     flexDirection: "row",
-    backgroundColor: "#9b72cf",
+    backgroundColor: colors.primary,
     paddingVertical: 16,
-    borderRadius: 16,
+    borderRadius: radii.xl,
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    shadowColor: "#9b72cf",
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    ...elevation.raised,
   },
   saveButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontFamily: "RobotoSerif_700Bold",
+    color: colors.onPrimary,
+    fontSize: 15,
+    fontFamily: fonts.bold,
+    letterSpacing: 0.2,
   },
 });

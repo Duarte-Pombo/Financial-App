@@ -1,15 +1,18 @@
 import React, { useState, useCallback } from "react";
-import { Text, View, StyleSheet, Pressable, ScrollView, ActivityIndicator } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router"; 
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { View, StyleSheet, Pressable, ScrollView, ActivityIndicator } from "react-native";
+import { Text } from "@/components/Text";
+import { useFocusEffect, useRouter } from "expo-router";
+import { MaterialIcons } from "@expo/vector-icons";
 import { getDb } from "@/database/db";
-
-const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+import { TopAppBar, TOP_APP_BAR_HEIGHT } from "@/components/TopAppBar";
+import { colors, fonts, radii, spacing, glassCard } from "@/constants/theme";
 
 export default function Index() {
-  const router = useRouter(); 
+  const router = useRouter();
   const [activity, setActivity] = useState<any[] | null>(null);
   const [monthlySpent, setMonthlySpent] = useState<number>(0);
+  const [username, setUsername] = useState<string>("?");
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const getActivity = useCallback(async () => {
@@ -17,10 +20,10 @@ export default function Index() {
     try {
       const db = await getDb();
       const userID = global.userID;
-      
+
       // FIX 1: Added t.type to the SELECT statement so we know if it's refunded
       const transactions = await db.getAllAsync(
-        `SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.transacted_at, t.type, e.emoji 
+        `SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.transacted_at, t.type, e.emoji, e.name as emotion_name
          FROM transactions as t
          JOIN emotion_logs l ON t.emotion_log_id = l.id
          JOIN emotions e on l.emotion_id = e.id
@@ -31,18 +34,27 @@ export default function Index() {
 
       const now = new Date();
       const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-      
-      // FIX 2: Added "AND type != 'refunded'" so refunded money drops from the total spent!
+
+      // FIX 2: refunded money drops from the total spent
       const row = await db.getFirstAsync<{ total: number }>(
         `SELECT COALESCE(SUM(amount), 0) as total
          FROM transactions
          WHERE user_id = ?
            AND strftime('%Y-%m', transacted_at) = ?
-           AND type != 'refunded'`, 
+           AND type != 'refunded'`,
         [userID, yearMonth]
       );
-      
+
       setMonthlySpent(row?.total ?? 0);
+
+      const user = await db.getFirstAsync<{ username: string; avatar_url: string | null }>(
+        "SELECT username, avatar_url FROM users WHERE id = ?",
+        [userID]
+      );
+      if (user) {
+        setUsername(user.username);
+        setAvatarUri(user.avatar_url ?? null);
+      }
     } catch (error) {
       console.error("Failed to fetch activity:", error);
     } finally {
@@ -56,194 +68,301 @@ export default function Index() {
     }, [getActivity])
   );
 
+  const todayEmotion = activity && activity.length > 0 ? activity[0] : null;
+
   if (isLoading && !activity) {
     return (
       <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
-        <ActivityIndicator size="large" color="#9b72cf" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      
-      {/* ── Budget Hero Card ── */}
-      <View style={styles.heroCard}>
-        <Text style={styles.heroSubtitle}>You have spent</Text>
-        <Text style={styles.heroAmount}>€{monthlySpent.toFixed(2)}</Text>
-        <Text style={styles.heroSubtitleBottom}>This Month</Text>
-      </View>
+    <View style={styles.container}>
+      <TopAppBar
+        avatarUri={avatarUri}
+        initials={username.slice(0, 2)}
+        onAvatarPress={() => router.push("/(tabs)/profile")}
+      />
 
-      {/* ── Emotion of the Day ── */}
-      {activity && activity.length > 0 && (
-        <View style={styles.emotionPill}>
-          <Text style={styles.emotionText}>
-            Emotion of the day: <Text style={{ fontSize: 20 }}>{activity[0].emoji}</Text>
-          </Text>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent}>
+        {/* ── This Month card (full-width) ── */}
+        <View style={[styles.fullCard, glassCard]}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardEyebrow}>THIS MONTH</Text>
+            <MaterialIcons name="account-balance-wallet" size={22} color={colors.primary} />
+          </View>
+          <Text style={styles.bigAmount}>€ {monthlySpent.toFixed(2).replace(".", ",")}</Text>
+          <View style={styles.deltaRow}>
+            <MaterialIcons name="trending-up" size={14} color={colors.secondaryContainer} />
+            <Text style={styles.deltaText}>+2.4% vs last month</Text>
+          </View>
         </View>
-      )}
 
-      {/* ── Recent Activity Section ── */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Recent Activity</Text>
-      </View>
+        {/* ── Emotion of the Day card (full-width) ── */}
+        <View style={[styles.fullCard, glassCard, { overflow: "hidden" }]}>
+          <View style={styles.decorativeBlob} />
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardEyebrow}>EMOTION OF THE DAY</Text>
+            <MaterialIcons name="self-improvement" size={22} color={colors.tertiary} />
+          </View>
+          <View style={styles.emotionRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.emotionTitle}>{todayEmotion?.emotion_name ?? "Balanced"}</Text>
+              <Text style={styles.emotionSub}>Steady financial flow, clear mind.</Text>
+            </View>
+            <View style={styles.emotionEmojiCircle}>
+              <Text style={{ fontSize: 32 }}>{todayEmotion?.emoji ?? "💧"}</Text>
+            </View>
+          </View>
+        </View>
 
-      <View style={styles.card}>
+        {/* ── Recent Activity Section ── */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Recent Activity</Text>
+          <Pressable onPress={() => router.push("/history")}>
+            <Text style={styles.viewAll}>View All</Text>
+          </Pressable>
+        </View>
+
         {activity && activity.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="receipt-outline" size={40} color="#ccc" style={{ marginBottom: 10 }} />
-            <Text style={styles.emptyStateText}>No transactions registered yet!</Text>
+          <View style={[styles.emptyCard, glassCard]}>
+            <MaterialIcons name="receipt-long" size={36} color={colors.outlineVariant} />
+            <Text style={styles.emptyText}>No transactions yet</Text>
           </View>
         ) : (
-          <>
-            {activity?.map((item, index) => {
-              const isRefunded = item.type === "refunded"; // Check if refunded
-              
+          <View style={{ gap: spacing.sm }}>
+            {activity?.map((item) => {
+              const isRefunded = item.type === "refunded";
               return (
-                <Pressable 
-                  key={item.id} 
+                <Pressable
+                  key={item.id}
                   style={({ pressed }) => [
-                    styles.transactionRow, 
-                    index === activity.length - 1 && { borderBottomWidth: 0 },
-                    pressed && { opacity: 0.6 }
+                    styles.activityItem,
+                    glassCard,
+                    pressed && { opacity: 0.7 },
                   ]}
                   onPress={() => router.push(`/transaction/${item.id}`)}
                 >
-                  <View style={[styles.emojiCircle, isRefunded && { backgroundColor: "#f0f0f0" }]}>
-                    <Text style={[styles.emojiSize, isRefunded && { opacity: 0.5 }]}>{item.emoji}</Text>
-                  </View>
-                  
-                  <View style={styles.transactionDetails}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={[styles.merchantName, isRefunded && styles.strikethrough]}>
+                  <View style={styles.activityLeft}>
+                    <View
+                      style={[
+                        styles.iconBubble,
+                        isRefunded && { backgroundColor: colors.surfaceContainerHigh },
+                      ]}
+                    >
+                      <Text style={{ fontSize: 22, opacity: isRefunded ? 0.5 : 1 }}>
+                        {item.emoji}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[styles.merchantName, isRefunded && styles.strikethrough]}
+                        numberOfLines={1}
+                      >
                         {item.merchant_name || "Unknown Item"}
                       </Text>
-                      {isRefunded && (
-                        <View style={styles.refundBadgeMini}>
-                          <Text style={styles.refundBadgeTextMini}>REFUND</Text>
+                      <View style={styles.metaRow}>
+                        <View style={styles.categoryChip}>
+                          <Text style={styles.categoryChipText}>
+                            {item.emotion_name ?? "Logged"}
+                          </Text>
                         </View>
-                      )}
+                        {isRefunded && (
+                          <View
+                            style={[styles.categoryChip, { backgroundColor: colors.errorContainer }]}
+                          >
+                            <Text style={[styles.categoryChipText, { color: colors.error }]}>
+                              REFUND
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
-                    <Text style={styles.transactionDate}>
-                      {new Date(item.transacted_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </Text>
                   </View>
-                  
-                  <Text style={[styles.transactionAmount, isRefunded && styles.strikethroughAmount]}>
-                    {item.amount} {item.currency_code === "EUR" ? "€" : item.currency_code}
+                  <Text style={[styles.amount, isRefunded && styles.strikethrough]}>
+                    -€{item.amount.toFixed(2)}
                   </Text>
                 </Pressable>
               );
             })}
-
-            <Pressable style={styles.viewMoreButton} onPress={() => router.push("/history")}>
-              <Text style={styles.viewMoreText}>View History</Text>
-            </Pressable>
-          </>
+          </View>
         )}
-      </View>
 
-    </ScrollView>
+        <View style={{ height: 110 }} />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fdf3ff" },
-  scrollContent: { padding: 20, paddingTop: 60, paddingBottom: 40 },
-
-  heroCard: {
-    backgroundColor: "#9b72cf",
-    borderRadius: 24,
-    padding: 30,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#9b72cf",
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
-    marginBottom: 20,
-  },
-  heroSubtitle: { color: "#f3e8ff", fontSize: 16, fontFamily: "RobotoSerif_500Medium", marginBottom: 8 },
-  heroAmount: { color: "#ffffff", fontSize: 48, fontFamily: "RobotoSerif_700Bold", marginVertical: 4 },
-  heroSubtitleBottom: { color: "#e0c8f8", fontSize: 16, fontFamily: "RobotoSerif_500Medium", marginTop: 8 },
-
-  emotionPill: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    alignSelf: "center",
-    marginBottom: 30,
-    shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
-    borderWidth: 1, borderColor: "#f3e8ff"
-  },
-  emotionText: { color: "#444", fontSize: 15, fontFamily: "RobotoSerif_600SemiBold", alignItems: "center" },
-
-  sectionHeader: { marginBottom: 12, paddingLeft: 4 },
-  sectionTitle: { fontSize: 20, fontFamily: "RobotoSerif_700Bold", color: "#1a1a1a" },
-
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 16,
-    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
+  container: { flex: 1, backgroundColor: colors.background },
+  scrollContent: {
+    paddingTop: TOP_APP_BAR_HEIGHT + spacing.md,
+    paddingHorizontal: spacing.containerMargin,
+    paddingBottom: 40,
   },
 
-  emptyState: { alignItems: "center", paddingVertical: 30 },
-  emptyStateText: { color: "#888", fontFamily: "RobotoSerif_400Regular", fontSize: 15 },
-
-  transactionRow: {
+  // Full-width stacked card (matches Stitch home layout)
+  fullCard: {
+    borderRadius: radii.base,
+    padding: spacing.md,
+    marginBottom: spacing.gutter,
+    overflow: "hidden",
+  },
+  cardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    justifyContent: "space-between",
+    marginBottom: spacing.sm,
   },
-  emojiCircle: {
-    width: 46, height: 46,
-    borderRadius: 23,
-    backgroundColor: "#fdf3ff",
-    alignItems: "center", justifyContent: "center",
-    marginRight: 14,
+  cardEyebrow: {
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    letterSpacing: 1.6,
   },
-  emojiSize: { fontSize: 22 },
-  
-  transactionDetails: { flex: 1, justifyContent: "center" },
-  merchantName: { fontSize: 16, fontFamily: "RobotoSerif_600SemiBold", color: "#333", marginBottom: 4 },
-  transactionDate: { fontSize: 12, fontFamily: "RobotoSerif_400Regular", color: "#888" },
-  
-  transactionAmount: { fontSize: 16, fontFamily: "RobotoSerif_700Bold", color: "#1a1a1a" },
+  bigAmount: {
+    fontFamily: fonts.extrabold,
+    fontSize: 44,
+    color: colors.onSurface,
+    letterSpacing: -1.2,
+    lineHeight: 52,
+    marginTop: 6,
+  },
+  deltaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: spacing.sm,
+  },
+  deltaText: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: colors.secondaryContainer,
+  },
 
-  // --- New Refund Styles ---
-  strikethrough: {
-    textDecorationLine: 'line-through',
-    color: "#aaa",
+  decorativeBlob: {
+    position: "absolute",
+    right: -40,
+    bottom: -40,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: colors.tertiaryFixedDim,
+    opacity: 0.25,
   },
-  strikethroughAmount: {
-    textDecorationLine: 'line-through',
-    color: "#aaa",
-    fontFamily: "RobotoSerif_500Medium",
+  emotionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 4,
   },
-  refundBadgeMini: {
-    backgroundColor: "#e0f2f1",
-    paddingHorizontal: 6,
+  emotionTitle: {
+    fontFamily: fonts.extrabold,
+    fontSize: 36,
+    color: colors.tertiaryContainer,
+    letterSpacing: -0.8,
+    lineHeight: 42,
+  },
+  emotionSub: {
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: colors.onSurfaceVariant,
+    marginTop: 6,
+    maxWidth: 200,
+  },
+  emotionEmojiCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.tertiaryFixed,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.md,
+  },
+  sectionTitle: {
+    fontFamily: fonts.semibold,
+    fontSize: 20,
+    color: colors.onSurface,
+  },
+  viewAll: {
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+    color: colors.primary,
+    letterSpacing: 0.14,
+  },
+
+  activityItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderRadius: radii.base,
+    padding: spacing.sm,
+    paddingRight: spacing.md,
+  },
+  activityLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    flex: 1,
+  },
+  iconBubble: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primaryFixed,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  merchantName: {
+    fontFamily: fonts.semibold,
+    fontSize: 16,
+    color: colors.onSurface,
+    marginBottom: 4,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  categoryChip: {
+    paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 6,
-    marginLeft: 8,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surfaceVariant,
   },
-  refundBadgeTextMini: {
-    color: "#00796b",
-    fontSize: 10,
-    fontFamily: "RobotoSerif_700Bold",
+  categoryChipText: {
+    fontFamily: fonts.medium,
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+  },
+  amount: {
+    fontFamily: fonts.semibold,
+    fontSize: 18,
+    color: colors.onSurface,
+  },
+  strikethrough: {
+    textDecorationLine: "line-through",
+    color: colors.outline,
   },
 
-  viewMoreButton: {
-    height: 44, width: "100%",
-    backgroundColor: "#e0c8f8",
-    borderRadius: 12,
-    justifyContent: "center", alignItems: "center",
-    marginTop: 16,
+  emptyCard: {
+    borderRadius: radii.base,
+    padding: spacing.lg,
+    alignItems: "center",
+    gap: spacing.sm,
   },
-  viewMoreText: { color: "#6b21a8", fontFamily: "RobotoSerif_600SemiBold", fontSize: 15 },
+  emptyText: {
+    fontFamily: fonts.medium,
+    fontSize: 14,
+    color: colors.onSurfaceVariant,
+  },
 });

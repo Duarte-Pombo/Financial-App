@@ -1,7 +1,10 @@
 import React, { useState } from "react";
-import { Text, View, StyleSheet, Pressable, TextInput, Alert, ScrollView } from "react-native";
+import { View, StyleSheet, Pressable, TextInput, Alert, ScrollView } from "react-native";
+import { Text } from "@/components/Text";
 import { router } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import { getDb } from "@/database/db";
+import { colors, fonts, radii, spacing, glassCard, elevation } from "@/constants/theme";
 
 export default function Register() {
   const [email, setEmail] = useState("");
@@ -11,14 +14,11 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
 
   const validatePassword = (pass: string) => {
-    const minLength = 8;
-    const hasNumber = /\d/;
-    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/;
-
-    if (pass.length < minLength) return "Password must be at least 8 characters long.";
-    if (!hasNumber.test(pass)) return "Password must contain at least one number.";
-    if (!hasSpecialChar.test(pass)) return "Password must contain at least one special character.";
-    return null; 
+    if (pass.length < 8) return "Password must be at least 8 characters long.";
+    if (!/\d/.test(pass)) return "Password must contain at least one number.";
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(pass))
+      return "Password must contain at least one special character.";
+    return null;
   };
 
   async function registerNewUser() {
@@ -26,33 +26,27 @@ export default function Register() {
       Alert.alert("Error", "Please fill in all fields.");
       return;
     }
-
     if (password !== passwordConfirm) {
       Alert.alert("Error", "Passwords don't match!");
       return;
     }
-
     const passwordError = validatePassword(password);
     if (passwordError) {
       Alert.alert("Weak Password", passwordError);
       return;
     }
-
     try {
-      let db = await getDb();
-      let hash = btoa(password);
-      
-      let insert = await db.runAsync(
+      const db = await getDb();
+      const hash = btoa(password);
+      const insert = await db.runAsync(
         "INSERT INTO users (email, username, password_hash) VALUES (?, ?, ?)",
         [email.trim(), username.trim(), hash]
       );
-      
       global.userID = insert.lastInsertRowId;
-      
       router.replace("/(tabs)");
     } catch (error: any) {
       console.error(error);
-      if (error.message.includes("UNIQUE constraint failed")) {
+      if (error.message?.includes("UNIQUE constraint failed")) {
         Alert.alert("Error", "Email or Username already exists.");
       } else {
         Alert.alert("Registration Failed", "Something went wrong.");
@@ -62,68 +56,76 @@ export default function Register() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      <View style={styles.mainContent}>
-        
-        <Text style={styles.pageTitle}>Welcome to Awared!</Text>
-        
-        <View style={styles.card}>
-          <Text style={styles.inputLabel}>Email</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="mindful@app.com" 
-            placeholderTextColor="#bbb"
-            value={email} 
-            onChangeText={setEmail} 
-            autoCapitalize="none" 
-            keyboardType="email-address" 
-          />
-          
-          <Text style={styles.inputLabel}>Username</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="Your handle" 
-            placeholderTextColor="#bbb"
-            value={username} 
-            onChangeText={setUsername} 
-            autoCapitalize="none" 
-          />
-          
-          <Text style={styles.inputLabel}>Password</Text>
-          <View style={styles.passwordContainer}>
-            <TextInput 
-              style={styles.passwordInput} 
-              placeholder="••••••••" 
-              placeholderTextColor="#bbb"
-              secureTextEntry={!showPassword} 
-              value={password}
-              onChangeText={setPassword} 
-            />
-            <Pressable onPress={() => setShowPassword(!showPassword)}>
-              <Text style={styles.toggleText}>{showPassword ? "Hide" : "Show"}</Text>
-            </Pressable>
-          </View>
+      <View style={styles.brandBlock}>
+        <Text style={styles.brand}>Awared</Text>
+        <Text style={styles.tagline}>Mindful spending starts here.</Text>
+      </View>
 
-          <Text style={styles.inputLabel}>Confirm Password</Text>
-          <TextInput 
-            style={styles.input} 
-            secureTextEntry={!showPassword} 
-            placeholder="••••••••" 
-            placeholderTextColor="#bbb"
-            value={passwordConfirm}
-            onChangeText={setPasswordConfirm} 
-          />
+      <View style={[styles.card, glassCard]}>
+        <Text style={styles.title}>Create your account</Text>
 
-          <Pressable style={styles.primaryButton} onPress={registerNewUser}>
-            <Text style={styles.primaryButtonText}>Register</Text>
+        <Text style={styles.label}>Email</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="mindful@app.com"
+          placeholderTextColor={colors.outline}
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
+
+        <Text style={styles.label}>Username</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Your handle"
+          placeholderTextColor={colors.outline}
+          value={username}
+          onChangeText={setUsername}
+          autoCapitalize="none"
+        />
+
+        <Text style={styles.label}>Password</Text>
+        <View style={styles.pwdRow}>
+          <TextInput
+            style={[styles.input, { flex: 1, marginBottom: 0, borderWidth: 0 }]}
+            placeholder="••••••••"
+            placeholderTextColor={colors.outline}
+            secureTextEntry={!showPassword}
+            value={password}
+            onChangeText={setPassword}
+          />
+          <Pressable onPress={() => setShowPassword((v) => !v)}>
+            <Text style={styles.toggleText}>{showPassword ? "Hide" : "Show"}</Text>
           </Pressable>
         </View>
 
+        <Text style={styles.label}>Confirm password</Text>
+        <TextInput
+          style={styles.input}
+          secureTextEntry={!showPassword}
+          placeholder="••••••••"
+          placeholderTextColor={colors.outline}
+          value={passwordConfirm}
+          onChangeText={setPasswordConfirm}
+        />
+
+        <Pressable onPress={registerNewUser} style={{ marginTop: spacing.sm }}>
+          <LinearGradient
+            colors={[colors.primary, colors.secondary]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.primaryBtn}
+          >
+            <Text style={styles.primaryBtnText}>Create account</Text>
+          </LinearGradient>
+        </Pressable>
       </View>
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>Already have an account?</Text>
-        <Pressable style={styles.secondaryButton} onPress={() => router.push("/")}>
-          <Text style={styles.secondaryButtonText}>Login here</Text>
+        <Pressable onPress={() => router.push("/")}>
+          <Text style={styles.footerCta}>Login here</Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -131,45 +133,100 @@ export default function Register() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fdf3ff" },
-  scrollContent: { flexGrow: 1 },
-  mainContent: { flex: 1, justifyContent: "center", paddingHorizontal: 20, paddingTop: 40 },
-  
-  pageTitle: {
-    fontSize: 28, fontFamily: "RobotoSerif_700Bold", color: "#1a1a1a",
-    marginBottom: 24, textAlign: "center"
+  container: { flex: 1, backgroundColor: colors.background },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.containerMargin,
+    paddingTop: 64,
+    paddingBottom: 48,
+    gap: spacing.lg,
   },
-
+  brandBlock: { alignItems: "center", gap: 8 },
+  brand: {
+    fontFamily: fonts.extrabold,
+    fontSize: 36,
+    color: colors.indigoText,
+    letterSpacing: -1,
+  },
+  tagline: {
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: colors.onSurfaceVariant,
+  },
   card: {
-    backgroundColor: "#fff", borderRadius: 20, padding: 20,
-    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
   },
-
-  inputLabel: { fontSize: 13, color: "#666", marginBottom: 6, marginLeft: 4, fontFamily: "RobotoSerif_500Medium" },
+  title: {
+    fontFamily: fonts.bold,
+    fontSize: 22,
+    color: colors.onSurface,
+    marginBottom: spacing.lg,
+    letterSpacing: -0.32,
+  },
+  label: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: colors.outline,
+    marginBottom: 6,
+    marginLeft: 4,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
   input: {
-    height: 48, width: "100%", marginBottom: 16, borderWidth: 1,
-    borderColor: "#e0e0e0", borderRadius: 12, padding: 12, backgroundColor: "#fafafa",
-    fontFamily: "RobotoSerif_400Regular"
+    height: 48,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    borderRadius: radii.base,
+    paddingHorizontal: 14,
+    backgroundColor: colors.surfaceContainerLow,
+    fontFamily: fonts.regular,
+    color: colors.onSurface,
+    fontSize: 16,
   },
-  
-  passwordContainer: {
-    flexDirection: "row", alignItems: "center", width: "100%", marginBottom: 16,
-    borderWidth: 1, borderColor: "#e0e0e0", borderRadius: 12, backgroundColor: "#fafafa", paddingRight: 15
+  pwdRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    borderRadius: radii.base,
+    backgroundColor: colors.surfaceContainerLow,
+    paddingRight: 14,
   },
-  passwordInput: { flex: 1, height: 48, padding: 12, fontFamily: "RobotoSerif_400Regular" },
-  toggleText: { color: "#6b21a8", fontFamily: "RobotoSerif_600SemiBold", fontSize: 13 },
-  
-  primaryButton: {
-    height: 50, width: "100%", backgroundColor: "#9b72cf", borderRadius: 12,
-    justifyContent: "center", alignItems: "center", marginTop: 10
+  toggleText: {
+    color: colors.primary,
+    fontFamily: fonts.semibold,
+    fontSize: 13,
   },
-  primaryButtonText: { color: "white", fontFamily: "RobotoSerif_700Bold", fontSize: 16 },
-
-  footer: { paddingVertical: 40, justifyContent: "center", alignItems: "center", gap: 10 },
-  footerText: { color: "#666", fontFamily: "RobotoSerif_400Regular" },
-  secondaryButton: {
-    height: 44, width: "60%", backgroundColor: "#e0c8f8", borderRadius: 12,
-    justifyContent: "center", alignItems: "center"
+  primaryBtn: {
+    height: 52,
+    borderRadius: radii.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    ...elevation.raised,
   },
-  secondaryButtonText: { color: "#6b21a8", fontFamily: "RobotoSerif_600SemiBold", fontSize: 15 },
+  primaryBtnText: {
+    color: colors.onPrimary,
+    fontFamily: fonts.bold,
+    fontSize: 16,
+    letterSpacing: 0.2,
+  },
+  footer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+  },
+  footerText: {
+    color: colors.onSurfaceVariant,
+    fontFamily: fonts.regular,
+    fontSize: 14,
+  },
+  footerCta: {
+    color: colors.primary,
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+  },
 });

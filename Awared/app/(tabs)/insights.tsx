@@ -1,18 +1,21 @@
 import React, { useState, useCallback } from "react";
 import {
   View,
-  Text,
   ScrollView,
   StyleSheet,
   Pressable,
   ActivityIndicator,
   RefreshControl,
   Modal,
-  TouchableOpacity,
   Dimensions,
 } from "react-native";
+import { Text } from "@/components/Text";
+import { MaterialIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
 import { getDb } from "../../database/db";
+import { TopAppBar, TOP_APP_BAR_HEIGHT } from "@/components/TopAppBar";
+import { colors, fonts, radii, spacing, glassCard, elevation } from "@/constants/theme";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -28,9 +31,9 @@ type RawTransaction = {
   emotion_id: number | null;
   emotion_name: string | null;
   emotion_emoji: string | null;
-  emotion_polarity: number | null; // -5 to 5
-  emotion_energy: number | null;   // 1 to 10
-  emotion_category: string | null; // 'positive' | 'negative' | 'neutral'
+  emotion_polarity: number | null;
+  emotion_energy: number | null;
+  emotion_category: string | null;
 };
 
 type Insight = {
@@ -129,18 +132,12 @@ function scoreTransaction(
     frequency: frequencyWeight(purchasesToday),
   };
   const impulseScore =
-    breakdown.emotion + breakdown.time + breakdown.category +
-    breakdown.amount + breakdown.frequency;
+    breakdown.emotion + breakdown.time + breakdown.category + breakdown.amount + breakdown.frequency;
   return { ...tx, impulseScore, scoreBreakdown: breakdown };
 }
 
 // ─── Premium vector engine ────────────────────────────────────────────────────
 
-/**
- * Maps a transaction to a 6-dimensional feature vector:
- * [emotionPolarity, emotionEnergy, hourOfDay, dayOfWeek, relativeAmount, categoryRisk]
- * All dimensions normalised to [0, 1].
- */
 function toFeatureVector(tx: RawTransaction, avgAmount: number): number[] {
   const polarity = tx.emotion_polarity ?? 0;
   const energy = tx.emotion_energy ?? 5;
@@ -149,17 +146,19 @@ function toFeatureVector(tx: RawTransaction, avgAmount: number): number[] {
   const dow = date.getDay();
   const catRisk = tx.category_name ? (CATEGORY_WEIGHTS[tx.category_name] ?? 1) : 1;
   return [
-    (polarity + 5) / 10,                            // 0–1  (negative = low)
-    (energy - 1) / 9,                               // 0–1
-    hour / 23,                                       // 0–1
-    dow / 6,                                         // 0–1
-    Math.min(tx.amount / Math.max(avgAmount * 4, 1), 1), // 0–1 capped
-    catRisk / 3,                                     // 0–1 (max weight is 3)
+    (polarity + 5) / 10,
+    (energy - 1) / 9,
+    hour / 23,
+    dow / 6,
+    Math.min(tx.amount / Math.max(avgAmount * 4, 1), 1),
+    catRisk / 3,
   ];
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {
-  let dot = 0, magA = 0, magB = 0;
+  let dot = 0,
+    magA = 0,
+    magB = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
     magA += a[i] * a[i];
@@ -169,7 +168,6 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return denom === 0 ? 0 : dot / denom;
 }
 
-/** Element-wise mean of a set of vectors */
 function computeCentroid(vectors: number[][]): number[] {
   if (vectors.length === 0) return [];
   const dim = vectors[0].length;
@@ -180,16 +178,20 @@ function computeCentroid(vectors: number[][]): number[] {
   return centroid.map((x) => x / vectors.length);
 }
 
-/** Pearson product-moment correlation coefficient */
 function pearsonCorrelation(xs: number[], ys: number[]): number {
   const n = xs.length;
   if (n < 2) return 0;
   const mx = xs.reduce((a, b) => a + b, 0) / n;
   const my = ys.reduce((a, b) => a + b, 0) / n;
-  let num = 0, dx2 = 0, dy2 = 0;
+  let num = 0,
+    dx2 = 0,
+    dy2 = 0;
   for (let i = 0; i < n; i++) {
-    const dx = xs[i] - mx, dy = ys[i] - my;
-    num += dx * dy; dx2 += dx * dx; dy2 += dy * dy;
+    const dx = xs[i] - mx,
+      dy = ys[i] - my;
+    num += dx * dy;
+    dx2 += dx * dx;
+    dy2 += dy * dy;
   }
   const denom = Math.sqrt(dx2 * dy2);
   return denom === 0 ? 0 : num / denom;
@@ -202,26 +204,29 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
 
   if (scored.length === 0) {
     insights.push({
-      id: "no-data", type: "tip",
+      id: "no-data",
+      type: "tip",
       title: "Nothing to analyse yet",
       body: "Add a few purchases to start seeing insights about your spending patterns.",
-      icon: "📊", accentColor: "#6b21a8", bgColor: "#f3e8ff",
+      icon: "📊",
+      accentColor: colors.primary,
+      bgColor: colors.surfaceContainer,
       actions: ["Log your first purchase"],
     });
     return insights;
   }
 
-  // ── Dynamic context variables ──────────────────────────────────────────────
   const totalSpend = scored.reduce((s, t) => s + t.amount, 0);
   const computedAvg = totalSpend / scored.length;
   const topMerchants = (() => {
     const counts: Record<string, number> = {};
-    scored.forEach((t) => { if (t.merchant_name) counts[t.merchant_name] = (counts[t.merchant_name] ?? 0) + 1; });
+    scored.forEach((t) => {
+      if (t.merchant_name) counts[t.merchant_name] = (counts[t.merchant_name] ?? 0) + 1;
+    });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
   })();
   const frequentMerchant = topMerchants[0]?.[0] ?? null;
 
-  // ── 1. High-risk transactions ──────────────────────────────────────────────
   const highRisk = scored.filter((t) => t.impulseScore >= 7);
   const midRisk = scored.filter((t) => t.impulseScore >= 4 && t.impulseScore < 7);
 
@@ -231,10 +236,14 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
     const dow = DOW_NAMES[new Date(top.transacted_at).getDay()];
     const when = `${dow} ${HOUR_LABELS(hour)}`;
     insights.push({
-      id: "high-risk", type: "risk",
+      id: "high-risk",
+      type: "risk",
       title: "High-risk spending detected",
       body: `Your ${top.merchant_name ? `purchase at ${top.merchant_name}` : "recent purchase"} on ${when} scored ${top.impulseScore}/14 on the impulse scale. High-energy negative emotions, late hours, and above-average amounts are a triple warning sign.`,
-      icon: "⚠️", accentColor: "#dc2626", bgColor: "#fef2f2", score: top.impulseScore,
+      icon: "⚠️",
+      accentColor: colors.error,
+      bgColor: colors.errorContainer,
+      score: top.impulseScore,
       actions: [
         "Try a 20-minute spending cooldown before similar purchases",
         "Notice the emotion — write it in the note field next time",
@@ -243,10 +252,13 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
     });
   } else if (midRisk.length > 0) {
     insights.push({
-      id: "mid-risk", type: "pattern",
+      id: "mid-risk",
+      type: "pattern",
       title: "Mild impulse pattern spotted",
       body: `${midRisk.length} of your recent purchases show mild emotional spending signals. Not a red flag, but worth reflecting on.`,
-      icon: "〰️", accentColor: "#b45309", bgColor: "#fefce8",
+      icon: "〰️",
+      accentColor: colors.secondary,
+      bgColor: colors.secondaryFixed,
       actions: [
         "Ask yourself: would I make this same purchase tomorrow morning?",
         "Try logging your emotion before spending, not just after",
@@ -254,29 +266,32 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
     });
   }
 
-  // ── 2. Dominant negative emotion ──────────────────────────────────────────
   const negativeTxs = scored.filter((t) => t.emotion_category === "negative" && t.emotion_name);
   if (negativeTxs.length >= 2) {
     const emotionCounts: Record<string, { count: number; totalAmount: number; emoji: string }> = {};
     for (const tx of negativeTxs) {
       const name = tx.emotion_name!;
-      if (!emotionCounts[name]) emotionCounts[name] = { count: 0, totalAmount: 0, emoji: tx.emotion_emoji ?? "😶" };
+      if (!emotionCounts[name])
+        emotionCounts[name] = { count: 0, totalAmount: 0, emoji: tx.emotion_emoji ?? "😶" };
       emotionCounts[name].count++;
       emotionCounts[name].totalAmount += tx.amount;
     }
-    const [topEmotion, topData] = Object.entries(emotionCounts)
-      .sort((a, b) => b[1].count - a[1].count)[0];
+    const [topEmotion, topData] = Object.entries(emotionCounts).sort(
+      (a, b) => b[1].count - a[1].count
+    )[0];
 
-    // Craft a merchant-aware sentence if we have one
     const merchantSentence = frequentMerchant
       ? ` Purchases at ${frequentMerchant} are among the most common outlets.`
       : "";
 
     insights.push({
-      id: "emotion-trigger", type: "pattern",
+      id: "emotion-trigger",
+      type: "pattern",
       title: `${topData.emoji} ${topEmotion} is your top spending trigger`,
       body: `You've made ${topData.count} purchase${topData.count > 1 ? "s" : ""} while feeling ${topEmotion.toLowerCase()}, totalling €${topData.totalAmount.toFixed(2)}.${merchantSentence} Emotional spending loops often start here.`,
-      icon: topData.emoji, accentColor: "#7c3aed", bgColor: "#f5f3ff",
+      icon: topData.emoji,
+      accentColor: colors.primary,
+      bgColor: colors.primaryFixed,
       actions: [
         `When you feel ${topEmotion.toLowerCase()}, try journaling for 5 minutes first`,
         "Notice: does this emotion always lead to spending in the same category?",
@@ -285,7 +300,6 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
     });
   }
 
-  // ── 3. Late-night spending pattern ──────────────────────────────────────────
   const lateNight = scored.filter((t) => {
     const h = new Date(t.transacted_at).getHours();
     return h >= 21 || h < 5;
@@ -294,14 +308,20 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
     const lateTotal = lateNight.reduce((s, t) => s + t.amount, 0);
     const peakHour = (() => {
       const counts: Record<number, number> = {};
-      lateNight.forEach(t => { const h = new Date(t.transacted_at).getHours(); counts[h] = (counts[h] ?? 0) + 1; });
+      lateNight.forEach((t) => {
+        const h = new Date(t.transacted_at).getHours();
+        counts[h] = (counts[h] ?? 0) + 1;
+      });
       return parseInt(Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]);
     })();
     insights.push({
-      id: "late-night", type: "risk",
+      id: "late-night",
+      type: "risk",
       title: "Late-night spending habit",
       body: `${lateNight.length} of your purchases happened after 9 PM, totalling €${lateTotal.toFixed(2)}. Your peak hour is ${peakHour}:00 — when willpower research says inhibition is at its lowest.`,
-      icon: "🌙", accentColor: "#1d4ed8", bgColor: "#eff6ff",
+      icon: "🌙",
+      accentColor: colors.tertiary,
+      bgColor: colors.tertiaryFixed,
       actions: [
         "Enable Do Not Disturb mode after 10 PM on shopping apps",
         `Add a screen lock on payment apps between ${peakHour}:00 and ${(peakHour + 2) % 24}:00`,
@@ -310,7 +330,6 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
     });
   }
 
-  // ── 4. Top high-impulse category ──────────────────────────────────────────
   const categoryTotals: Record<string, { total: number; count: number; icon: string }> = {};
   for (const tx of scored) {
     const cat = tx.category_name ?? "Other";
@@ -325,10 +344,13 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
     if ((CATEGORY_WEIGHTS[catName] ?? 1) >= 2) {
       const perPurchase = (catData.total / catData.count).toFixed(2);
       insights.push({
-        id: "top-category", type: "pattern",
+        id: "top-category",
+        type: "pattern",
         title: `${catData.icon} ${catName} is your biggest spend`,
         body: `You've spent €${catData.total.toFixed(2)} across ${catData.count} purchase${catData.count > 1 ? "s" : ""} in ${catName} (avg €${perPurchase} each). This category carries elevated impulse risk.`,
-        icon: catData.icon, accentColor: "#0369a1", bgColor: "#f0f9ff",
+        icon: catData.icon,
+        accentColor: colors.primaryContainer,
+        bgColor: colors.surfaceContainer,
         actions: [
           `Set a weekly cap of €${(catData.total * 0.75).toFixed(0)} for ${catName}`,
           "Review if each purchase here was planned or spontaneous",
@@ -338,15 +360,17 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
     }
   }
 
-  // ── 5. Above-average purchases ────────────────────────────────────────────
   const bigPurchases = scored.filter((t) => t.amount > computedAvg * 2);
   if (bigPurchases.length > 0) {
     const bigTotal = bigPurchases.reduce((s, t) => s + t.amount, 0);
     insights.push({
-      id: "big-purchases", type: "tip",
+      id: "big-purchases",
+      type: "tip",
       title: "Above-average purchases flagged",
       body: `${bigPurchases.length} transaction${bigPurchases.length > 1 ? "s were" : " was"} more than 2× your average (€${computedAvg.toFixed(2)}), totalling €${bigTotal.toFixed(2)}. These carry the highest financial risk when made impulsively.`,
-      icon: "💸", accentColor: "#b45309", bgColor: "#fff7ed",
+      icon: "💸",
+      accentColor: colors.secondary,
+      bgColor: colors.secondaryFixed,
       actions: [
         `For purchases over €${(computedAvg * 2).toFixed(0)}, sleep on it before buying`,
         "Keep a 'big purchase wishlist' — revisit it after 72 hours",
@@ -354,14 +378,18 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
     });
   }
 
-  // ── 6. Positive reinforcement ──────────────────────────────────────────────
-  const healthyTxs = scored.filter((t) => t.impulseScore <= 2 && t.emotion_category !== "negative");
+  const healthyTxs = scored.filter(
+    (t) => t.impulseScore <= 2 && t.emotion_category !== "negative"
+  );
   if (healthyTxs.length >= 3) {
     insights.push({
-      id: "positive", type: "positive",
+      id: "positive",
+      type: "positive",
       title: "You're spending mindfully 🎉",
       body: `${healthyTxs.length} of your recent purchases showed low impulse risk and balanced emotional states — ${((healthyTxs.length / scored.length) * 100).toFixed(0)}% of your total. That's intentional spending in action.`,
-      icon: "✅", accentColor: "#059669", bgColor: "#ecfdf5",
+      icon: "✅",
+      accentColor: "#0d9488",
+      bgColor: "#ccfbf1",
       actions: [
         "Notice what makes these purchases feel different — write it down",
         "This is what your spending looks like at its best",
@@ -379,18 +407,23 @@ function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number):
 
   if (scored.length < 3) {
     insights.push({
-      id: "premium-insufficient", type: "tip",
+      id: "premium-insufficient",
+      type: "tip",
       title: "Need more data for vector analysis",
-      body: "Log at least 3 purchases to unlock premium vector insights. The more you log, the more precise your behavioral profile becomes.",
-      icon: "📡", accentColor: "#7c3aed", bgColor: "#f5f3ff", actions: [],
+      body: "Log at least 3 purchases to unlock premium vector insights.",
+      icon: "📡",
+      accentColor: colors.primary,
+      bgColor: colors.primaryFixed,
+      actions: [],
     });
     return insights;
   }
 
   const vectors = scored.map((tx) => toFeatureVector(tx, avgSpend));
 
-  // ── P1. Emotion–spend correlation (Pearson) ────────────────────────────────
-  const txWithEmotion = scored.filter((t) => t.emotion_polarity !== null && t.emotion_energy !== null);
+  const txWithEmotion = scored.filter(
+    (t) => t.emotion_polarity !== null && t.emotion_energy !== null
+  );
   if (txWithEmotion.length >= 3) {
     const polarities = txWithEmotion.map((t) => t.emotion_polarity!);
     const amounts = txWithEmotion.map((t) => t.amount);
@@ -399,264 +432,76 @@ function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number):
     const strength = absR > 0.6 ? "strong" : absR > 0.35 ? "moderate" : "weak";
 
     if (absR > 0.15) {
-      const direction = r < 0
-        ? "negative emotions predict higher spending"
-        : "positive moods correlate with larger purchases";
-      const interpretation = r < -0.35
-        ? "Your spending climbs when your mood drops — a classic emotional compensation loop."
-        : r > 0.35
-          ? "You tend to reward yourself more generously when feeling good. Watch for celebratory overspending."
-          : "There's a detectable link between your mood and spending, though it's not yet dominant.";
+      const direction =
+        r < 0
+          ? "negative emotions predict higher spending"
+          : "positive moods correlate with larger purchases";
+      const interpretation =
+        r < -0.35
+          ? "Your spending climbs when your mood drops — a classic emotional compensation loop."
+          : r > 0.35
+            ? "You tend to reward yourself more generously when feeling good. Watch for celebratory overspending."
+            : "There's a detectable link between your mood and spending, though it's not yet dominant.";
 
       insights.push({
-        id: "premium-correlation", type: r < -0.35 ? "risk" : "pattern",
+        id: "premium-correlation",
+        type: r < -0.35 ? "risk" : "pattern",
         title: `Emotion–spend correlation: r = ${r.toFixed(2)}`,
         body: `Pearson analysis across ${txWithEmotion.length} tagged transactions found a ${strength} link — ${direction} (r = ${r.toFixed(2)}, scale −1 to +1). ${interpretation}`,
-        icon: "📈", accentColor: r < -0.3 ? "#dc2626" : "#7c3aed",
-        bgColor: r < -0.3 ? "#fef2f2" : "#f5f3ff",
+        icon: "📈",
+        accentColor: r < -0.3 ? colors.error : colors.primary,
+        bgColor: r < -0.3 ? colors.errorContainer : colors.primaryFixed,
         actions: [
           r < -0.3
             ? `When you're feeling low, set a €${(avgSpend * 0.6).toFixed(0)} soft cap for the next 2 hours`
             : "Track spending before and after emotional highs to detect reward loops",
-          "Log your emotion *before* opening your wallet — the act alone reduces impulse rates",
+          "Log your emotion *before* opening your wallet",
           "Compare your mood score to your daily spend total at week's end",
         ],
       });
     }
   }
 
-  // ── P2. High-risk cluster fingerprint (cosine similarity centroid) ─────────
   const highRiskTxs = scored.filter((t) => t.impulseScore >= 6);
   if (highRiskTxs.length >= 2) {
     const hrVectors = highRiskTxs.map((tx) => toFeatureVector(tx, avgSpend));
     const centroid = computeCentroid(hrVectors);
-
-    // Decode centroid back to human-readable dimensions
     const centroidPolarity = centroid[0] * 10 - 5;
     const centroidEnergy = centroid[1] * 9 + 1;
     const centroidHour = Math.round(centroid[2] * 23);
     const centroidDow = Math.round(centroid[3] * 6);
     const centroidAmount = centroid[4] * avgSpend * 4;
 
-    // How consistent is this cluster? Compute average intra-cluster cosine similarity
-    let simSum = 0, simCount = 0;
+    let simSum = 0,
+      simCount = 0;
     for (let i = 0; i < hrVectors.length; i++) {
       for (let j = i + 1; j < hrVectors.length; j++) {
         simSum += cosineSimilarity(hrVectors[i], hrVectors[j]);
         simCount++;
       }
     }
-    const coherence = simCount > 0 ? (simSum / simCount * 100).toFixed(0) : "N/A";
-
-    const emotionDesc = centroidPolarity < -2 ? "strongly negative" : centroidPolarity < 0 ? "mildly negative" : "neutral";
+    const coherence = simCount > 0 ? ((simSum / simCount) * 100).toFixed(0) : "N/A";
+    const emotionDesc =
+      centroidPolarity < -2 ? "strongly negative" : centroidPolarity < 0 ? "mildly negative" : "neutral";
     const energyDesc = centroidEnergy > 6 ? "high-energy" : "low-energy";
 
     insights.push({
-      id: "premium-cluster", type: "risk",
+      id: "premium-cluster",
+      type: "risk",
       title: "Your high-risk spending fingerprint",
-      body: `Vector clustering of your ${highRiskTxs.length} riskiest transactions (cluster coherence: ${coherence}%) reveals a repeating pattern: ${energyDesc} ${emotionDesc} state, ${HOUR_LABELS(centroidHour)} on ${DOW_NAMES[centroidDow]}s, averaging €${centroidAmount.toFixed(2)} per purchase. This is your personal risk archetype.`,
-      icon: "🧬", accentColor: "#7c3aed", bgColor: "#f5f3ff",
+      body: `Vector clustering of your ${highRiskTxs.length} riskiest transactions (cluster coherence: ${coherence}%) reveals a repeating pattern: ${energyDesc} ${emotionDesc} state, ${HOUR_LABELS(centroidHour)} on ${DOW_NAMES[centroidDow]}s, averaging €${centroidAmount.toFixed(2)} per purchase.`,
+      icon: "🧬",
+      accentColor: colors.primary,
+      bgColor: colors.primaryFixed,
       actions: [
         `On ${DOW_NAMES[centroidDow]} ${HOUR_LABELS(centroidHour)}s, activate a spending cooldown automatically`,
         `Set a hard limit of €${(centroidAmount * 0.6).toFixed(0)} for any single purchase during your risk window`,
-        "Use this fingerprint as your personal warning sign — if these three factors align, pause first",
+        "Use this fingerprint as your personal warning sign",
       ],
     });
-  }
-
-  // ── P3. Weekly rhythm analysis ─────────────────────────────────────────────
-  const dowStats: Record<number, { totalAmount: number; count: number; totalScore: number }> = {};
-  for (const tx of scored) {
-    const dow = new Date(tx.transacted_at).getDay();
-    if (!dowStats[dow]) dowStats[dow] = { totalAmount: 0, count: 0, totalScore: 0 };
-    dowStats[dow].totalAmount += tx.amount;
-    dowStats[dow].count++;
-    dowStats[dow].totalScore += tx.impulseScore;
-  }
-  const dowEntries = Object.entries(dowStats).map(([dow, s]) => ({
-    dow: parseInt(dow),
-    avgRisk: s.totalScore / s.count,
-    avgAmount: s.totalAmount / s.count,
-    count: s.count,
-  }));
-
-  if (dowEntries.length >= 3) {
-    const sorted = [...dowEntries].sort((a, b) => b.avgRisk - a.avgRisk);
-    const riskiest = sorted[0];
-    const safest = sorted[sorted.length - 1];
-    const riskRatio = (riskiest.avgRisk / Math.max(safest.avgRisk, 0.1)).toFixed(1);
-
-    insights.push({
-      id: "premium-weekly-rhythm", type: "pattern",
-      title: `${DOW_NAMES[riskiest.dow]} is your highest-risk day`,
-      body: `Weekly rhythm analysis shows ${DOW_NAMES[riskiest.dow]} averages a risk score of ${riskiest.avgRisk.toFixed(1)} — ${riskRatio}× higher than ${DOW_NAMES[safest.dow]} (${safest.avgRisk.toFixed(1)}), your calmest day. Average spend on your risk day: €${riskiest.avgAmount.toFixed(2)}.`,
-      icon: "📅", accentColor: "#0369a1", bgColor: "#f0f9ff",
-      actions: [
-        `Set a strict daily cap of €${(riskiest.avgAmount * 1.2).toFixed(0)} every ${DOW_NAMES[riskiest.dow]}`,
-        `Schedule something grounding on ${DOW_NAMES[riskiest.dow]}s to reduce emotional pressure`,
-        `Use ${DOW_NAMES[safest.dow]} to review any ${DOW_NAMES[riskiest.dow]} purchases and decide if you'd repeat them`,
-      ],
-    });
-  }
-
-  // ── P4. Merchant vulnerability mapping ────────────────────────────────────
-  const merchantStats: Record<string, { count: number; totalAmount: number; polaritySum: number; energySum: number }> = {};
-  for (const tx of scored) {
-    if (!tx.merchant_name || tx.emotion_polarity === null) continue;
-    const m = tx.merchant_name;
-    if (!merchantStats[m]) merchantStats[m] = { count: 0, totalAmount: 0, polaritySum: 0, energySum: 0 };
-    merchantStats[m].count++;
-    merchantStats[m].totalAmount += tx.amount;
-    merchantStats[m].polaritySum += tx.emotion_polarity;
-    merchantStats[m].energySum += tx.emotion_energy ?? 5;
-  }
-
-  const vulnerableMerchants = Object.entries(merchantStats)
-    .filter(([, s]) => s.count >= 2)
-    .map(([name, s]) => ({
-      name,
-      avgPolarity: s.polaritySum / s.count,
-      avgEnergy: s.energySum / s.count,
-      count: s.count,
-      totalAmount: s.totalAmount,
-      avgAmount: s.totalAmount / s.count,
-    }))
-    .filter((m) => m.avgPolarity < -1)
-    .sort((a, b) => a.avgPolarity - b.avgPolarity);
-
-  if (vulnerableMerchants.length > 0) {
-    const top = vulnerableMerchants[0];
-    const vulnerabilityScore = (Math.abs(top.avgPolarity) * top.avgEnergy / 10 * 100).toFixed(0);
-    insights.push({
-      id: "premium-merchant", type: "risk",
-      title: `You visit ${top.name} when emotionally low`,
-      body: `Merchant vulnerability analysis: ${top.name} has an average emotional polarity of ${top.avgPolarity.toFixed(1)}/5 at visit time (vulnerability score: ${vulnerabilityScore}/100). Across ${top.count} visits you've spent €${top.totalAmount.toFixed(2)} — €${top.avgAmount.toFixed(2)} per visit on average.`,
-      icon: "🏪", accentColor: "#b45309", bgColor: "#fff7ed",
-      actions: [
-        `Apply a 15-minute rule before visiting ${top.name} when feeling negative`,
-        "This merchant may be serving an emotional need — identify the feeling it satisfies",
-        `Try a €${(top.avgAmount * 0.6).toFixed(0)} spending cap when visiting ${top.name} in a low mood`,
-      ],
-    });
-  }
-
-  // ── P5. Behavioral similarity — predict next risk session ─────────────────
-  if (scored.length >= 5 && vectors.length >= 5) {
-    const highRiskVectors = scored
-      .filter((t) => t.impulseScore >= 7)
-      .map((tx) => toFeatureVector(tx, avgSpend));
-
-    if (highRiskVectors.length >= 1) {
-      const hrCentroid = computeCentroid(highRiskVectors);
-      const recentTxs = scored.slice(0, 3); // 3 most recent
-      const recentVecs = recentTxs.map((tx) => toFeatureVector(tx, avgSpend));
-      const recentSims = recentVecs.map((v) => cosineSimilarity(v, hrCentroid));
-      const maxSim = Math.max(...recentSims);
-      const riskPct = (maxSim * 100).toFixed(0);
-
-      if (maxSim > 0.7) {
-        const closestTx = recentTxs[recentSims.indexOf(maxSim)];
-        insights.push({
-          id: "premium-predictive", type: "risk",
-          title: `Recent pattern: ${riskPct}% match to your risk profile`,
-          body: `Your ${closestTx.merchant_name ? `purchase at ${closestTx.merchant_name}` : "latest purchase"} has a ${riskPct}% cosine similarity to your historical high-risk sessions. The conditions that precede your impulsive purchases are present right now.`,
-          icon: "🔮", accentColor: "#dc2626", bgColor: "#fef2f2",
-          actions: [
-            "This is the window where a 10-minute pause has the highest ROI",
-            "Check in with your emotional state before your next purchase today",
-            "Consider setting a €0 intention for the next 2 hours",
-          ],
-        });
-      }
-    }
   }
 
   return insights;
-}
-
-// ─── Locked preview cards (shown to free users) ───────────────────────────────
-const LOCKED_PREVIEWS = [
-  {
-    title: "Emotion–spend correlation",
-    sub: "Pearson analysis of mood vs purchase amount",
-    icon: "📈",
-  },
-  {
-    title: "Your high-risk spending fingerprint",
-    sub: "Vector clustering of your riskiest sessions",
-    icon: "🧬",
-  },
-  {
-    title: "Weekly rhythm & merchant vulnerability",
-    sub: "Day-of-week patterns + merchant risk mapping",
-    icon: "📅",
-  },
-];
-
-// ─── Upgrade modal ────────────────────────────────────────────────────────────
-
-const FEATURE_ROWS = [
-  { free: "Impulse risk scoring", premium: "Vector-based behavioral fingerprint" },
-  { free: "Emotion pattern detection", premium: "Pearson correlation engine" },
-  { free: "Category breakdown", premium: "Merchant vulnerability mapping" },
-  { free: "Late-night detection", premium: "Weekly rhythm analysis" },
-  { free: "—", premium: "Predictive risk session alerts" },
-];
-
-function UpgradeModal({
-  visible,
-  onClose,
-  onUpgrade,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  onUpgrade: () => void;
-}) {
-  return (
-    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
-      <View style={ms.overlay}>
-        <Pressable style={ms.backdrop} onPress={onClose} />
-        <View style={ms.sheet}>
-          <View style={ms.handle} />
-
-          {/* Badge */}
-          <View style={ms.badge}>
-            <Text style={ms.badgeText}>✨  AWARED PREMIUM</Text>
-          </View>
-
-          <Text style={ms.headline}>{"Understand your spending\nat a deeper level"}</Text>
-          <Text style={ms.sub}>
-            Powered by vector similarity, Pearson correlation, and behavioral clustering — not just rule-based flags.
-          </Text>
-
-          {/* Feature table */}
-          <View style={ms.table}>
-            <View style={ms.tableHeader}>
-              <Text style={[ms.tableCol, ms.tableColHead]}>Free</Text>
-              <Text style={[ms.tableCol, ms.tableColHead, ms.tablePremiumHead]}>✨ Premium</Text>
-            </View>
-            {FEATURE_ROWS.map((row, i) => (
-              <View key={i} style={[ms.tableRow, i % 2 === 0 && ms.tableRowAlt]}>
-                <Text style={[ms.tableCol, ms.tableColFree]}>{row.free}</Text>
-                <Text style={[ms.tableCol, ms.tableColPremium]}>{row.premium}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* CTA */}
-          <TouchableOpacity style={ms.cta} onPress={onUpgrade} activeOpacity={0.85}>
-            <Text style={ms.ctaText}>Unlock for €1.99 / month</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={onClose} style={ms.dismissBtn}>
-            <Text style={ms.dismissText}>Maybe later</Text>
-          </TouchableOpacity>
-
-          <Text style={ms.legal}>Cancel anytime · No commitments · Billed monthly</Text>
-        </View>
-      </View>
-    </Modal>
-  );
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -667,8 +512,11 @@ export default function Insights() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<{
-    totalSpend: number; txCount: number; avgScore: number;
-    topEmotion: string | null; topEmoji: string | null;
+    totalSpend: number;
+    txCount: number;
+    avgScore: number;
+    topEmotion: string | null;
+    topEmoji: string | null;
   } | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [isPremium, setIsPremium] = useState(false);
@@ -732,11 +580,12 @@ export default function Insights() {
           emotionCounts[tx.emotion_name].count++;
         }
       }
-      const topEmotionEntry = Object.entries(emotionCounts)
-        .sort((a, b) => b[1].count - a[1].count)[0];
+      const topEmotionEntry = Object.entries(emotionCounts).sort((a, b) => b[1].count - a[1].count)[0];
 
       setStats({
-        totalSpend, txCount: rows.length, avgScore,
+        totalSpend,
+        txCount: rows.length,
+        avgScore,
         topEmotion: topEmotionEntry?.[0] ?? null,
         topEmoji: topEmotionEntry?.[1].emoji ?? null,
       });
@@ -758,46 +607,58 @@ export default function Insights() {
     }, [loadInsights])
   );
 
-  const onRefresh = () => { setRefreshing(true); loadInsights(); };
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadInsights();
+  };
 
   function scoreZoneLabel(avg: number): { label: string; color: string } {
-    if (avg < 3) return { label: "Healthy pattern", color: "#059669" };
-    if (avg < 6) return { label: "Mild impulse risk", color: "#b45309" };
-    if (avg < 9) return { label: "Emotional spending", color: "#dc2626" };
-    return { label: "High-risk pattern", color: "#7f1d1d" };
+    if (avg < 3) return { label: "Healthy", color: "#0d9488" };
+    if (avg < 6) return { label: "Moderate", color: colors.secondaryContainer };
+    if (avg < 9) return { label: "High Risk", color: colors.error };
+    return { label: "Critical", color: colors.error };
   }
+
+  const scoreZone = stats ? scoreZoneLabel(stats.avgScore) : null;
+  const scorePct = stats ? Math.min((stats.avgScore / 10) * 100, 100) : 0;
 
   const renderInsightCard = (insight: Insight) => {
     const isOpen = expanded === insight.id;
     return (
       <Pressable
         key={insight.id}
-        style={[styles.card, { backgroundColor: insight.bgColor, borderLeftColor: insight.accentColor }]}
+        style={[styles.insightCard, glassCard]}
         onPress={() => setExpanded(isOpen ? null : insight.id)}
       >
-        <View style={styles.cardHeader}>
-          <View style={[styles.iconBadge, { backgroundColor: insight.accentColor + "20" }]}>
-            <Text style={styles.iconText}>{insight.icon}</Text>
+        <View style={styles.insightHeader}>
+          <View style={styles.insightHeaderLeft}>
+            <View style={[styles.insightIconCircle, { backgroundColor: insight.bgColor }]}>
+              <Text style={{ fontSize: 18 }}>{insight.icon}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.insightCardTitle}>{insight.title}</Text>
+              {insight.score !== undefined && (
+                <Text style={[styles.scoreBadge, { color: insight.accentColor }]}>
+                  Score {insight.score}/14
+                </Text>
+              )}
+            </View>
           </View>
-          <View style={styles.cardTitleBlock}>
-            <Text style={styles.cardTitle}>{insight.title}</Text>
-            {insight.score !== undefined && (
-              <Text style={[styles.scoreBadge, { color: insight.accentColor }]}>
-                Score {insight.score}/14
-              </Text>
-            )}
-          </View>
-          <Text style={[styles.chevron, { color: insight.accentColor }]}>
-            {isOpen ? "▲" : "▼"}
-          </Text>
+          <MaterialIcons
+            name={isOpen ? "expand-less" : "expand-more"}
+            size={22}
+            color={colors.outline}
+          />
         </View>
-
         {isOpen && (
-          <View style={styles.cardBody}>
-            <Text style={styles.cardBodyText}>{insight.body}</Text>
-            <View style={styles.actionsBlock}>
+          <View style={styles.insightBody}>
+            <Text style={styles.insightBodyText}>{insight.body}</Text>
+            <View style={{ gap: 6 }}>
               {insight.actions.map((action, i) => (
-                <View key={i} style={[styles.actionRow, { borderLeftColor: insight.accentColor }]}>
+                <View
+                  key={i}
+                  style={[styles.actionRow, { borderLeftColor: insight.accentColor }]}
+                >
                   <Text style={styles.actionText}>{action}</Text>
                 </View>
               ))}
@@ -810,137 +671,178 @@ export default function Insights() {
 
   return (
     <View style={styles.container}>
+      <TopAppBar />
+
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7c3aed" />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
         }
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Insights</Text>
-          <Text style={styles.headerSub}>Last 30 days</Text>
-        </View>
-
         {loading ? (
-          <ActivityIndicator style={{ marginTop: 60 }} color="#7c3aed" size="large" />
+          <ActivityIndicator style={{ marginTop: 60 }} color={colors.primary} size="large" />
         ) : (
           <>
-            {/* Stats strip */}
-            {stats && (
-              <View style={styles.statsStrip}>
-                <View style={styles.statCard}>
-                  <Text style={styles.statValue}>€{stats.totalSpend.toFixed(0)}</Text>
-                  <Text style={styles.statLabel}>Total spent</Text>
+            {/* ── Overview (2x2 bento) ── */}
+            <Text style={styles.sectionTitle}>Overview</Text>
+            <View style={styles.bentoGrid}>
+              {/* Total Spent */}
+              <View style={[styles.statCard, glassCard]}>
+                <View style={styles.statRow}>
+                  <MaterialIcons
+                    name="account-balance-wallet"
+                    size={20}
+                    color={colors.primary}
+                  />
+                  <Text style={styles.statLabel}>Total Spent</Text>
                 </View>
-                <View style={styles.statCard}>
-                  <Text style={styles.statValue}>{stats.txCount}</Text>
+                <View>
+                  <Text style={styles.statValue}>€{stats?.totalSpend.toFixed(0) ?? 0}</Text>
+                  <Text style={styles.statSub}>Past 30 days</Text>
+                </View>
+              </View>
+
+              {/* Purchases */}
+              <View style={[styles.statCard, glassCard]}>
+                <View style={styles.statRow}>
+                  <MaterialIcons name="receipt-long" size={20} color={colors.secondary} />
                   <Text style={styles.statLabel}>Purchases</Text>
                 </View>
-                <View style={styles.statCard}>
-                  <Text style={[styles.statValue, { color: scoreZoneLabel(stats.avgScore).color }]}>
-                    {stats.avgScore.toFixed(1)}
-                  </Text>
-                  <Text style={styles.statLabel}>Avg risk score</Text>
+                <View>
+                  <Text style={styles.statValue}>{stats?.txCount ?? 0}</Text>
+                  <Text style={styles.statSub}>Transactions</Text>
                 </View>
-                {stats.topEmotion && (
-                  <View style={styles.statCard}>
-                    <Text style={styles.statValue}>{stats.topEmoji ?? "—"}</Text>
-                    <Text style={styles.statLabel}>{stats.topEmotion}</Text>
+              </View>
+            </View>
+
+            {/* Avg Risk Score (full width) */}
+            <View style={[styles.fullWidthCard, glassCard]}>
+              <View style={styles.statRow}>
+                <View style={styles.statRowLeft}>
+                  <MaterialIcons name="warning" size={20} color={colors.tertiary} />
+                  <Text style={styles.statLabel}>Avg Risk Score</Text>
+                </View>
+                {scoreZone && (
+                  <View
+                    style={[
+                      styles.zonePill,
+                      { backgroundColor: `${scoreZone.color}22` },
+                    ]}
+                  >
+                    <Text style={[styles.zonePillText, { color: scoreZone.color }]}>
+                      {scoreZone.label}
+                    </Text>
                   </View>
                 )}
               </View>
-            )}
-
-            {/* Zone pill */}
-            {stats && (
-              <View style={[styles.zonePill, { backgroundColor: scoreZoneLabel(stats.avgScore).color + "20" }]}>
-                <View style={[styles.zoneDot, { backgroundColor: scoreZoneLabel(stats.avgScore).color }]} />
-                <Text style={[styles.zoneLabel, { color: scoreZoneLabel(stats.avgScore).color }]}>
-                  {scoreZoneLabel(stats.avgScore).label}
+              <View style={{ marginTop: spacing.md }}>
+                <Text style={styles.scoreBig}>
+                  {stats?.avgScore.toFixed(1) ?? "0.0"}
+                  <Text style={styles.scoreOutOf}> /10</Text>
                 </Text>
+                <View style={styles.progressTrack}>
+                  <LinearGradient
+                    colors={[colors.primary, colors.secondary]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.progressFill, { width: `${scorePct}%` }]}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Top Emotion (full width) */}
+            {stats?.topEmotion && (
+              <View style={[styles.fullWidthCard, glassCard, { marginTop: spacing.sm }]}>
+                <View style={styles.statRow}>
+                  <View style={styles.statRowLeft}>
+                    <MaterialIcons
+                      name="mood"
+                      size={20}
+                      color={colors.primaryContainer}
+                    />
+                    <Text style={styles.statLabel}>Top Emotion</Text>
+                  </View>
+                </View>
+                <View style={styles.topEmotionRow}>
+                  <View style={styles.topEmotionBubble}>
+                    <Text style={{ fontSize: 24 }}>{stats.topEmoji ?? "🌊"}</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.topEmotionName}>{stats.topEmotion}</Text>
+                    <Text style={styles.statSub}>Linked to recent spending</Text>
+                  </View>
+                </View>
               </View>
             )}
 
-            {/* Free insight cards */}
-            <Text style={styles.sectionTitle}>What we found</Text>
-            {insights.map(renderInsightCard)}
+            {/* ── What we found ── */}
+            <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>What we found</Text>
+            <View style={{ gap: spacing.sm }}>
+              {insights.map(renderInsightCard)}
+            </View>
 
             {/* ── Premium section ── */}
             <View style={styles.premiumSectionHeader}>
-              <View style={styles.premiumSectionLeft}>
-                <Text style={styles.sectionTitle}>
-                  {isPremium ? "Premium Analysis" : "Premium Analysis"}
-                </Text>
-                {!isPremium && (
-                  <View style={styles.premiumLockBadge}>
-                    <Text style={styles.premiumLockBadgeText}>🔒 Locked</Text>
-                  </View>
-                )}
-              </View>
-              {isPremium && (
-                <View style={styles.premiumActiveBadge}>
-                  <Text style={styles.premiumActiveBadgeText}>✨ Active</Text>
-                </View>
-              )}
+              <MaterialIcons name="star" size={22} color={colors.tertiary} />
+              <Text style={styles.sectionTitle}>Premium Analysis</Text>
             </View>
 
             {isPremium ? (
-              // Full premium cards
-              premiumInsights.map(renderInsightCard)
+              <View style={{ gap: spacing.sm }}>{premiumInsights.map(renderInsightCard)}</View>
             ) : (
-              // Locked preview cards
-              <>
-                {LOCKED_PREVIEWS.map((card, i) => (
-                  <Pressable
-                    key={i}
-                    style={styles.lockedCard}
-                    onPress={() => setShowUpgradeModal(true)}
-                  >
-                    <View style={styles.lockedLeft}>
-                      <View style={styles.lockedIconWrap}>
-                        <Text style={styles.lockedIcon}>{card.icon}</Text>
-                      </View>
-                      <View style={styles.lockedTextWrap}>
-                        <Text style={styles.lockedTitle}>{card.title}</Text>
-                        <Text style={styles.lockedSub}>{card.sub}</Text>
-                      </View>
-                    </View>
-                    <View style={styles.lockedCTA}>
-                      <Text style={styles.lockedCTAText}>Unlock</Text>
-                    </View>
+              <View style={styles.lockedSection}>
+                {/* Locked content shown blurred-style behind */}
+                <View style={[styles.lockedCard, glassCard]}>
+                  <View style={styles.statRow}>
+                    <MaterialIcons name="data-exploration" size={20} color={colors.tertiary} />
+                    <Text style={styles.statLabel}>Emotion-spend correlation</Text>
+                  </View>
+                  <LinearGradient
+                    colors={[colors.primaryFixed, colors.secondaryFixed]}
+                    style={styles.lockedChartPlaceholder}
+                  />
+                </View>
+
+                {/* Lock overlay */}
+                <View style={styles.lockOverlay}>
+                  <View style={styles.lockIconWrap}>
+                    <MaterialIcons name="lock" size={32} color={colors.primary} />
+                  </View>
+                  <Text style={styles.lockTitle}>Unlock Deep Insights</Text>
+                  <Text style={styles.lockSub}>
+                    Understand the exact correlation between your mood shifts and financial habits.
+                  </Text>
+                  <Pressable onPress={() => setShowUpgradeModal(true)}>
+                    <LinearGradient
+                      colors={[colors.primary, colors.secondary]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.unlockBtn}
+                    >
+                      <Text style={styles.unlockBtnText}>Upgrade to Premium</Text>
+                    </LinearGradient>
                   </Pressable>
-                ))}
-                <Text style={styles.premiumTeaser}>
-                  Vector algorithms · Pearson correlation · Merchant vulnerability maps
-                </Text>
-              </>
+                </View>
+              </View>
             )}
 
-            {/* Footer */}
             <Text style={styles.footer}>
-              Scores reflect your patterns — not judgements. Awared is here to help you
-              understand the feeling, not shame the purchase.
+              Scores reflect your patterns — not judgements. Awared is here to help you understand
+              the feeling, not shame the purchase.
             </Text>
           </>
         )}
+
+        <View style={{ height: 110 }} />
       </ScrollView>
 
-      {/* Sticky bottom upgrade bar */}
-      {!isPremium && !loading && (
-        <Pressable style={styles.upgradeBanner} onPress={() => setShowUpgradeModal(true)}>
-          <View style={styles.upgradeBannerLeft}>
-            <Text style={styles.upgradeBannerTitle}>✨ Unlock Premium Insights</Text>
-            <Text style={styles.upgradeBannerSub}>Vector analysis · Behavioral clusters</Text>
-          </View>
-          <View style={styles.upgradeBannerBtn}>
-            <Text style={styles.upgradeBannerBtnText}>€1.99 / mo</Text>
-          </View>
-        </Pressable>
-      )}
-
-      {/* Upgrade modal */}
       <UpgradeModal
         visible={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
@@ -953,180 +855,435 @@ export default function Insights() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+const FEATURE_ROWS = [
+  { free: "Impulse risk scoring", premium: "Vector behavioral fingerprint" },
+  { free: "Emotion patterns", premium: "Pearson correlation engine" },
+  { free: "Category breakdown", premium: "Merchant vulnerability map" },
+  { free: "Late-night detection", premium: "Weekly rhythm analysis" },
+  { free: "—", premium: "Predictive risk session alerts" },
+];
+
+function UpgradeModal({
+  visible,
+  onClose,
+  onUpgrade,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onUpgrade: () => void;
+}) {
+  return (
+    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
+      <View style={ms.overlay}>
+        <Pressable style={ms.backdrop} onPress={onClose} />
+        <View style={ms.sheet}>
+          <View style={ms.handle} />
+          <View style={ms.badge}>
+            <Text style={ms.badgeText}>✨  AWARED PREMIUM</Text>
+          </View>
+          <Text style={ms.headline}>{"Understand your spending\nat a deeper level"}</Text>
+          <Text style={ms.sub}>
+            Powered by vector similarity, Pearson correlation, and behavioral clustering.
+          </Text>
+
+          <View style={ms.table}>
+            <View style={ms.tableHeader}>
+              <Text style={[ms.tableCol, ms.tableColHead]}>Free</Text>
+              <Text style={[ms.tableCol, ms.tableColHead, ms.tablePremiumHead]}>✨ Premium</Text>
+            </View>
+            {FEATURE_ROWS.map((row, i) => (
+              <View key={i} style={[ms.tableRow, i % 2 === 0 && ms.tableRowAlt]}>
+                <Text style={[ms.tableCol, ms.tableColFree]}>{row.free}</Text>
+                <Text style={[ms.tableCol, ms.tableColPremium]}>{row.premium}</Text>
+              </View>
+            ))}
+          </View>
+
+          <Pressable onPress={onUpgrade}>
+            <LinearGradient
+              colors={[colors.primary, colors.secondary]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={ms.cta}
+            >
+              <Text style={ms.ctaText}>Unlock for €1.99 / month</Text>
+            </LinearGradient>
+          </Pressable>
+
+          <Pressable onPress={onClose} style={ms.dismissBtn}>
+            <Text style={ms.dismissText}>Maybe later</Text>
+          </Pressable>
+
+          <Text style={ms.legal}>Cancel anytime · No commitments · Billed monthly</Text>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fdf3ff" },
+  container: { flex: 1, backgroundColor: colors.background },
   scrollContent: {
-    paddingHorizontal: 20, paddingTop: 60, paddingBottom: 140,
-    maxWidth: 480, alignSelf: "center", width: "100%",
+    paddingTop: TOP_APP_BAR_HEIGHT + spacing.md,
+    paddingHorizontal: spacing.containerMargin,
+    paddingBottom: 40,
   },
 
-  // Header
-  header: { marginBottom: 20 },
-  headerTitle: { fontSize: 28, fontWeight: "700", color: "#1a1a1a", letterSpacing: -0.5 },
-  headerSub: { fontSize: 13, color: "#888", marginTop: 2 },
-
-  // Stats
-  statsStrip: { flexDirection: "row", gap: 8, marginBottom: 12, flexWrap: "wrap" },
-  statCard: {
-    flex: 1, minWidth: 70, backgroundColor: "#fff", borderRadius: 14,
-    padding: 12, alignItems: "center",
-    shadowColor: "#c4a8e0", shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12, shadowRadius: 6, elevation: 2,
-  },
-  statValue: { fontSize: 20, fontWeight: "700", color: "#1a1a1a" },
-  statLabel: { fontSize: 10, color: "#999", marginTop: 2, textAlign: "center" },
-
-  // Zone pill
-  zonePill: {
-    flexDirection: "row", alignItems: "center", alignSelf: "flex-start",
-    borderRadius: 20, paddingVertical: 5, paddingHorizontal: 12,
-    marginBottom: 24, gap: 6,
-  },
-  zoneDot: { width: 7, height: 7, borderRadius: 4 },
-  zoneLabel: { fontSize: 12, fontWeight: "600" },
-
-  // Section title
   sectionTitle: {
-    fontSize: 14, fontWeight: "600", color: "#555",
-    textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 12,
+    fontFamily: fonts.semibold,
+    fontSize: 22,
+    color: colors.onSurface,
+    marginBottom: spacing.md,
   },
 
-  // Insight card
-  card: {
-    borderRadius: 16, borderLeftWidth: 3, padding: 14, marginBottom: 12,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
+  bentoGrid: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
-  cardHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
-  iconBadge: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", flexShrink: 0 },
-  iconText: { fontSize: 16 },
-  cardTitleBlock: { flex: 1 },
-  cardTitle: { fontSize: 14, fontWeight: "600", color: "#1a1a1a", lineHeight: 19 },
-  scoreBadge: { fontSize: 11, fontWeight: "500", marginTop: 2 },
-  chevron: { fontSize: 10, paddingLeft: 4 },
-  cardBody: { marginTop: 12, paddingTop: 12, borderTopWidth: 0.5, borderTopColor: "#00000015" },
-  cardBodyText: { fontSize: 13, color: "#444", lineHeight: 20, marginBottom: 12 },
-  actionsBlock: { gap: 6 },
-  actionRow: { borderLeftWidth: 2, paddingLeft: 10, paddingVertical: 5, backgroundColor: "#00000008", borderRadius: 4 },
-  actionText: { fontSize: 12, color: "#555", lineHeight: 17 },
+  statCard: {
+    flex: 1,
+    aspectRatio: 1,
+    borderRadius: radii.base,
+    padding: spacing.md,
+    justifyContent: "space-between",
+  },
+  fullWidthCard: {
+    borderRadius: radii.base,
+    padding: spacing.md,
+  },
+  statRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 6,
+  },
+  statRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  statLabel: {
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+    color: colors.onSurfaceVariant,
+  },
+  statValue: {
+    fontFamily: fonts.extrabold,
+    fontSize: 32,
+    color: colors.onSurface,
+    letterSpacing: -0.6,
+    lineHeight: 38,
+  },
+  statSub: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: colors.outline,
+    marginTop: 4,
+  },
 
-  // Premium section header
+  zonePill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radii.pill,
+  },
+  zonePillText: {
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+  },
+
+  scoreBig: {
+    fontFamily: fonts.bold,
+    fontSize: 32,
+    color: colors.onSurface,
+    letterSpacing: -0.6,
+  },
+  scoreOutOf: {
+    fontFamily: fonts.regular,
+    fontSize: 16,
+    color: colors.outline,
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.surfaceContainerHighest,
+    overflow: "hidden",
+    marginTop: spacing.sm,
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+
+  topEmotionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  topEmotionBubble: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primaryFixed,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  topEmotionName: {
+    fontFamily: fonts.semibold,
+    fontSize: 22,
+    color: colors.onSurface,
+  },
+
+  // Insight cards
+  insightCard: {
+    borderRadius: radii.base,
+    padding: spacing.md,
+  },
+  insightHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  insightHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    flex: 1,
+  },
+  insightIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  insightCardTitle: {
+    fontFamily: fonts.semibold,
+    fontSize: 16,
+    color: colors.onSurface,
+    lineHeight: 22,
+  },
+  scoreBadge: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  insightBody: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.outlineVariant,
+  },
+  insightBodyText: {
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: colors.onSurfaceVariant,
+    lineHeight: 20,
+    marginBottom: spacing.sm,
+  },
+  actionRow: {
+    borderLeftWidth: 2,
+    paddingLeft: spacing.sm,
+    paddingVertical: 4,
+  },
+  actionText: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    lineHeight: 18,
+  },
+
   premiumSectionHeader: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    marginTop: 12, marginBottom: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: spacing.lg,
   },
-  premiumSectionLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  premiumLockBadge: { backgroundColor: "#f3e8ff", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-  premiumLockBadgeText: { fontSize: 11, color: "#7c3aed", fontWeight: "600" },
-  premiumActiveBadge: { backgroundColor: "#ecfdf5", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-  premiumActiveBadgeText: { fontSize: 11, color: "#059669", fontWeight: "600" },
-
-  // Locked cards
+  lockedSection: {
+    position: "relative",
+    minHeight: 240,
+  },
   lockedCard: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    backgroundColor: "#fff", borderRadius: 16, borderWidth: 1.5,
-    borderColor: "#e9d8fd", borderStyle: "dashed",
-    padding: 14, marginBottom: 10,
+    borderRadius: radii.base,
+    padding: spacing.md,
+    opacity: 0.5,
   },
-  lockedLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
-  lockedIconWrap: {
-    width: 36, height: 36, borderRadius: 18, backgroundColor: "#f3e8ff",
-    alignItems: "center", justifyContent: "center",
+  lockedChartPlaceholder: {
+    height: 120,
+    width: "100%",
+    borderRadius: radii.base,
+    marginTop: spacing.sm,
+    opacity: 0.5,
   },
-  lockedIcon: { fontSize: 16 },
-  lockedTextWrap: { flex: 1 },
-  lockedTitle: { fontSize: 13, fontWeight: "600", color: "#6b21a8" },
-  lockedSub: { fontSize: 11, color: "#a78bfa", marginTop: 2 },
-  lockedCTA: {
-    backgroundColor: "#7c3aed", borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 6,
+  lockOverlay: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.6)",
+    borderRadius: radii.base,
+    padding: spacing.lg,
+    gap: spacing.sm,
   },
-  lockedCTAText: { fontSize: 12, fontWeight: "700", color: "#fff" },
+  lockIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    ...elevation.card,
+  },
+  lockTitle: {
+    fontFamily: fonts.semibold,
+    fontSize: 22,
+    color: colors.onSurface,
+  },
+  lockSub: {
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: colors.onSurfaceVariant,
+    textAlign: "center",
+    paddingHorizontal: spacing.md,
+    lineHeight: 20,
+  },
+  unlockBtn: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+    marginTop: spacing.sm,
+  },
+  unlockBtnText: {
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.onPrimary,
+    letterSpacing: 0.14,
+  },
 
-  premiumTeaser: {
-    fontSize: 11, color: "#a78bfa", textAlign: "center",
-    marginTop: 4, marginBottom: 16, fontStyle: "italic",
-  },
-
-  // Footer
   footer: {
-    fontSize: 11, color: "#aaa", textAlign: "center",
-    lineHeight: 16, marginTop: 16, paddingHorizontal: 10,
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    color: colors.outline,
+    textAlign: "center",
+    lineHeight: 18,
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
-
-  // Sticky upgrade banner
-  upgradeBanner: {
-    position: "absolute", bottom: 0, left: 0, right: 0,
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    backgroundColor: "#4c1d95",
-    paddingHorizontal: 20, paddingTop: 14, paddingBottom: 28,
-    shadowColor: "#4c1d95", shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.25, shadowRadius: 12, elevation: 10,
-  },
-  upgradeBannerLeft: { flex: 1 },
-  upgradeBannerTitle: { fontSize: 15, fontWeight: "700", color: "#fff" },
-  upgradeBannerSub: { fontSize: 11, color: "#c4b5fd", marginTop: 2 },
-  upgradeBannerBtn: {
-    backgroundColor: "#fff", borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 8,
-  },
-  upgradeBannerBtnText: { fontSize: 13, fontWeight: "700", color: "#4c1d95" },
 });
 
-// ─── Modal styles ─────────────────────────────────────────────────────────────
 const ms = StyleSheet.create({
   overlay: {
-    flex: 1, justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.45)",
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(21,28,39,0.45)",
   },
   backdrop: { ...StyleSheet.absoluteFillObject },
   sheet: {
-    backgroundColor: "#fff", borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    paddingHorizontal: 24, paddingTop: 12, paddingBottom: 40,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: spacing.lg,
+    paddingTop: 12,
+    paddingBottom: 40,
     maxHeight: SCREEN_HEIGHT * 0.88,
   },
   handle: {
-    width: 36, height: 4, borderRadius: 2, backgroundColor: "#e0e0e0",
-    alignSelf: "center", marginBottom: 20,
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.outlineVariant,
+    alignSelf: "center",
+    marginBottom: spacing.lg,
   },
-
   badge: {
-    alignSelf: "center", backgroundColor: "#f3e8ff",
-    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5,
-    marginBottom: 16,
+    alignSelf: "center",
+    backgroundColor: colors.primaryFixed,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+    marginBottom: spacing.base,
   },
-  badgeText: { fontSize: 12, fontWeight: "700", color: "#7c3aed", letterSpacing: 1 },
-
+  badgeText: {
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.primary,
+    letterSpacing: 1,
+  },
   headline: {
-    fontSize: 22, fontWeight: "800", color: "#1a1a1a",
-    textAlign: "center", lineHeight: 30, marginBottom: 8,
+    fontFamily: fonts.extrabold,
+    fontSize: 26,
+    color: colors.onSurface,
+    textAlign: "center",
+    lineHeight: 32,
+    marginBottom: spacing.base,
+    letterSpacing: -0.5,
   },
   sub: {
-    fontSize: 13, color: "#666", textAlign: "center", lineHeight: 19, marginBottom: 20,
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: colors.onSurfaceVariant,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: spacing.lg,
   },
-
-  // Feature comparison table
-  table: { borderRadius: 14, overflow: "hidden", marginBottom: 20, borderWidth: 1, borderColor: "#f0e6ff" },
-  tableHeader: { flexDirection: "row", backgroundColor: "#f9f5ff", paddingVertical: 8 },
-  tableColHead: { fontSize: 12, fontWeight: "700", color: "#6b21a8", textAlign: "center" },
-  tablePremiumHead: { color: "#7c3aed" },
-  tableRow: { flexDirection: "row", paddingVertical: 9, paddingHorizontal: 4 },
-  tableRowAlt: { backgroundColor: "#fdf8ff" },
-  tableCol: { flex: 1, fontSize: 12, color: "#555", textAlign: "center", paddingHorizontal: 6 },
-  tableColFree: { color: "#999" },
-  tableColPremium: { color: "#7c3aed", fontWeight: "600" },
-
+  table: {
+    borderRadius: radii.base,
+    overflow: "hidden",
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+  },
+  tableHeader: {
+    flexDirection: "row",
+    backgroundColor: colors.surfaceContainerLow,
+    paddingVertical: 10,
+  },
+  tableColHead: {
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.onSurface,
+    textAlign: "center",
+  },
+  tablePremiumHead: { color: colors.primary },
+  tableRow: { flexDirection: "row", paddingVertical: 10, paddingHorizontal: 4 },
+  tableRowAlt: { backgroundColor: colors.surfaceContainerLowest },
+  tableCol: {
+    flex: 1,
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    textAlign: "center",
+    paddingHorizontal: 6,
+  },
+  tableColFree: { color: colors.outline },
+  tableColPremium: { color: colors.primary, fontFamily: fonts.semibold },
   cta: {
-    backgroundColor: "#7c3aed", borderRadius: 16,
-    paddingVertical: 16, alignItems: "center", marginBottom: 12,
-    shadowColor: "#7c3aed", shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
+    borderRadius: radii.pill,
+    paddingVertical: 16,
+    alignItems: "center",
+    marginBottom: 12,
+    ...elevation.raised,
   },
-  ctaText: { fontSize: 16, fontWeight: "800", color: "#fff", letterSpacing: 0.2 },
-
+  ctaText: {
+    fontFamily: fonts.bold,
+    fontSize: 16,
+    color: colors.onPrimary,
+    letterSpacing: 0.2,
+  },
   dismissBtn: { alignItems: "center", paddingVertical: 10, marginBottom: 4 },
-  dismissText: { fontSize: 14, color: "#aaa" },
-
-  legal: { fontSize: 10, color: "#ccc", textAlign: "center" },
+  dismissText: {
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: colors.outline,
+  },
+  legal: {
+    fontFamily: fonts.regular,
+    fontSize: 10,
+    color: colors.outline,
+    textAlign: "center",
+  },
 });
