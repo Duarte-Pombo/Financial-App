@@ -143,8 +143,16 @@ export default function TransactionDetails() {
           <Ionicons name="chevron-back" size={24} color="#1a1a1a" />
         </Pressable>
         <Text style={styles.headerTitle}>Purchase Details</Text>
-        <View style={{ width: 24 }} />
+
+        <Pressable 
+          onPress={() => router.push(`/edit/${id}`)} 
+          style={styles.iconButton}
+        >
+          <Ionicons name="pencil" size={20} color="#1a1a1a" />
+        </Pressable>
       </View>
+
+
 
       {/* Hero / Amount */}
       <View style={styles.heroCard}>
@@ -220,7 +228,7 @@ export default function TransactionDetails() {
             <Text style={styles.actionButtonText}>Mark as Refunded</Text>
           </Pressable>
         ) : !isRefunded && (
-           <Text style={styles.expiredText}>Past 60-day refund window</Text>
+           <Text style={styles.expiredText}>Past 30-day refund window</Text>
         )}
 
         <Pressable style={[styles.actionButton, styles.deleteButton]} onPress={handleDelete}>

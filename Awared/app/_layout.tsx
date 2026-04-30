@@ -109,6 +109,7 @@ export default function RootLayout() {
         <Stack.Screen name="settings" options={{ headerShown: false, animation: "slide_from_bottom" }} />
         <Stack.Screen name="transaction/[id]" options={{ headerShown: false, animation: "slide_from_right" }} />
         <Stack.Screen name="history" options={{ headerShown: false, animation: "slide_from_right" }} />
+        <Stack.Screen name="edit/[id]" options={{ headerShown: false, animation: "slide_from_right" }} />
       </Stack>
     </>
   );
