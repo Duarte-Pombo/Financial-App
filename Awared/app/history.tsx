@@ -15,9 +15,9 @@ export default function History() {
       const db = await getDb();
       const userID = global.userID;
       
-      // Select all transactions without the LIMIT 3 constraint
+      // Added t.type to the SELECT statement
       const transactions = await db.getAllAsync(
-        `SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.transacted_at, e.emoji 
+        `SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.transacted_at, t.type, e.emoji 
          FROM transactions as t
          JOIN emotion_logs l ON t.emotion_log_id = l.id
          JOIN emotions e on l.emotion_id = e.id
@@ -40,6 +40,7 @@ export default function History() {
 
   const renderItem = ({ item, index }: { item: any; index: number }) => {
     const isLastItem = index === (history?.length ?? 0) - 1;
+    const isRefunded = item.type === "refunded";
 
     return (
       <Pressable 
@@ -50,12 +51,21 @@ export default function History() {
         ]}
         onPress={() => router.push(`/transaction/${item.id}`)}
       >
-        <View style={styles.emojiCircle}>
-          <Text style={styles.emojiSize}>{item.emoji}</Text>
+        <View style={[styles.emojiCircle, isRefunded && { backgroundColor: "#f0f0f0" }]}>
+          <Text style={[styles.emojiSize, isRefunded && { opacity: 0.5 }]}>{item.emoji}</Text>
         </View>
         
         <View style={styles.transactionDetails}>
-          <Text style={styles.merchantName}>{item.merchant_name || "Unknown Item"}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={[styles.merchantName, isRefunded && styles.strikethrough]}>
+              {item.merchant_name || "Unknown Item"}
+            </Text>
+            {isRefunded && (
+              <View style={styles.refundBadgeMini}>
+                <Text style={styles.refundBadgeTextMini}>REFUND</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.transactionDate}>
             {new Date(item.transacted_at).toLocaleDateString([], { 
               year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
@@ -63,7 +73,7 @@ export default function History() {
           </Text>
         </View>
         
-        <Text style={styles.transactionAmount}>
+        <Text style={[styles.transactionAmount, isRefunded && styles.strikethroughAmount]}>
           {item.amount} {item.currency_code === "EUR" ? "€" : item.currency_code}
         </Text>
       </Pressable>
@@ -143,7 +153,7 @@ const styles = StyleSheet.create({
 
   // Card & List Styles
   card: {
-    flex: 1, // Ensures the card grows to fill available space
+    flex: 1, 
     backgroundColor: "#fff",
     borderRadius: 20,
     padding: 16,
@@ -185,6 +195,28 @@ const styles = StyleSheet.create({
   transactionDetails: { flex: 1, justifyContent: "center" },
   merchantName: { fontSize: 16, fontFamily: "RobotoSerif_600SemiBold", color: "#333", marginBottom: 4 },
   transactionDate: { fontSize: 12, fontFamily: "RobotoSerif_400Regular", color: "#888" },
-  
   transactionAmount: { fontSize: 16, fontFamily: "RobotoSerif_700Bold", color: "#1a1a1a" },
+
+  // --- New Refund Styles ---
+  strikethrough: {
+    textDecorationLine: 'line-through',
+    color: "#aaa",
+  },
+  strikethroughAmount: {
+    textDecorationLine: 'line-through',
+    color: "#aaa",
+    fontFamily: "RobotoSerif_500Medium",
+  },
+  refundBadgeMini: {
+    backgroundColor: "#e0f2f1",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  refundBadgeTextMini: {
+    color: "#00796b",
+    fontSize: 10,
+    fontFamily: "RobotoSerif_700Bold",
+  },
 });

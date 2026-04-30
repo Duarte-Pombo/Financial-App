@@ -1,13 +1,13 @@
 import React, { useState, useCallback } from "react";
 import { Text, View, StyleSheet, Pressable, ScrollView, ActivityIndicator } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router"; // Added useRouter
+import { useFocusEffect, useRouter } from "expo-router"; 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getDb } from "@/database/db";
 
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 export default function Index() {
-  const router = useRouter(); // Initialize router
+  const router = useRouter(); 
   const [activity, setActivity] = useState<any[] | null>(null);
   const [monthlySpent, setMonthlySpent] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -18,9 +18,9 @@ export default function Index() {
       const db = await getDb();
       const userID = global.userID;
       
-      // Explicitly select t.id to ensure the routing gets the transaction ID
+      // FIX 1: Added t.type to the SELECT statement so we know if it's refunded
       const transactions = await db.getAllAsync(
-        `SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.transacted_at, e.emoji 
+        `SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.transacted_at, t.type, e.emoji 
          FROM transactions as t
          JOIN emotion_logs l ON t.emotion_log_id = l.id
          JOIN emotions e on l.emotion_id = e.id
@@ -31,11 +31,14 @@ export default function Index() {
 
       const now = new Date();
       const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      
+      // FIX 2: Added "AND type != 'refunded'" so refunded money drops from the total spent!
       const row = await db.getFirstAsync<{ total: number }>(
         `SELECT COALESCE(SUM(amount), 0) as total
          FROM transactions
          WHERE user_id = ?
-           AND strftime('%Y-%m', transacted_at) = ?`, // Assuming transacted_at is your timestamp column
+           AND strftime('%Y-%m', transacted_at) = ?
+           AND type != 'refunded'`, 
         [userID, yearMonth]
       );
       
@@ -93,32 +96,45 @@ export default function Index() {
           </View>
         ) : (
           <>
-            {activity?.map((item, index) => (
-              <Pressable 
-                key={item.id} 
-                style={({ pressed }) => [
-                  styles.transactionRow, 
-                  index === activity.length - 1 && { borderBottomWidth: 0 },
-                  pressed && { opacity: 0.6 } // Adds a nice click effect
-                ]}
-                onPress={() => router.push(`/transaction/${item.id}`)}
-              >
-                <View style={styles.emojiCircle}>
-                  <Text style={styles.emojiSize}>{item.emoji}</Text>
-                </View>
-                
-                <View style={styles.transactionDetails}>
-                  <Text style={styles.merchantName}>{item.merchant_name || "Unknown Item"}</Text>
-                  <Text style={styles.transactionDate}>
-                    {new Date(item.transacted_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            {activity?.map((item, index) => {
+              const isRefunded = item.type === "refunded"; // Check if refunded
+              
+              return (
+                <Pressable 
+                  key={item.id} 
+                  style={({ pressed }) => [
+                    styles.transactionRow, 
+                    index === activity.length - 1 && { borderBottomWidth: 0 },
+                    pressed && { opacity: 0.6 }
+                  ]}
+                  onPress={() => router.push(`/transaction/${item.id}`)}
+                >
+                  <View style={[styles.emojiCircle, isRefunded && { backgroundColor: "#f0f0f0" }]}>
+                    <Text style={[styles.emojiSize, isRefunded && { opacity: 0.5 }]}>{item.emoji}</Text>
+                  </View>
+                  
+                  <View style={styles.transactionDetails}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={[styles.merchantName, isRefunded && styles.strikethrough]}>
+                        {item.merchant_name || "Unknown Item"}
+                      </Text>
+                      {isRefunded && (
+                        <View style={styles.refundBadgeMini}>
+                          <Text style={styles.refundBadgeTextMini}>REFUND</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.transactionDate}>
+                      {new Date(item.transacted_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </View>
+                  
+                  <Text style={[styles.transactionAmount, isRefunded && styles.strikethroughAmount]}>
+                    {item.amount} {item.currency_code === "EUR" ? "€" : item.currency_code}
                   </Text>
-                </View>
-                
-                <Text style={styles.transactionAmount}>
-                  {item.amount} {item.currency_code === "EUR" ? "€" : item.currency_code}
-                </Text>
-              </Pressable>
-            ))}
+                </Pressable>
+              );
+            })}
 
             <Pressable style={styles.viewMoreButton} onPress={() => router.push("/history")}>
               <Text style={styles.viewMoreText}>View History</Text>
@@ -198,6 +214,29 @@ const styles = StyleSheet.create({
   transactionDate: { fontSize: 12, fontFamily: "RobotoSerif_400Regular", color: "#888" },
   
   transactionAmount: { fontSize: 16, fontFamily: "RobotoSerif_700Bold", color: "#1a1a1a" },
+
+  // --- New Refund Styles ---
+  strikethrough: {
+    textDecorationLine: 'line-through',
+    color: "#aaa",
+  },
+  strikethroughAmount: {
+    textDecorationLine: 'line-through',
+    color: "#aaa",
+    fontFamily: "RobotoSerif_500Medium",
+  },
+  refundBadgeMini: {
+    backgroundColor: "#e0f2f1",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  refundBadgeTextMini: {
+    color: "#00796b",
+    fontSize: 10,
+    fontFamily: "RobotoSerif_700Bold",
+  },
 
   viewMoreButton: {
     height: 44, width: "100%",

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getDb } from "@/database/db";
@@ -44,6 +44,68 @@ export default function TransactionDetails() {
     if (id) fetchDetails();
   }, [id]);
 
+  // --- ACTIONS LOGIC ---
+  const handleDelete = () => {
+    Alert.alert(
+      "Delete Expense",
+      "Are you sure you want to delete this expense? This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive", 
+          onPress: async () => {
+            try {
+              const db = await getDb();
+              await db.runAsync(`DELETE FROM transactions WHERE id = ?`, [id]);
+              router.back(); // Go back to Home/History after deleting
+            } catch (e) {
+              Alert.alert("Error", "Could not delete transaction.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleRefund = () => {
+    const txDate = new Date(transaction.transacted_at);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - txDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    // 2. Check the 30-day constraint before doing anything
+    if (diffDays > 30) {
+      Alert.alert(
+        "Refund Unavailable",
+        "This purchase cannot be marked as refunded because it is older than 30 days."
+      );
+      return; 
+    }
+
+    Alert.alert(
+      "Mark as Refunded",
+      "Do you want to mark this purchase as refunded?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Confirm", 
+          onPress: async () => {
+            try {
+              const db = await getDb();
+              // Updating the type to 'refunded' (or you could add an is_refunded boolean to your schema)
+              await db.runAsync(`UPDATE transactions SET type = 'refunded' WHERE id = ?`, [id]);
+              setTransaction({ ...transaction, type: 'refunded' });
+              Alert.alert("Success", "Expense has been marked as refunded.");
+            } catch (e) {
+              Alert.alert("Error", "Could not process refund.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -64,6 +126,13 @@ export default function TransactionDetails() {
   }
 
   const txDate = new Date(transaction.transacted_at);
+  const isRefunded = transaction.type === "refunded";
+
+  // Check if less than 60 days have passed (BR05)
+  const now = new Date();
+  const diffTime = Math.abs(now.getTime() - txDate.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const canRefund = diffDays <= 60 && !isRefunded;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
@@ -79,8 +148,15 @@ export default function TransactionDetails() {
 
       {/* Hero / Amount */}
       <View style={styles.heroCard}>
-        <Text style={styles.heroMerchant}>{transaction.merchant_name || "Unknown Item"}</Text>
-        <Text style={styles.heroAmount}>
+        {isRefunded && (
+          <View style={styles.refundBadge}>
+            <Text style={styles.refundBadgeText}>REFUNDED</Text>
+          </View>
+        )}
+        <Text style={[styles.heroMerchant, isRefunded && styles.strikethrough]}>
+          {transaction.merchant_name || "Unknown Item"}
+        </Text>
+        <Text style={[styles.heroAmount, isRefunded && styles.strikethrough]}>
           {transaction.amount} <Text style={styles.currencySymbol}>{transaction.currency_code === "EUR" ? "€" : transaction.currency_code}</Text>
         </Text>
       </View>
@@ -112,7 +188,7 @@ export default function TransactionDetails() {
         </View>
       </View>
 
-      {/* Emotions Card (FIXED: Using ternary operator) */}
+      {/* Emotions Card */}
       {emotions.length > 0 ? (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>How you felt</Text>
@@ -127,13 +203,31 @@ export default function TransactionDetails() {
         </View>
       ) : null}
 
-      {/* Notes Card (FIXED: Using ternary operator) */}
+      {/* Notes Card */}
       {transaction.note ? (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Notes</Text>
           <Text style={styles.noteText}>{transaction.note}</Text>
         </View>
       ) : null}
+
+      {/* --- Action Buttons --- */}
+      <View style={styles.actionsContainer}>
+        {/* Only show Refund button if applicable */}
+        {canRefund ? (
+          <Pressable style={styles.actionButton} onPress={handleRefund}>
+            <Ionicons name="arrow-undo-outline" size={20} color="#1a1a1a" />
+            <Text style={styles.actionButtonText}>Mark as Refunded</Text>
+          </Pressable>
+        ) : !isRefunded && (
+           <Text style={styles.expiredText}>Past 60-day refund window</Text>
+        )}
+
+        <Pressable style={[styles.actionButton, styles.deleteButton]} onPress={handleDelete}>
+          <Ionicons name="trash-outline" size={20} color="#d32f2f" />
+          <Text style={styles.deleteButtonText}>Delete Expense</Text>
+        </Pressable>
+      </View>
 
     </ScrollView>
   );
@@ -177,6 +271,22 @@ const styles = StyleSheet.create({
   heroCard: {
     alignItems: "center",
     marginBottom: 30,
+  },
+  refundBadge: {
+    backgroundColor: "#e0f2f1",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  refundBadgeText: {
+    color: "#00796b",
+    fontSize: 12,
+    fontFamily: "RobotoSerif_700Bold",
+  },
+  strikethrough: {
+    textDecorationLine: 'line-through',
+    color: "#aaa",
   },
   heroMerchant: {
     fontSize: 18,
@@ -245,7 +355,7 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: "#f0f0f0",
     marginVertical: 16,
-    marginLeft: 56, // Align with text
+    marginLeft: 56, 
   },
 
   // Emotions
@@ -277,6 +387,40 @@ const styles = StyleSheet.create({
     color: "#444",
     lineHeight: 22,
     fontFamily: "RobotoSerif_400Regular",
+  },
+
+  // Actions Container
+  actionsContainer: {
+    marginTop: 10,
+    gap: 12,
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#e0d4ea",
+    paddingVertical: 14,
+    borderRadius: 16,
+    gap: 8,
+  },
+  actionButtonText: {
+    fontSize: 15,
+    fontFamily: "RobotoSerif_600SemiBold",
+    color: "#1a1a1a",
+  },
+  expiredText: {
+    textAlign: "center",
+    fontSize: 12,
+    color: "#aaa",
+    fontFamily: "RobotoSerif_400Regular",
+  },
+  deleteButton: {
+    backgroundColor: "#ffebee",
+  },
+  deleteButtonText: {
+    fontSize: 15,
+    fontFamily: "RobotoSerif_600SemiBold",
+    color: "#d32f2f",
   },
 
   // Error State

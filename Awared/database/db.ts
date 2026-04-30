@@ -67,7 +67,7 @@ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
       merchant_name  TEXT,
       location        TEXT,
       note           TEXT,
-      type           TEXT    NOT NULL CHECK (type IN ('debit','cash','bank transfer','credit')),
+      type           TEXT    NOT NULL CHECK (type IN ('debit','cash','bank transfer','credit','refunded')),
       is_impulse     INTEGER,
       transacted_at  TEXT    NOT NULL,
       created_at     TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))

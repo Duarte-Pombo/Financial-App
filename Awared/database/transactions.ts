@@ -30,7 +30,7 @@ export type NewTransaction = {
   category_id?: number;
   emotion_ids?: number[];
   currency_code?: string;
-  type?: "debit" | "cash" | "bank transfer" | "credit";
+  type?: "debit" | "cash" | "bank transfer" | "credit" | "refunded";
   transacted_at?: string; 
 };
 
