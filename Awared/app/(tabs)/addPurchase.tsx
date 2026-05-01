@@ -205,7 +205,9 @@ export default function AddPurchase() {
         type: "cash",
         transacted_at: date.toISOString(), 
       });
-      router.back();
+
+      router.navigate({ pathname: "/", params: { added: "true", timestamp: Date.now()} });
+
     } catch (e) {
       console.error(e);
       Alert.alert("Error", "Could not save the purchase.");

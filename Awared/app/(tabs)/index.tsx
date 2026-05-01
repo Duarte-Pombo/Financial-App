@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from "react";
-import { Text, View, StyleSheet, Pressable, ScrollView, ActivityIndicator } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router"; 
+import React, { useState, useCallback, useEffect, useRef } from "react";
+import { Text, View, StyleSheet, Pressable, ScrollView, ActivityIndicator, Animated } from "react-native";
+import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router"; 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getDb } from "@/database/db";
 
@@ -8,9 +8,43 @@ const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "Ju
 
 export default function Index() {
   const router = useRouter(); 
+  const params = useLocalSearchParams(); // ✅ Added to catch URL parameters
+  
   const [activity, setActivity] = useState<any[] | null>(null);
   const [monthlySpent, setMonthlySpent] = useState<number>(0);
+  const [budgetGoal, setBudgetGoal] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // --- Toast Animation State ---
+  const [showToast, setShowToast] = useState(false);
+  const toastAnim = useRef(new Animated.Value(-100)).current;
+
+  // ✅ Trigger Toast when "added=true" is detected
+  useEffect(() => {
+    if (params.added === "true") {
+      setShowToast(true);
+      // Slide down
+      Animated.spring(toastAnim, {
+        toValue: 20, // Distance from top
+        useNativeDriver: true,
+      }).start();
+
+      // Hide after 3 seconds
+      const timer = setTimeout(() => {
+        Animated.timing(toastAnim, {
+          toValue: -100, // Slide back up
+          duration: 300,
+          useNativeDriver: true,
+        }).start(() => {
+          setShowToast(false);
+          // Clear params so it doesn't re-trigger on un-related re-renders
+          router.setParams({ added: "", timestamp: "" }); 
+        });
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [params.added, params.timestamp]);
 
   const getActivity = useCallback(async () => {
     setIsLoading(true);
@@ -18,7 +52,6 @@ export default function Index() {
       const db = await getDb();
       const userID = global.userID;
       
-      // FIX 1: Added t.type to the SELECT statement so we know if it's refunded
       const transactions = await db.getAllAsync(
         `SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.transacted_at, t.type, e.emoji 
          FROM transactions as t
@@ -32,7 +65,6 @@ export default function Index() {
       const now = new Date();
       const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
       
-      // FIX 2: Added "AND type != 'refunded'" so refunded money drops from the total spent!
       const row = await db.getFirstAsync<{ total: number }>(
         `SELECT COALESCE(SUM(amount), 0) as total
          FROM transactions
@@ -41,8 +73,21 @@ export default function Index() {
            AND type != 'refunded'`, 
         [userID, yearMonth]
       );
-      
       setMonthlySpent(row?.total ?? 0);
+
+      await db.runAsync(
+        `CREATE TABLE IF NOT EXISTS user_settings (
+          user_id TEXT PRIMARY KEY, 
+          monthly_budget REAL
+        )`
+      );
+      
+      const settings = await db.getFirstAsync<{ monthly_budget: number }>(
+        `SELECT monthly_budget FROM user_settings WHERE user_id = ?`,
+        [userID]
+      );
+      setBudgetGoal(settings?.monthly_budget || null);
+
     } catch (error) {
       console.error("Failed to fetch activity:", error);
     } finally {
@@ -64,86 +109,126 @@ export default function Index() {
     );
   }
 
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      
-      {/* ── Budget Hero Card ── */}
-      <View style={styles.heroCard}>
-        <Text style={styles.heroSubtitle}>You have spent</Text>
-        <Text style={styles.heroAmount}>€{monthlySpent.toFixed(2)}</Text>
-        <Text style={styles.heroSubtitleBottom}>This Month</Text>
-      </View>
+  const progressPercentage = budgetGoal && budgetGoal > 0 
+    ? Math.min((monthlySpent / budgetGoal) * 100, 100) 
+    : 0;
+  const isOverBudget = budgetGoal && monthlySpent > budgetGoal;
 
-      {/* ── Emotion of the Day ── */}
-      {activity && activity.length > 0 && (
-        <View style={styles.emotionPill}>
-          <Text style={styles.emotionText}>
-            Emotion of the day: <Text style={{ fontSize: 20 }}>{activity[0].emoji}</Text>
-          </Text>
-        </View>
+  return (
+    <View style={styles.container}>
+      {/* ── Success Toast Notification ── */}
+      {showToast && (
+        <Animated.View style={[styles.toastContainer, { transform: [{ translateY: toastAnim }] }]}>
+          <Ionicons name="checkmark-circle" size={24} color="#fff" />
+          <Text style={styles.toastText}>Purchase added successfully!</Text>
+        </Animated.View>
       )}
 
-      {/* ── Recent Activity Section ── */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Recent Activity</Text>
-      </View>
-
-      <View style={styles.card}>
-        {activity && activity.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="receipt-outline" size={40} color="#ccc" style={{ marginBottom: 10 }} />
-            <Text style={styles.emptyStateText}>No transactions registered yet!</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        
+        {/* ── Budget Hero Card ── */}
+        <Pressable 
+          style={({ pressed }) => [styles.heroCard, pressed && { opacity: 0.85 }]}
+          onPress={() => router.push("/budget")}
+        >
+          <View style={styles.heroHeader}>
+            <Text style={styles.heroSubtitle}>You have spent</Text>
+            <Ionicons name="pencil" size={16} color="#e0c8f8" />
           </View>
-        ) : (
-          <>
-            {activity?.map((item, index) => {
-              const isRefunded = item.type === "refunded"; // Check if refunded
-              
-              return (
-                <Pressable 
-                  key={item.id} 
-                  style={({ pressed }) => [
-                    styles.transactionRow, 
-                    index === activity.length - 1 && { borderBottomWidth: 0 },
-                    pressed && { opacity: 0.6 }
-                  ]}
-                  onPress={() => router.push(`/transaction/${item.id}`)}
-                >
-                  <View style={[styles.emojiCircle, isRefunded && { backgroundColor: "#f0f0f0" }]}>
-                    <Text style={[styles.emojiSize, isRefunded && { opacity: 0.5 }]}>{item.emoji}</Text>
-                  </View>
-                  
-                  <View style={styles.transactionDetails}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={[styles.merchantName, isRefunded && styles.strikethrough]}>
-                        {item.merchant_name || "Unknown Item"}
-                      </Text>
-                      {isRefunded && (
-                        <View style={styles.refundBadgeMini}>
-                          <Text style={styles.refundBadgeTextMini}>REFUND</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={styles.transactionDate}>
-                      {new Date(item.transacted_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </Text>
-                  </View>
-                  
-                  <Text style={[styles.transactionAmount, isRefunded && styles.strikethroughAmount]}>
-                    {item.amount} {item.currency_code === "EUR" ? "€" : item.currency_code}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          
+          <Text style={styles.heroAmount}>€{monthlySpent.toFixed(2)}</Text>
+          
+          {budgetGoal ? (
+            <View style={styles.progressContainer}>
+              <View style={styles.progressBarBackground}>
+                <View 
+                  style={[
+                    styles.progressBarFill, 
+                    { width: `${progressPercentage}%` },
+                    isOverBudget && { backgroundColor: "#ff7675" }
+                  ]} 
+                />
+              </View>
+              <Text style={styles.progressText}>
+                {isOverBudget ? "Over budget by" : "Out of"} €{budgetGoal.toFixed(2)} this month
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.heroSubtitleBottom}>Tap to set a monthly budget goal</Text>
+          )}
+        </Pressable>
 
-            <Pressable style={styles.viewMoreButton} onPress={() => router.push("/history")}>
-              <Text style={styles.viewMoreText}>View History</Text>
-            </Pressable>
-          </>
+        {/* ── Emotion of the Day ── */}
+        {activity && activity.length > 0 && (
+          <View style={styles.emotionPill}>
+            <Text style={styles.emotionText}>
+              Emotion of the day: <Text style={{ fontSize: 20 }}>{activity[0].emoji}</Text>
+            </Text>
+          </View>
         )}
-      </View>
 
-    </ScrollView>
+        {/* ── Recent Activity Section ── */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Recent Activity</Text>
+        </View>
+
+        <View style={styles.card}>
+          {activity && activity.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="receipt-outline" size={40} color="#ccc" style={{ marginBottom: 10 }} />
+              <Text style={styles.emptyStateText}>No transactions registered yet!</Text>
+            </View>
+          ) : (
+            <>
+              {activity?.map((item, index) => {
+                const isRefunded = item.type === "refunded"; 
+                
+                return (
+                  <Pressable 
+                    key={item.id} 
+                    style={({ pressed }) => [
+                      styles.transactionRow, 
+                      index === activity.length - 1 && { borderBottomWidth: 0 },
+                      pressed && { opacity: 0.6 }
+                    ]}
+                    onPress={() => router.push(`/transaction/${item.id}`)}
+                  >
+                    <View style={[styles.emojiCircle, isRefunded && { backgroundColor: "#f0f0f0" }]}>
+                      <Text style={[styles.emojiSize, isRefunded && { opacity: 0.5 }]}>{item.emoji}</Text>
+                    </View>
+                    
+                    <View style={styles.transactionDetails}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={[styles.merchantName, isRefunded && styles.strikethrough]}>
+                          {item.merchant_name || "Unknown Item"}
+                        </Text>
+                        {isRefunded && (
+                          <View style={styles.refundBadgeMini}>
+                            <Text style={styles.refundBadgeTextMini}>REFUND</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.transactionDate}>
+                        {new Date(item.transacted_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </View>
+                    
+                    <Text style={[styles.transactionAmount, isRefunded && styles.strikethroughAmount]}>
+                      {item.amount} {item.currency_code === "EUR" ? "€" : item.currency_code}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+
+              <Pressable style={styles.viewMoreButton} onPress={() => router.push("/history")}>
+                <Text style={styles.viewMoreText}>View History</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+
+      </ScrollView>
+    </View>
   );
 }
 
@@ -151,6 +236,33 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fdf3ff" },
   scrollContent: { padding: 20, paddingTop: 60, paddingBottom: 40 },
 
+  // --- Toast Styles ---
+  toastContainer: {
+    position: "absolute",
+    top: 0,
+    left: 20,
+    right: 20,
+    backgroundColor: "#4caf50", // Success green
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    zIndex: 100, // Make sure it sits above everything
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  toastText: {
+    color: "#fff",
+    fontSize: 15,
+    fontFamily: "RobotoSerif_600SemiBold",
+  },
+
+  // --- Hero Card Updates ---
   heroCard: {
     backgroundColor: "#9b72cf",
     borderRadius: 24,
@@ -164,9 +276,32 @@ const styles = StyleSheet.create({
     elevation: 8,
     marginBottom: 20,
   },
-  heroSubtitle: { color: "#f3e8ff", fontSize: 16, fontFamily: "RobotoSerif_500Medium", marginBottom: 8 },
+  heroHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  heroSubtitle: { color: "#f3e8ff", fontSize: 16, fontFamily: "RobotoSerif_500Medium" },
   heroAmount: { color: "#ffffff", fontSize: 48, fontFamily: "RobotoSerif_700Bold", marginVertical: 4 },
-  heroSubtitleBottom: { color: "#e0c8f8", fontSize: 16, fontFamily: "RobotoSerif_500Medium", marginTop: 8 },
+  heroSubtitleBottom: { color: "#e0c8f8", fontSize: 15, fontFamily: "RobotoSerif_500Medium", marginTop: 8 },
+  
+  // Progress Bar
+  progressContainer: { width: "100%", marginTop: 16, alignItems: "center" },
+  progressBarBackground: {
+    width: "100%",
+    height: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 4,
+    overflow: "hidden",
+    marginBottom: 8,
+  },
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: "#fff",
+    borderRadius: 4,
+  },
+  progressText: { color: "#f3e8ff", fontSize: 13, fontFamily: "RobotoSerif_400Regular" },
 
   emotionPill: {
     backgroundColor: "#fff",
@@ -212,38 +347,18 @@ const styles = StyleSheet.create({
   transactionDetails: { flex: 1, justifyContent: "center" },
   merchantName: { fontSize: 16, fontFamily: "RobotoSerif_600SemiBold", color: "#333", marginBottom: 4 },
   transactionDate: { fontSize: 12, fontFamily: "RobotoSerif_400Regular", color: "#888" },
-  
   transactionAmount: { fontSize: 16, fontFamily: "RobotoSerif_700Bold", color: "#1a1a1a" },
 
-  // --- New Refund Styles ---
-  strikethrough: {
-    textDecorationLine: 'line-through',
-    color: "#aaa",
-  },
-  strikethroughAmount: {
-    textDecorationLine: 'line-through',
-    color: "#aaa",
-    fontFamily: "RobotoSerif_500Medium",
-  },
+  strikethrough: { textDecorationLine: 'line-through', color: "#aaa" },
+  strikethroughAmount: { textDecorationLine: 'line-through', color: "#aaa", fontFamily: "RobotoSerif_500Medium" },
   refundBadgeMini: {
-    backgroundColor: "#e0f2f1",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginLeft: 8,
+    backgroundColor: "#e0f2f1", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: 8,
   },
-  refundBadgeTextMini: {
-    color: "#00796b",
-    fontSize: 10,
-    fontFamily: "RobotoSerif_700Bold",
-  },
+  refundBadgeTextMini: { color: "#00796b", fontSize: 10, fontFamily: "RobotoSerif_700Bold" },
 
   viewMoreButton: {
-    height: 44, width: "100%",
-    backgroundColor: "#e0c8f8",
-    borderRadius: 12,
-    justifyContent: "center", alignItems: "center",
-    marginTop: 16,
+    height: 44, width: "100%", backgroundColor: "#e0c8f8", borderRadius: 12,
+    justifyContent: "center", alignItems: "center", marginTop: 16,
   },
   viewMoreText: { color: "#6b21a8", fontFamily: "RobotoSerif_600SemiBold", fontSize: 15 },
 });
