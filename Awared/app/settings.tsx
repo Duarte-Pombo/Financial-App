@@ -12,6 +12,7 @@ export default function Settings() {
   // Profile State
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
+  const [currency, setCurrency] = useState("€");
 
   // Password State
   const [currentPassword, setCurrentPassword] = useState("");
@@ -23,13 +24,15 @@ export default function Settings() {
     async function loadUserData() {
       try {
         const db = await getDb();
-        const user = await db.getFirstAsync<{ email: string; username: string }>(
-          "SELECT email, username FROM users WHERE id = ?",
+        // ✅ Now fetching currency_code as well
+        const user = await db.getFirstAsync<{ email: string; username: string; currency_code: string }>(
+          "SELECT email, username, currency_code FROM users WHERE id = ?",
           [global.userID]
         );
         if (user) {
           setEmail(user.email);
           setUsername(user.username);
+          setCurrency(user.currency_code || "€"); // Fallback to € just in case
         }
       } catch (error) {
         console.error("Failed to load user data:", error);
@@ -39,16 +42,17 @@ export default function Settings() {
   }, []);
 
   async function handleUpdateProfile() {
-    if (!email || !username) {
-      Alert.alert("Error", "Email and Username cannot be empty.");
+    if (!email || !username || !currency) {
+      Alert.alert("Error", "Fields cannot be empty.");
       return;
     }
 
     try {
       const db = await getDb();
+      // ✅ Now saving the currency code to the database
       await db.runAsync(
-        "UPDATE users SET email = ?, username = ? WHERE id = ?",
-        [email.trim(), username.trim(), global.userID]
+        "UPDATE users SET email = ?, username = ?, currency_code = ? WHERE id = ?",
+        [email.trim(), username.trim(), currency.trim(), global.userID]
       );
       Alert.alert("Success", "Your profile has been updated!");
     } catch (error: any) {
@@ -58,6 +62,20 @@ export default function Settings() {
       } else {
         Alert.alert("Error", "Failed to update profile.");
       }
+    }
+  }
+
+  async function handleCurrencyChange(newSymbol: string) {
+    setCurrency(newSymbol); // Update UI instantly
+    
+    try {
+      const db = await getDb();
+      await db.runAsync(
+        "UPDATE users SET currency_code = ? WHERE id = ?",
+        [newSymbol.trim(), global.userID]
+      );
+    } catch (error) {
+      console.error("Failed to auto-save currency:", error);
     }
   }
 
@@ -73,6 +91,7 @@ export default function Settings() {
   };
 
   async function handleUpdatePassword() {
+    // ... (Keep your existing password logic unchanged)
     if (!currentPassword || !newPassword) {
       Alert.alert("Error", "Please fill in both the current and new password.");
       return;
@@ -88,7 +107,6 @@ export default function Settings() {
       const db = await getDb();
       const hashOld = btoa(currentPassword);
       
-      // Verify current password first
       const user = await db.getFirstAsync(
         "SELECT id FROM users WHERE id = ? AND password_hash = ?",
         [global.userID, hashOld]
@@ -99,7 +117,6 @@ export default function Settings() {
         return;
       }
 
-      // Update to new password
       const hashNew = btoa(newPassword);
       await db.runAsync(
         "UPDATE users SET password_hash = ? WHERE id = ?",
@@ -117,6 +134,7 @@ export default function Settings() {
   }
 
   async function handleDeleteAccount() {
+    // ... (Keep your existing delete logic unchanged)
     Alert.alert(
       "Delete Account",
       "Are you absolutely sure? This will permanently delete your account and all associated data. This action cannot be undone.",
@@ -150,6 +168,37 @@ export default function Settings() {
 
       <Text style={styles.pageTitle}>Settings</Text>
 
+      {/* ── Preferences (Currency) ── */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Preferences</Text>
+        <Text style={styles.inputLabel}>Currency Symbol</Text>
+        
+        <View style={styles.currencyRow}>
+          {/* Quick Select Buttons */}
+          {["€", "$", "£", "¥"].map((sym) => (
+            <Pressable 
+              key={sym} 
+              style={[styles.currencyBtn, currency === sym && styles.currencyBtnActive]}
+              onPress={() => handleCurrencyChange(sym)}
+            >
+              <Text style={[styles.currencyBtnText, currency === sym && styles.currencyBtnTextActive]}>
+                {sym}
+              </Text>
+            </Pressable>
+          ))}
+          {/* Custom Input for other symbols */}
+          <TextInput 
+            style={styles.currencyInput} 
+            value={currency} 
+            onChangeText={setCurrency} 
+            onBlur={() => handleCurrencyChange(currency)} // Auto-save on blur
+            maxLength={3}
+            placeholder="Other"
+            placeholderTextColor="#ccc"
+          />
+        </View>
+      </View>
+
       {/* ── Edit Profile Info ── */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Account Details</Text>
@@ -172,35 +221,23 @@ export default function Settings() {
         />
 
         <Pressable style={styles.saveButton} onPress={handleUpdateProfile}>
-          <Text style={styles.saveButtonText}>Save Profile Info</Text>
+          <Text style={styles.saveButtonText}>Save Account Details</Text>
         </Pressable>
       </View>
 
       {/* ── Change Password ── */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Security</Text>
-        
+        {/* ... (Keep your existing password fields unchanged) ... */}
         <Text style={styles.inputLabel}>Current Password</Text>
-        <TextInput 
-          style={styles.input} 
-          secureTextEntry={!showPassword} 
-          value={currentPassword} 
-          onChangeText={setCurrentPassword} 
-        />
-
+        <TextInput style={styles.input} secureTextEntry={!showPassword} value={currentPassword} onChangeText={setCurrentPassword} />
         <Text style={styles.inputLabel}>New Password</Text>
         <View style={styles.passwordContainer}>
-          <TextInput 
-            style={styles.passwordInput} 
-            secureTextEntry={!showPassword} 
-            value={newPassword}
-            onChangeText={setNewPassword} 
-          />
+          <TextInput style={styles.passwordInput} secureTextEntry={!showPassword} value={newPassword} onChangeText={setNewPassword} />
           <Pressable onPress={() => setShowPassword(!showPassword)}>
             <Text style={styles.toggleText}>{showPassword ? "Hide" : "Show"}</Text>
           </Pressable>
         </View>
-
         <Pressable style={styles.saveButton} onPress={handleUpdatePassword}>
           <Text style={styles.saveButtonText}>Update Password</Text>
         </Pressable>
@@ -209,7 +246,6 @@ export default function Settings() {
       {/* ── Danger Zone ── */}
       <View style={[styles.card, { borderColor: "#fdecea", borderWidth: 1 }]}>
         <Text style={[styles.cardTitle, { color: "#e53935" }]}>Danger Zone</Text>
-
         <Pressable style={styles.actionRow} onPress={handleDeleteAccount}>
           <View style={[styles.actionIcon, { backgroundColor: "#fdecea" }]}>
             <Ionicons name="trash-outline" size={20} color="#e53935" />
@@ -225,50 +261,65 @@ export default function Settings() {
 }
 
 const styles = StyleSheet.create({
+  // ... (Keep your existing styles) ...
   container: { flex: 1, backgroundColor: "#fdf3ff" },
   content: { padding: 20, paddingTop: 60 },
-  
-  backButton: {
-    width: 40, height: 40,
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    alignItems: "center", justifyContent: "center",
-    marginBottom: 20,
-    shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 5, elevation: 2,
-  },
-  
-  pageTitle: {
-    fontSize: 28,
-    fontFamily: "RobotoSerif_700Bold",
-    color: "#1a1a1a",
-    marginBottom: 24,
-  },
-
-  card: {
-    backgroundColor: "#fff", borderRadius: 20, padding: 18, marginBottom: 16,
-    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
-  },
+  backButton: { width: 40, height: 40, backgroundColor: "#fff", borderRadius: 20, alignItems: "center", justifyContent: "center", marginBottom: 20, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 5, elevation: 2, },
+  pageTitle: { fontSize: 28, fontFamily: "RobotoSerif_700Bold", color: "#1a1a1a", marginBottom: 24, },
+  card: { backgroundColor: "#fff", borderRadius: 20, padding: 18, marginBottom: 16, shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 10, elevation: 3, },
   cardTitle: { fontSize: 16, fontFamily: "RobotoSerif_600SemiBold", color: "#444", marginBottom: 16 },
-
   inputLabel: { fontSize: 13, color: "#666", marginBottom: 6, marginLeft: 4, fontFamily: "RobotoSerif_500Medium" },
-  input: {
-    height: 48, width: "100%", marginBottom: 16, borderWidth: 1,
-    borderColor: "#e0e0e0", borderRadius: 12, padding: 12, backgroundColor: "#fafafa"
-  },
-  passwordContainer: {
-    flexDirection: "row", alignItems: "center", width: "100%", marginBottom: 16,
-    borderWidth: 1, borderColor: "#e0e0e0", borderRadius: 12, backgroundColor: "#fafafa", paddingRight: 15
-  },
+  input: { height: 48, width: "100%", marginBottom: 16, borderWidth: 1, borderColor: "#e0e0e0", borderRadius: 12, padding: 12, backgroundColor: "#fafafa" },
+  passwordContainer: { flexDirection: "row", alignItems: "center", width: "100%", marginBottom: 16, borderWidth: 1, borderColor: "#e0e0e0", borderRadius: 12, backgroundColor: "#fafafa", paddingRight: 15 },
   passwordInput: { flex: 1, height: 48, padding: 12 },
   toggleText: { color: "#9b72cf", fontWeight: "bold" },
-
-  saveButton: {
-    height: 44, width: "100%", backgroundColor: "#e0c8f8", borderRadius: 12,
-    justifyContent: "center", alignItems: "center", marginTop: 4
-  },
+  saveButton: { height: 44, width: "100%", backgroundColor: "#e0c8f8", borderRadius: 12, justifyContent: "center", alignItems: "center", marginTop: 4 },
   saveButtonText: { color: "#6b21a8", fontFamily: "RobotoSerif_600SemiBold", fontSize: 15 },
-
   actionRow: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 4 },
   actionIcon: { width: 38, height: 38, borderRadius: 11, alignItems: "center", justifyContent: "center" },
   actionLabel: { flex: 1, fontSize: 15, fontFamily: "RobotoSerif_500Medium", color: "#333" },
+
+  // ✅ New styles for the currency row
+  currencyRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 8,
+    alignItems: "center"
+  },
+  currencyBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    backgroundColor: "#fafafa",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  currencyBtnActive: {
+    backgroundColor: "#e0c8f8",
+    borderColor: "#9b72cf",
+  },
+  currencyBtnText: {
+    fontSize: 18,
+    color: "#666",
+    fontFamily: "RobotoSerif_500Medium",
+  },
+  currencyBtnTextActive: {
+    color: "#6b21a8",
+    fontFamily: "RobotoSerif_700Bold",
+  },
+  currencyInput: {
+    flex: 1,
+    height: 48,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: "#fafafa",
+    textAlign: "center",
+    fontSize: 18,
+    fontFamily: "RobotoSerif_500Medium",
+    color: "#333"
+  }
 });

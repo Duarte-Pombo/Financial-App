@@ -79,7 +79,7 @@ export async function insertTransaction(data: NewTransaction): Promise<string> {
         data.category_id ?? null,
         firstLogId,
         data.amount,
-        data.currency_code ?? "EUR",
+        data.currency_code ?? "€",
         data.merchant_name ?? null, 
         data.location ?? null,
         data.note ?? null,

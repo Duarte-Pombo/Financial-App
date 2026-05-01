@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { View, StyleSheet, Pressable, FlatList, Animated } from "react-native";
 import { Text } from "@/components/Text";
 import { Ionicons } from "@expo/vector-icons";
-import MonthlyHeatmapPanel from "@/components/MonthlyHeatmapPanel";
+import MonthlyHeatmapPanel from "@/app/monthlyHeatmap";
 import { getWeekHeatmapData, WeekDayData, WeekEmotionStat } from "@/database/transactions";
 import { getDb } from "@/database/db";
 

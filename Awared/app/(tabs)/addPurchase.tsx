@@ -54,7 +54,7 @@ export default function AddPurchase() {
   const [location, setLocation] = useState("");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
-  
+  const [userCurrency, setUserCurrency] = useState("€");
   const [date, setDate] = useState(new Date());
   const [editingField, setEditingField] = useState<'date' | 'time' | null>(null);
 
@@ -110,6 +110,23 @@ export default function AddPurchase() {
       setSaving(false);
       setDate(new Date());
       setEditingField(null);
+
+      async function fetchCurrency() {
+        if (!global.userID) return;
+        try {
+          const db = await getDb();
+          const user = await db.getFirstAsync<{ currency_code: string }>(
+            "SELECT currency_code FROM users WHERE id = ?",
+            [global.userID]
+          );
+          if (user && user.currency_code) {
+            setUserCurrency(user.currency_code);
+          }
+        } catch (error) {
+          console.error("Failed to load currency:", error);
+        }
+      }
+      fetchCurrency();
     }, [])
   );
 
@@ -201,7 +218,7 @@ export default function AddPurchase() {
         note: note || undefined,
         location: location || undefined,
         emotion_ids: selectedEmotionIds,
-        currency_code: "EUR",
+        currency_code: userCurrency,
         type: "cash",
         transacted_at: date.toISOString(), 
       });
@@ -266,7 +283,7 @@ export default function AddPurchase() {
                 underlineColorAndroid="transparent"
                 returnKeyType="done"
               />
-              <Text style={styles.currencySymbol}>€</Text>
+              <Text style={styles.currencySymbol}>{userCurrency}</Text>
             </View>
             <View style={styles.inputUnderline} />
           </View>

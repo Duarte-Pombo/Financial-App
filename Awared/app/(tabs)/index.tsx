@@ -14,6 +14,7 @@ export default function Index() {
   const [monthlySpent, setMonthlySpent] = useState<number>(0);
   const [budgetGoal, setBudgetGoal] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [userCurrency, setUserCurrency] = useState<string>("€");
 
   // --- Toast Animation State ---
   const [showToast, setShowToast] = useState(false);
@@ -51,6 +52,14 @@ export default function Index() {
     try {
       const db = await getDb();
       const userID = global.userID;
+
+      const user = await db.getFirstAsync<{ currency_code: string }>(
+        `SELECT currency_code FROM users WHERE id = ?`,
+        [userID]
+      );
+      if (user && user.currency_code) {
+        setUserCurrency(user.currency_code); // This fixes the "not used" error!
+      }
       
       const transactions = await db.getAllAsync(
         `SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.transacted_at, t.type, e.emoji 
@@ -136,7 +145,7 @@ export default function Index() {
             <Ionicons name="pencil" size={16} color="#e0c8f8" />
           </View>
           
-          <Text style={styles.heroAmount}>€{monthlySpent.toFixed(2)}</Text>
+          <Text style={styles.heroAmount}>{userCurrency}{monthlySpent.toFixed(2)}</Text>
           
           {budgetGoal ? (
             <View style={styles.progressContainer}>
@@ -150,7 +159,7 @@ export default function Index() {
                 />
               </View>
               <Text style={styles.progressText}>
-                {isOverBudget ? "Over budget by" : "Out of"} €{budgetGoal.toFixed(2)} this month
+                {isOverBudget ? "Over budget by" : "Out of"} {userCurrency}{budgetGoal.toFixed(2)} this month
               </Text>
             </View>
           ) : (
@@ -214,7 +223,7 @@ export default function Index() {
                     </View>
                     
                     <Text style={[styles.transactionAmount, isRefunded && styles.strikethroughAmount]}>
-                      {item.amount} {item.currency_code === "EUR" ? "€" : item.currency_code}
+                      {item.amount} {userCurrency}
                     </Text>
                   </Pressable>
                 );

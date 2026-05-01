@@ -9,6 +9,7 @@ export default function SetBudget() {
   const [budget, setBudget] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [userCurrency, setUserCurrency] = useState("€");
 
   useEffect(() => {
     async function fetchBudget() {
@@ -24,6 +25,15 @@ export default function SetBudget() {
         if (settings && settings.monthly_budget) {
           setBudget(settings.monthly_budget.toString());
         }
+
+        const user = await db.getFirstAsync<{ currency_code: string }>(
+          `SELECT currency_code FROM users WHERE id = ?`,
+          [userID]
+        );
+        if (user && user.currency_code) {
+          setUserCurrency(user.currency_code);
+        }
+
       } catch (error) {
         console.error("Failed to load budget:", error);
       } finally {
@@ -96,9 +106,9 @@ export default function SetBudget() {
           </Text>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Monthly Budget (€)</Text>
+            <Text style={styles.label}>Monthly Budget ({userCurrency})</Text>
             <View style={styles.amountContainer}>
-              <Text style={styles.currencySymbol}>€</Text>
+              <Text style={styles.currencySymbol}>{userCurrency}</Text>
               <TextInput
                 style={styles.amountInput}
                 value={budget}
