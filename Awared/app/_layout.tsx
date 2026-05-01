@@ -1,3 +1,4 @@
+import "../global.css";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -10,6 +11,12 @@ import {
   RobotoSerif_600SemiBold,
   RobotoSerif_700Bold,
 } from "@expo-google-fonts/roboto-serif";
+import {
+  Manrope_400Regular,
+  Manrope_500Medium,
+  Manrope_600SemiBold,
+  Manrope_700Bold,
+} from "@expo-google-fonts/manrope";
 
 import { getDb } from "../database/db";
 import { seedDatabase } from "../database/seed";
@@ -62,6 +69,10 @@ export default function RootLayout() {
     RobotoSerif_500Medium,
     RobotoSerif_600SemiBold,
     RobotoSerif_700Bold,
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
   });
 
   useEffect(() => {
