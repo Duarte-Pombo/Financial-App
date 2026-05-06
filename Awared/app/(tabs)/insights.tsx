@@ -45,6 +45,19 @@ type Insight = {
   actions: string[];
 };
 
+type AiInsight = {
+  type: "pattern" | "warning" | "tip" | "positive";
+  title: string;
+  body: string;
+  actions: string[];
+};
+
+type AiInsightsState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "success"; data: AiInsight[]; latencyMs: number }
+  | { status: "error"; message: string; retryable: boolean };
+
 type ScoredTransaction = RawTransaction & {
   impulseScore: number;
   scoreBreakdown: {
@@ -77,6 +90,20 @@ const CATEGORY_WEIGHTS: Record<string, number> = {
   Bills: 0,
   Education: 0,
   Other: 2,
+};
+
+/** Base URL of your Express server. Change for production. */
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
+
+// Map insight types to the same visual language as the existing Insight cards
+const AI_INSIGHT_STYLE: Record<
+  AiInsight["type"],
+  { icon: string; accentColor: string; bgColor: string }
+> = {
+  warning: { icon: "🧠", accentColor: "#dc2626", bgColor: "#fef2f2" },
+  pattern: { icon: "🔍", accentColor: "#7c3aed", bgColor: "#f5f3ff" },
+  tip: { icon: "💡", accentColor: "#b45309", bgColor: "#fff7ed" },
+  positive: { icon: "✨", accentColor: "#059669", bgColor: "#ecfdf5" },
 };
 
 // ─── Free-tier scoring helpers ────────────────────────────────────────────────
@@ -659,6 +686,160 @@ function UpgradeModal({
   );
 }
 
+// ─── AI Section Fetch Logic & Components ──────────────────────────────────────
+
+async function fetchAiInsights(
+  scored: ScoredTransaction[],
+  setAiInsights: React.Dispatch<React.SetStateAction<AiInsightsState>>,
+  signal?: AbortSignal
+): Promise<void> {
+  setAiInsights({ status: "loading" });
+
+  try {
+    const res = await fetch(`${API_BASE}/api/insights/analyze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // We send the scored payload; the server handles all masking.
+      // We deliberately exclude: user_id, device info, exact timestamps.
+      body: JSON.stringify({ transactions: scored }),
+      signal,
+    });
+
+    const json = await res.json();
+
+    if (!res.ok || !json.ok) {
+      setAiInsights({
+        status: "error",
+        message: json.error ?? "Something went wrong. Please try again.",
+        retryable: json.retryable ?? res.status >= 500,
+      });
+      return;
+    }
+
+    setAiInsights({
+      status: "success",
+      data: json.insights as AiInsight[],
+      latencyMs: json.meta?.modelLatencyMs ?? 0,
+    });
+
+  } catch (err: unknown) {
+    if ((err as Error).name === "AbortError") return; // component unmounted
+
+    setAiInsights({
+      status: "error",
+      message: "Could not reach the analysis server. Check your connection.",
+      retryable: true,
+    });
+  }
+}
+
+function AiInsightsSection({
+  state,
+  onRetry,
+  expanded,
+  onToggle,
+}: {
+  state: AiInsightsState;
+  onRetry: () => void;
+  expanded: string | null;
+  onToggle: (id: string) => void;
+}) {
+  if (state.status === "idle") return null;
+
+  return (
+    <View style={{ marginTop: 4 }}>
+      {/* Section header */}
+      <View style={aiStyles.sectionHeader}>
+        <Text style={aiStyles.sectionTitle}>🧠 AI Behavioral Analysis</Text>
+        {state.status === "success" && (
+          <Text style={aiStyles.latencyBadge}>
+            {(state.latencyMs / 1000).toFixed(1)}s
+          </Text>
+        )}
+      </View>
+
+      {state.status === "loading" && (
+        <View style={aiStyles.loadingCard}>
+          <ActivityIndicator color="#7c3aed" />
+          <Text style={aiStyles.loadingText}>
+            Analysing your emotional spending patterns…
+          </Text>
+        </View>
+      )}
+
+      {state.status === "error" && (
+        <View style={aiStyles.errorCard}>
+          <Text style={aiStyles.errorText}>{state.message}</Text>
+          {state.retryable && (
+            <Pressable style={aiStyles.retryBtn} onPress={onRetry}>
+              <Text style={aiStyles.retryText}>Try again</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
+
+      {state.status === "success" &&
+        state.data.map((insight, i) => {
+          const style = AI_INSIGHT_STYLE[insight.type];
+          const cardId = `ai_${i}`;
+          const isOpen = expanded === cardId;
+
+          return (
+            <Pressable
+              key={cardId}
+              style={[
+                aiStyles.card,
+                { backgroundColor: style.bgColor, borderLeftColor: style.accentColor },
+              ]}
+              onPress={() => onToggle(cardId)}
+            >
+              <View style={aiStyles.cardHeader}>
+                <View
+                  style={[
+                    aiStyles.iconBadge,
+                    { backgroundColor: style.accentColor + "20" },
+                  ]}
+                >
+                  <Text style={aiStyles.iconText}>{style.icon}</Text>
+                </View>
+                <View style={aiStyles.cardTitleBlock}>
+                  <Text style={aiStyles.cardTitle}>{insight.title}</Text>
+                  <Text style={[aiStyles.aiBadge, { color: style.accentColor }]}>
+                    AI · Human-grade
+                  </Text>
+                </View>
+                <Text style={[aiStyles.chevron, { color: style.accentColor }]}>
+                  {isOpen ? "▲" : "▼"}
+                </Text>
+              </View>
+
+              {isOpen && (
+                <View style={aiStyles.cardBody}>
+                  <Text style={aiStyles.cardBodyText}>{insight.body}</Text>
+                  {insight.actions.length > 0 && (
+                    <View style={aiStyles.actionsBlock}>
+                      {insight.actions.map((action, j) => (
+                        <View
+                          key={j}
+                          style={[
+                            aiStyles.actionRow,
+                            { borderLeftColor: style.accentColor },
+                          ]}
+                        >
+                          <Text style={aiStyles.actionText}>{action}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+            </Pressable>
+          );
+        })}
+    </View>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Insights() {
@@ -673,6 +854,9 @@ export default function Insights() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [isPremium, setIsPremium] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  const [aiInsights, setAiInsights] = useState<AiInsightsState>({ status: "idle" });
+  const [lastScored, setLastScored] = useState<ScoredTransaction[]>([]);
 
   const loadInsights = useCallback(async () => {
     try {
@@ -722,6 +906,8 @@ export default function Insights() {
         return scoreTransaction(tx, dayCountMap[day] ?? 1, avgSpend);
       });
 
+      setLastScored(scored);
+
       const avgScore = scored.reduce((s, t) => s + t.impulseScore, 0) / scored.length;
 
       const emotionCounts: Record<string, { count: number; emoji: string | null }> = {};
@@ -743,13 +929,17 @@ export default function Insights() {
 
       setInsights(generateInsights(scored, avgSpend));
       setPremiumInsights(generatePremiumInsights(scored, avgSpend));
+
+      if (isPremium && scored.length >= 3) {
+        fetchAiInsights(scored, setAiInsights);
+      }
     } catch (err) {
       console.error("[insights]", err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [isPremium]);
 
   useFocusEffect(
     useCallback(() => {
@@ -888,7 +1078,16 @@ export default function Insights() {
 
             {isPremium ? (
               // Full premium cards
-              premiumInsights.map(renderInsightCard)
+              <>
+                {premiumInsights.map(renderInsightCard)}
+
+                <AiInsightsSection
+                  state={aiInsights}
+                  onRetry={() => fetchAiInsights(lastScored, setAiInsights)}
+                  expanded={expanded}
+                  onToggle={(id) => setExpanded(expanded === id ? null : id)}
+                />
+              </>
             ) : (
               // Locked preview cards
               <>
@@ -1129,4 +1328,133 @@ const ms = StyleSheet.create({
   dismissText: { fontSize: 14, color: "#aaa" },
 
   legal: { fontSize: 10, color: "#ccc", textAlign: "center" },
+});
+
+// ─── AI Section Styles ────────────────────────────────────────────────────────
+const aiStyles = StyleSheet.create({
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+    marginTop: 8,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#555",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  latencyBadge: {
+    fontSize: 11,
+    color: "#a78bfa",
+    fontStyle: "italic",
+  },
+
+  // Loading state
+  loadingCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#f5f3ff",
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: "#7c3aed",
+    flex: 1,
+  },
+
+  // Error state
+  errorCard: {
+    backgroundColor: "#fef2f2",
+    borderRadius: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: "#dc2626",
+    padding: 14,
+    marginBottom: 12,
+    gap: 10,
+  },
+  errorText: {
+    fontSize: 13,
+    color: "#991b1b",
+    lineHeight: 19,
+  },
+  retryBtn: {
+    alignSelf: "flex-start",
+    backgroundColor: "#dc2626",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  retryText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#fff",
+  },
+
+  // Insight cards (mirrors existing card styles)
+  card: {
+    borderRadius: 16,
+    borderLeftWidth: 3,
+    padding: 14,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  iconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  iconText: { fontSize: 16 },
+  cardTitleBlock: { flex: 1 },
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1a1a1a",
+    lineHeight: 19,
+  },
+  aiBadge: {
+    fontSize: 10,
+    fontWeight: "500",
+    marginTop: 2,
+    letterSpacing: 0.3,
+  },
+  chevron: { fontSize: 10, paddingLeft: 4 },
+  cardBody: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 0.5,
+    borderTopColor: "#00000015",
+  },
+  cardBodyText: {
+    fontSize: 13,
+    color: "#444",
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  actionsBlock: { gap: 6 },
+  actionRow: {
+    borderLeftWidth: 2,
+    paddingLeft: 10,
+    paddingVertical: 5,
+    backgroundColor: "#00000008",
+    borderRadius: 4,
+  },
+  actionText: { fontSize: 12, color: "#555", lineHeight: 17 },
 });
