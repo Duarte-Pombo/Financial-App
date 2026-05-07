@@ -15,7 +15,7 @@
 const SLM_CONFIG = {
 	baseUrl: process.env.OLLAMA_URL ?? "http://127.0.0.1:11434",
 	model: process.env.OLLAMA_MODEL ?? "llama3.2:3b",   // swap to any local model
-	timeoutMs: parseInt(process.env.SLM_TIMEOUT_MS ?? "18000", 10),  // 18 s hard cap
+	timeoutMs: parseInt(process.env.SLM_TIMEOUT_MS ?? "60000", 10),  // 60 s hard cap
 	maxRetries: parseInt(process.env.SLM_MAX_RETRIES ?? "2", 10),
 	temperature: 0.3,   // low → deterministic, consistent tone
 	maxTokens: 512,   // insights are short; cap prevents runaway generation
