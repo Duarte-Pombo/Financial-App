@@ -1,15 +1,17 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Text, View, StyleSheet, Pressable, ScrollView, ActivityIndicator, Animated } from "react-native";
-import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router"; 
+import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getDb } from "@/database/db";
+import { useNotification } from "@/context/NotificationContext";
 
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 export default function Index() {
-  const router = useRouter(); 
+  const { notification, expoPushToken, devicePushToken, error } = useNotification();
+  const router = useRouter();
   const params = useLocalSearchParams(); // ✅ Added to catch URL parameters
-  
+
   const [activity, setActivity] = useState<any[] | null>(null);
   const [monthlySpent, setMonthlySpent] = useState<number>(0);
   const [budgetGoal, setBudgetGoal] = useState<number | null>(null);
@@ -39,7 +41,7 @@ export default function Index() {
         }).start(() => {
           setShowToast(false);
           // Clear params so it doesn't re-trigger on un-related re-renders
-          router.setParams({ added: "", timestamp: "" }); 
+          router.setParams({ added: "", timestamp: "" });
         });
       }, 3000);
 
@@ -60,7 +62,7 @@ export default function Index() {
       if (user && user.currency_code) {
         setUserCurrency(user.currency_code); // This fixes the "not used" error!
       }
-      
+
       const transactions = await db.getAllAsync(
         `SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.transacted_at, t.type, e.emoji 
          FROM transactions as t
@@ -73,13 +75,13 @@ export default function Index() {
 
       const now = new Date();
       const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-      
+
       const row = await db.getFirstAsync<{ total: number }>(
         `SELECT COALESCE(SUM(amount), 0) as total
          FROM transactions
          WHERE user_id = ?
            AND strftime('%Y-%m', transacted_at) = ?
-           AND type != 'refunded'`, 
+           AND type != 'refunded'`,
         [userID, yearMonth]
       );
       setMonthlySpent(row?.total ?? 0);
@@ -90,7 +92,7 @@ export default function Index() {
           monthly_budget REAL
         )`
       );
-      
+
       const settings = await db.getFirstAsync<{ monthly_budget: number }>(
         `SELECT monthly_budget FROM user_settings WHERE user_id = ?`,
         [userID]
@@ -118,8 +120,8 @@ export default function Index() {
     );
   }
 
-  const progressPercentage = budgetGoal && budgetGoal > 0 
-    ? Math.min((monthlySpent / budgetGoal) * 100, 100) 
+  const progressPercentage = budgetGoal && budgetGoal > 0
+    ? Math.min((monthlySpent / budgetGoal) * 100, 100)
     : 0;
   const isOverBudget = budgetGoal && monthlySpent > budgetGoal;
 
@@ -134,9 +136,9 @@ export default function Index() {
       )}
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        
+
         {/* ── Budget Hero Card ── */}
-        <Pressable 
+        <Pressable
           style={({ pressed }) => [styles.heroCard, pressed && { opacity: 0.85 }]}
           onPress={() => router.push("/budget")}
         >
@@ -144,18 +146,18 @@ export default function Index() {
             <Text style={styles.heroSubtitle}>You have spent</Text>
             <Ionicons name="pencil" size={16} color="#e0c8f8" />
           </View>
-          
+
           <Text style={styles.heroAmount}>{userCurrency}{monthlySpent.toFixed(2)}</Text>
-          
+
           {budgetGoal ? (
             <View style={styles.progressContainer}>
               <View style={styles.progressBarBackground}>
-                <View 
+                <View
                   style={[
-                    styles.progressBarFill, 
+                    styles.progressBarFill,
                     { width: `${progressPercentage}%` },
                     isOverBudget && { backgroundColor: "#ff7675" }
-                  ]} 
+                  ]}
                 />
               </View>
               <Text style={styles.progressText}>
@@ -190,13 +192,13 @@ export default function Index() {
           ) : (
             <>
               {activity?.map((item, index) => {
-                const isRefunded = item.type === "refunded"; 
-                
+                const isRefunded = item.type === "refunded";
+
                 return (
-                  <Pressable 
-                    key={item.id} 
+                  <Pressable
+                    key={item.id}
                     style={({ pressed }) => [
-                      styles.transactionRow, 
+                      styles.transactionRow,
                       index === activity.length - 1 && { borderBottomWidth: 0 },
                       pressed && { opacity: 0.6 }
                     ]}
@@ -205,7 +207,7 @@ export default function Index() {
                     <View style={[styles.emojiCircle, isRefunded && { backgroundColor: "#f0f0f0" }]}>
                       <Text style={[styles.emojiSize, isRefunded && { opacity: 0.5 }]}>{item.emoji}</Text>
                     </View>
-                    
+
                     <View style={styles.transactionDetails}>
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         <Text style={[styles.merchantName, isRefunded && styles.strikethrough]}>
@@ -221,7 +223,7 @@ export default function Index() {
                         {new Date(item.transacted_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </Text>
                     </View>
-                    
+
                     <Text style={[styles.transactionAmount, isRefunded && styles.strikethroughAmount]}>
                       {item.amount} {userCurrency}
                     </Text>
@@ -294,7 +296,7 @@ const styles = StyleSheet.create({
   heroSubtitle: { color: "#f3e8ff", fontSize: 16, fontFamily: "RobotoSerif_500Medium" },
   heroAmount: { color: "#ffffff", fontSize: 48, fontFamily: "RobotoSerif_700Bold", marginVertical: 4 },
   heroSubtitleBottom: { color: "#e0c8f8", fontSize: 15, fontFamily: "RobotoSerif_500Medium", marginTop: 8 },
-  
+
   // Progress Bar
   progressContainer: { width: "100%", marginTop: 16, alignItems: "center" },
   progressBarBackground: {
@@ -352,7 +354,7 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   emojiSize: { fontSize: 22 },
-  
+
   transactionDetails: { flex: 1, justifyContent: "center" },
   merchantName: { fontSize: 16, fontFamily: "RobotoSerif_600SemiBold", color: "#333", marginBottom: 4 },
   transactionDate: { fontSize: 12, fontFamily: "RobotoSerif_400Regular", color: "#888" },

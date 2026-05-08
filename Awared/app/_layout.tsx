@@ -14,6 +14,19 @@ import {
 import { getDb } from "../database/db";
 import { seedDatabase } from "../database/seed";
 
+import * as Notifications from "expo-notifications";
+import { NotificationProvider } from "@/context/NotificationContext";
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
+
 const DEV_RESET = true; // COMMENT AFTER TESTING
 
 // ┌─────┬──────────────────────────────────────────────────────────────────────┐
@@ -99,7 +112,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <NotificationProvider>
       <StatusBar style="dark" backgroundColor="#fdf3ff" />
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -112,6 +125,6 @@ export default function RootLayout() {
         <Stack.Screen name="edit/[id]" options={{ headerShown: false, animation: "slide_from_right" }} />
         <Stack.Screen name="budget" options={{ headerShown: false, animation: "slide_from_right" }} />
       </Stack>
-    </>
+    </NotificationProvider>
   );
 }
