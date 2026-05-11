@@ -20,7 +20,7 @@ const C = {
   inkSoft: "#7A7268",
   ruleSoft: "rgba(0,0,0,0.06)",
   purple: "#9B82C9",
-  recentRule: "#DDBB68",
+  recentRule: "#9B82C9",
 };
 
 type WeekTx = {
