@@ -1,489 +1,566 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
-  Text,
-  View,
-  StyleSheet,
-  Pressable,
-  ActivityIndicator,
-  StatusBar,
+  Text, View, StyleSheet, Pressable, ActivityIndicator,
+  ScrollView, Platform,
 } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import Svg, { Circle } from "react-native-svg";
 import { getDb } from "@/database/db";
-import Svg, { Defs, RadialGradient, Stop, Rect } from "react-native-svg";
+import { EmotionGlyph, emotionColor } from "../../components/EmotionGlyph";
 
-const BUDGET_LIMIT = 2200;
+const C = {
+  bg: "#FAF6EF",
+  ink: "#1F1B16",
+  inkMute: "rgba(31,27,22,0.45)",
+  inkSoft: "#7A7268",
+  rule: "rgba(0,0,0,0.10)",
+  ruleSoft: "rgba(0,0,0,0.06)",
+  purple: "#9B82C9",
+  recentRule: "#9B82C9",
+};
+
+type WeekTx = {
+  amount: number;
+  emotion_name: string | null;
+};
+
+type RecentTx = {
+  id: string | number;
+  amount: number;
+  merchant_name: string | null;
+  currency_code: string;
+  transacted_at: string;
+  type: string;
+  emotion_name: string | null;
+  category_name: string | null;
+};
+
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 5) return "good night";
+  if (h < 12) return "good morning";
+  if (h < 18) return "good afternoon";
+  return "good evening";
+}
+
+function formatRelative(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const startOfDay = (d: Date) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.floor((startOfDay(now) - startOfDay(date)) / 86400000);
+  const time = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  if (days === 0) return `Today, ${time}`;
+  if (days === 1) return `Yesterday, ${time}`;
+  if (days < 7) return `${days} days ago`;
+  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+}
 
 export default function Index() {
   const router = useRouter();
-  const [activity, setActivity] = useState<any[] | null>(null);
-  const [monthlySpent, setMonthlySpent] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [emotionCardSize, setEmotionCardSize] = useState({ width: 0, height: 0 });
 
-  const getActivity = useCallback(async () => {
+  const [weekTxs, setWeekTxs] = useState<WeekTx[]>([]);
+  const [recent, setRecent] = useState<RecentTx[]>([]);
+  const [monthTopEmotion, setMonthTopEmotion] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [filter, setFilter] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+
+  const load = useCallback(async () => {
     setIsLoading(true);
     try {
       const db = await getDb();
       const userID = global.userID;
 
-      const transactions = await db.getAllAsync(
-        `SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.transacted_at, t.type, e.emoji, e.name as emotion_name
-         FROM transactions as t
-         JOIN emotion_logs l ON t.emotion_log_id = l.id
-         JOIN emotions e on l.emotion_id = e.id
-         WHERE t.user_id = ? ORDER BY t.transacted_at DESC LIMIT 3`,
+      // Anchor "past week" + "emotion of the month" to the user's most recent transaction.
+      // Avoids empty hero/stats when the most recent activity is older than 7 days (e.g. seed data).
+      const latest = await db.getFirstAsync<{ md: string | null }>(
+        `SELECT MAX(transacted_at) as md FROM transactions
+         WHERE user_id = ? AND type != 'refunded'`,
         [userID]
       );
-      setActivity(transactions);
+      const anchor = latest?.md ? new Date(latest.md) : new Date();
 
-      const now = new Date();
-      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const sevenAgo = new Date(anchor);
+      sevenAgo.setDate(anchor.getDate() - 7);
 
-      const row = await db.getFirstAsync<{ total: number }>(
-        `SELECT COALESCE(SUM(amount), 0) as total
-         FROM transactions
-         WHERE user_id = ?
-           AND strftime('%Y-%m', transacted_at) = ?
-           AND type != 'refunded'`,
-        [userID, yearMonth]
+      const wk = await db.getAllAsync<WeekTx>(
+        `SELECT t.amount, e.name as emotion_name
+         FROM transactions t
+         LEFT JOIN emotion_logs l ON l.id = t.emotion_log_id
+         LEFT JOIN emotions e ON e.id = l.emotion_id
+         WHERE t.user_id = ?
+           AND t.transacted_at >= ?
+           AND t.transacted_at <= ?
+           AND t.type != 'refunded'`,
+        [userID, sevenAgo.toISOString(), anchor.toISOString()]
       );
+      setWeekTxs(wk);
 
-      setMonthlySpent(row?.total ?? 0);
-    } catch (error) {
-      console.error("Failed to fetch activity:", error);
+      const rc = await db.getAllAsync<RecentTx>(
+        `SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.transacted_at, t.type,
+                e.name as emotion_name, sc.name as category_name
+         FROM transactions t
+         LEFT JOIN emotion_logs l ON l.id = t.emotion_log_id
+         LEFT JOIN emotions e ON e.id = l.emotion_id
+         LEFT JOIN spending_categories sc ON sc.id = t.category_id
+         WHERE t.user_id = ?
+         ORDER BY t.transacted_at DESC
+         LIMIT 12`,
+        [userID]
+      );
+      setRecent(rc);
+
+      const ym = `${anchor.getFullYear()}-${String(anchor.getMonth() + 1).padStart(2, "0")}`;
+      const topRows = await db.getAllAsync<{ name: string; c: number }>(
+        `SELECT e.name as name, COUNT(*) as c
+         FROM transactions t
+         LEFT JOIN emotion_logs l ON l.id = t.emotion_log_id
+         LEFT JOIN emotions e ON e.id = l.emotion_id
+         WHERE t.user_id = ?
+           AND strftime('%Y-%m', t.transacted_at) = ?
+           AND e.name IS NOT NULL
+         GROUP BY e.name
+         ORDER BY c DESC
+         LIMIT 1`,
+        [userID, ym]
+      );
+      setMonthTopEmotion(topRows[0]?.name ?? null);
+    } catch (err) {
+      console.error("home load error:", err);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      getActivity();
-    }, [getActivity])
-  );
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  if (isLoading && !activity) {
+  // Hero headline + stats
+  const headline = useMemo(() => {
+    const valid = weekTxs.filter((t) => t.emotion_name);
+    if (valid.length === 0) return null;
+    const byEmotion: Record<string, { sum: number; count: number }> = {};
+    for (const t of valid) {
+      const key = t.emotion_name!.toLowerCase();
+      if (!byEmotion[key]) byEmotion[key] = { sum: 0, count: 0 };
+      byEmotion[key].sum += Number(t.amount);
+      byEmotion[key].count += 1;
+    }
+    const avgs = Object.entries(byEmotion)
+      .map(([emotion, { sum, count }]) => ({ emotion, avg: sum / count }))
+      .sort((a, b) => b.avg - a.avg);
+    return {
+      high: avgs[0],
+      low: avgs.length > 1 ? avgs[avgs.length - 1] : null,
+    };
+  }, [weekTxs]);
+
+  const stats = useMemo(() => {
+    const spent = weekTxs.reduce((s, t) => s + Number(t.amount), 0);
+    const entries = weekTxs.length;
+    const emotions = new Set(
+      weekTxs.filter((t) => t.emotion_name).map((t) => t.emotion_name!.toLowerCase())
+    ).size;
+    return { spent, entries, emotions };
+  }, [weekTxs]);
+
+  if (isLoading && recent.length === 0) {
     return (
-      <View style={[styles.root, { justifyContent: "center", alignItems: "center" }]}>
-        <ActivityIndicator size="large" color="#8B4B5C" />
+      <View style={[s.root, { justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" color={C.ink} />
       </View>
     );
   }
 
-  const progressPct = Math.min((monthlySpent / BUDGET_LIMIT) * 100, 100);
-  const todayEmotion = activity && activity.length > 0 ? activity[0] : null;
+  const visibleRecent = showAll ? recent : recent.slice(0, 5);
+
+  // ─── Render emotion span inside hero text ───
+  const EmoWord = ({ emo }: { emo: string }) => {
+    const active = filter === emo;
+    const dim = filter !== null && !active;
+    return (
+      <Text
+        onPress={() => setFilter(active ? null : emo)}
+        style={[
+          s.heroEmoWord,
+          {
+            color: emotionColor(emo),
+            opacity: dim ? 0.4 : 1,
+            textDecorationLine: active ? "underline" : "none",
+            textDecorationColor: emotionColor(emo),
+          },
+        ]}
+      >
+        {emo}
+      </Text>
+    );
+  };
 
   return (
-    <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F0E6" />
-
-      {/* ── Header ── */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.avatarCircle}>
-            <Ionicons name="person" size={20} color="#8B4B5C" />
-          </View>
-          <Text style={styles.headerTitle}>Awared</Text>
-        </View>
-        <Pressable style={styles.notifButton} hitSlop={8}>
-          <Ionicons name="notifications-outline" size={24} color="#F9A8BB" />
+    <View style={s.root}>
+      {/* Header */}
+      <View style={s.header}>
+        <Text style={s.greeting}>{greeting()}</Text>
+        <Pressable hitSlop={8} style={s.headerBtn}>
+          <Svg width={22} height={22} viewBox="0 0 24 24">
+            <Circle cx={5} cy={12} r={1.6} fill={C.ink} />
+            <Circle cx={12} cy={12} r={1.6} fill={C.ink} />
+            <Circle cx={19} cy={12} r={1.6} fill={C.ink} />
+          </Svg>
         </Pressable>
       </View>
 
-      <View style={styles.content}>
-        {/* ── Spent this month ── */}
-        <View style={styles.heroCard}>
-          <Text style={styles.cardLabel}>Spent this month</Text>
-          <Text style={styles.heroAmount}>€{monthlySpent.toFixed(2)}</Text>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${progressPct}%` as any }]} />
-          </View>
-          <Text style={styles.budgetLimit}>€{BUDGET_LIMIT} limit</Text>
-        </View>
-
-        {/* ── Emotion of the Day ── */}
-        <View
-          style={styles.emotionCard}
-          onLayout={(e) =>
-            setEmotionCardSize({
-              width: e.nativeEvent.layout.width,
-              height: e.nativeEvent.layout.height,
-            })
-          }
-        >
-          <Svg
-            style={StyleSheet.absoluteFill}
-            width={emotionCardSize.width}
-            height={emotionCardSize.height}
-            pointerEvents="none"
-          >
-            <Defs>
-              <RadialGradient
-                id="rg"
-                cx="1"
-                cy="0.5"
-                rx="0.9"
-                ry="1.2"
-                gradientUnits="objectBoundingBox"
-              >
-                <Stop offset="0%" stopColor="#F9A8BB" stopOpacity="0.6" />
-                <Stop offset="50%" stopColor="#F9A8BB" stopOpacity="0.2" />
-                <Stop offset="100%" stopColor="#F9A8BB" stopOpacity="0" />
-              </RadialGradient>
-            </Defs>
-            <Rect
-              x="0"
-              y="0"
-              width={emotionCardSize.width}
-              height={emotionCardSize.height}
-              fill="url(#rg)"
-            />
-          </Svg>
-
-          <View style={styles.emotionCardTop}>
-            <View style={{ marginLeft: 15 }}>
-              <Text style={styles.cardLabel}>Emotion of the Day</Text>
-              {todayEmotion ? (
-                <Text style={styles.emotionName}>
-                  {todayEmotion.emotion_name ?? "—"}
-                </Text>
-              ) : (
-                <Text style={styles.emotionName}>No data yet</Text>
-              )}
-            </View>
-            {todayEmotion ? (
-              <Text style={styles.emotionEmoji}>{todayEmotion.emoji}</Text>
+      <ScrollView
+        contentContainerStyle={s.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Hero */}
+        <View style={s.hero}>
+          <Text style={s.kicker}>PAST WEEK</Text>
+          {headline ? (
+            headline.low ? (
+              <Text style={s.heroHeadline}>
+                Your <EmoWord emo={headline.high.emotion} />
+                {"\n"}purchases{"\n"}
+                averaged €{Math.round(headline.high.avg)} —{"\n"}
+                your <EmoWord emo={headline.low.emotion} /> ones €{Math.round(headline.low.avg)}
+              </Text>
             ) : (
-              <Ionicons name="leaf-outline" size={28} color="#8B4B5C" />
-            )}
+              <Text style={s.heroHeadline}>
+                Your <EmoWord emo={headline.high.emotion} />
+                {"\n"}purchases averaged{"\n"}€{Math.round(headline.high.avg)}
+              </Text>
+            )
+          ) : (
+            <Text style={s.heroHeadline}>
+              Start tracking to see{"\n"}your{" "}
+              <Text style={[s.heroEmoWord, { color: emotionColor("calm") }]}>
+                emotional
+              </Text>{"\n"}
+              patterns
+            </Text>
+          )}
+        </View>
+
+        {/* Stats */}
+        <View style={s.statsWrap}>
+          <View style={s.statsDivider} />
+          <View style={s.statsRow}>
+            <View style={s.statCell}>
+              <Text style={s.statLabel}>SPENT</Text>
+              <Text style={s.statValue}>€{Math.round(stats.spent)}</Text>
+            </View>
+            <View style={s.statCell}>
+              <Text style={s.statLabel}>ENTRIES</Text>
+              <Text style={s.statValue}>{stats.entries}</Text>
+            </View>
+            <View style={s.statCell}>
+              <Text style={s.statLabel}>EMOTIONS</Text>
+              <Text style={s.statValue}>{stats.emotions}</Text>
+            </View>
           </View>
         </View>
 
-        {/* ── Recent Transactions ── */}
-        <View style={styles.transactionsSection}>
-          <View style={styles.sectionRow}>
-            <Text style={styles.sectionTitle}>Recent Transactions</Text>
-            <Pressable onPress={() => router.push("/history")} hitSlop={8}>
-              <Text style={styles.viewAllText}>View All</Text>
+        {/* Emotion of the month */}
+        <View style={s.emoOfMonth}>
+          <Text style={s.kicker}>EMOTION OF THE MONTH</Text>
+          {monthTopEmotion ? (
+            <View style={s.emoOfMonthRow}>
+              <EmotionGlyph
+                emotion={monthTopEmotion.toLowerCase()}
+                color={emotionColor(monthTopEmotion)}
+                size={22}
+              />
+              <Text style={s.emoOfMonthText}>
+                you've bought most while feeling{" "}
+                <Text
+                  style={[
+                    s.emoOfMonthEmo,
+                    { color: emotionColor(monthTopEmotion) },
+                  ]}
+                >
+                  {monthTopEmotion.toLowerCase()}
+                </Text>
+              </Text>
+            </View>
+          ) : (
+            <Text style={[s.emoOfMonthText, { color: C.inkMute }]}>
+              no emotion data this month yet
+            </Text>
+          )}
+        </View>
+
+        {/* Recent */}
+        <View style={s.recentWrap}>
+          <View style={s.recentHeader}>
+            <Text style={s.recentTitle}>Recent</Text>
+            <Pressable onPress={() => setShowAll((v) => !v)} hitSlop={8}>
+              <Text style={s.recentToggle}>{showAll ? "collapse" : "See all"}</Text>
             </Pressable>
           </View>
 
-          <View style={styles.transactionsCard}>
-          {activity && activity.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="receipt-outline" size={40} color="#ECDFE1" style={{ marginBottom: 10 }} />
-              <Text style={styles.emptyStateText}>No transactions registered yet!</Text>
-            </View>
-          ) : (
-            activity?.map((item, index) => {
-              const isRefunded = item.type === "refunded";
-              const isLast = index === (activity?.length ?? 0) - 1;
+          <View>
+            {visibleRecent.length === 0 ? (
+              <View style={s.emptyState}>
+                <Text style={s.emptyText}>no transactions yet</Text>
+              </View>
+            ) : (
+              visibleRecent.map((tx, i) => {
+                const isRefunded = tx.type === "refunded";
+                const emoName = tx.emotion_name?.toLowerCase() ?? null;
+                const barColor = isRefunded
+                  ? "#C4BDB7"
+                  : emotionColor(tx.emotion_name);
+                const dim = filter !== null && emoName !== filter;
+                const amount = `${tx.currency_code === "EUR" ? "€" : tx.currency_code}${Number(tx.amount).toFixed(2)}`;
+                const meta = [
+                  amount,
+                  formatRelative(tx.transacted_at),
+                  tx.category_name,
+                ].filter(Boolean).join(" · ");
+                const isLast = i === visibleRecent.length - 1;
 
-              return (
-                <React.Fragment key={item.id}>
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.transactionRow,
-                      pressed && styles.transactionRowPressed,
+                return (
+                  <View
+                    key={tx.id}
+                    style={[
+                      { opacity: dim ? 0.32 : 1 },
+                      !isLast && s.txRowBorder,
                     ]}
-                    onPress={() => router.push(`/transaction/${item.id}`)}
                   >
-                    <View style={[styles.txIcon, isRefunded && styles.txIconRefunded]}>
-                      <Text style={[styles.txEmoji, isRefunded && { opacity: 0.5 }]}>
-                        {item.emoji}
-                      </Text>
-                    </View>
-
-                    <View style={styles.txDetails}>
-                      <View style={styles.txNameRow}>
+                    <Pressable
+                      onPress={() => router.push(`/transaction/${tx.id}`)}
+                      style={({ pressed }) => [
+                        s.txRow,
+                        pressed && s.txRowPressed,
+                      ]}
+                    >
+                      <View style={[s.txBar, { backgroundColor: barColor }]} />
+                      <View style={s.txBody}>
                         <Text
-                          style={[styles.txMerchant, isRefunded && styles.strikethrough]}
+                          style={[
+                            s.txMerchant,
+                            isRefunded && s.strikethrough,
+                          ]}
                           numberOfLines={1}
                         >
-                          {item.merchant_name || "Unknown Item"}
+                          {tx.merchant_name || "unknown item"}
                         </Text>
-                        {isRefunded && (
-                          <View style={styles.refundBadge}>
-                            <Text style={styles.refundBadgeText}>REFUND</Text>
-                          </View>
-                        )}
+                        <Text style={s.txMeta} numberOfLines={1}>
+                          {meta}
+                        </Text>
                       </View>
-                      <Text style={styles.txDate}>
-                        {new Date(item.transacted_at).toLocaleDateString([], {
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </Text>
-                    </View>
-
-                    <Text style={[styles.txAmount, isRefunded && styles.strikethroughAmount]}>
-                      {item.amount}{" "}
-                      {item.currency_code === "EUR" ? "€" : item.currency_code}
-                    </Text>
-                  </Pressable>
-
-                  {!isLast && <View style={styles.divider} />}
-                </React.Fragment>
-              );
-            })
-          )}
+                      {isRefunded ? (
+                        <View style={s.refundBadge}>
+                          <Text style={s.refundText}>refund</Text>
+                        </View>
+                      ) : emoName ? (
+                        <View style={s.emoTag}>
+                          <EmotionGlyph
+                            emotion={emoName}
+                            color={emotionColor(emoName)}
+                            size={14}
+                          />
+                          <Text
+                            style={[
+                              s.emoTagLabel,
+                              { color: emotionColor(emoName) },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {emoName}
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={s.emoTag}>
+                          <Text style={[s.emoTagLabel, { color: C.inkMute }]}>—</Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  </View>
+                );
+              })
+            )}
           </View>
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: "#FFF8F7",
-  },
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.bg },
 
-  // ── Header ──
+  // Header
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#F5F0E6",
-    paddingHorizontal: 20,
-    paddingTop: 52,
-    paddingBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  avatarCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#ECDFE1",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontFamily: "Manrope_700Bold",
-    color: "#201A1B",
-    letterSpacing: -0.4,
-  },
-  notifButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  // ── Content ──
-  content: {
-    flex: 1,
-    padding: 20,
-    paddingBottom: 16,
-    gap: 16,
-  },
-
-  // ── Hero Card ──
-  heroCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 24,
-    shadowColor: "#8B4B5C",
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
-  },
-  cardLabel: {
-    fontSize: 12,
-    fontFamily: "Manrope_600SemiBold",
-    color: "#524346",
-    letterSpacing: 0.4,
-    marginBottom: 6,
-  },
-  heroAmount: {
-    fontSize: 40,
-    fontFamily: "Manrope_700Bold",
-    color: "#201A1B",
-    letterSpacing: -1,
-    marginBottom: 20,
-  },
-  progressTrack: {
-    width: "100%",
-    height: 10,
-    backgroundColor: "#ECDFE1",
-    borderRadius: 9999,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: "#F9A8BB",
-    borderRadius: 9999,
-  },
-  budgetLimit: {
-    fontSize: 12,
-    fontFamily: "Manrope_500Medium",
-    color: "#524346",
-    marginTop: 8,
-    textAlign: "right",
-  },
-
-  // ── Emotion Card ──
-  emotionCard: {
-    backgroundColor: "#F8EBEC",
-    borderRadius: 20,
+    paddingTop: Platform.OS === "ios" ? 52 : 38,
+    paddingBottom: 10,
     paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 48,
-    shadowColor: "#8B4B5C",
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
-    overflow: "hidden",
-  },
-  emotionCardTop: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
   },
-  emotionEmoji: {
-    fontSize: 36,
-  },
-  emotionName: {
-    fontSize: 22,
-    fontFamily: "Manrope_700Bold",
-    color: "#201A1B",
-    marginTop: 6,
+  greeting: {
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontSize: 28,
+    color: C.ink,
     letterSpacing: -0.3,
   },
+  headerBtn: { padding: 4 },
 
-  // ── Section Header ──
-  sectionRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 4,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontFamily: "Manrope_700Bold",
-    color: "#201A1B",
-  },
-  viewAllText: {
-    fontSize: 13,
+  scrollContent: { paddingBottom: 140 },
+
+  // Hero
+  hero: { paddingHorizontal: 24, paddingTop: 4, paddingBottom: 10 },
+  kicker: {
     fontFamily: "Manrope_600SemiBold",
-    color: "#8B4B5C",
+    fontSize: 11,
+    letterSpacing: 2,
+    color: C.inkMute,
+    marginBottom: 10,
+  },
+  heroHeadline: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 44,
+    color: C.ink,
+    lineHeight: 52,
+    letterSpacing: -0.8,
+  },
+  heroEmoWord: {
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    fontSize: 44,
   },
 
-  // ── Transactions Section ──
-  transactionsSection: {
+  // Stats
+  statsWrap: { paddingHorizontal: 24, paddingTop: 10 },
+  statsDivider: {
+    height: 1,
+    backgroundColor: C.purple,
+    opacity: 0.55,
+    marginTop: 16,
+    marginBottom: 14,
+  },
+  statsRow: { flexDirection: "row", gap: 8 },
+  statCell: { flex: 1 },
+  statLabel: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 10.5,
+    letterSpacing: 1.8,
+    color: C.inkMute,
+    marginBottom: 6,
+  },
+  statValue: {
+    fontFamily: "PlayfairDisplay_400Regular",
+    fontSize: 28,
+    color: C.ink,
+    lineHeight: 30,
+    letterSpacing: -0.6,
+  },
+
+  // Emotion of month
+  emoOfMonth: { paddingHorizontal: 24, paddingTop: 25, paddingBottom: 16 },
+  emoOfMonthRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  emoOfMonthText: {
+    fontFamily: "PlayfairDisplay_400Regular",
+    fontSize: 16,
+    color: C.ink,
     flex: 1,
-    gap: 12,
-    marginTop: 12,
+    lineHeight: 22,
+  },
+  emoOfMonthEmo: {
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    fontSize: 18,
   },
 
-  // ── Transactions Card ──
-  transactionsCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#8B4B5C",
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+  // Recent
+  recentWrap: { paddingHorizontal: 24, paddingTop: 14 },
+  recentHeader: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: C.recentRule,
+    marginBottom: 2,
   },
-
-  emptyState: { alignItems: "center", paddingVertical: 36, paddingHorizontal: 20 },
-  emptyStateText: {
-    color: "#524346",
+  recentTitle: {
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    fontSize: 22,
+    color: C.ink,
+    letterSpacing: -0.3,
+  },
+  recentToggle: {
     fontFamily: "Manrope_400Regular",
-    fontSize: 14,
-    marginTop: 4,
+    fontSize: 12.5,
+    color: C.ink,
+    borderBottomWidth: 1,
+    borderBottomColor: C.purple,
+    paddingBottom: 1,
   },
 
-  transactionRow: {
+  txRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 20,
-    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
   },
-  transactionRowPressed: {
-    backgroundColor: "#FEF0F2",
-  },
-
-  txIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: "#ECDFE1",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 14,
+  txRowPressed: { backgroundColor: "rgba(0,0,0,0.04)" },
+  txRowBorder: { borderBottomWidth: 1, borderBottomColor: C.ruleSoft },
+  txBar: {
+    width: 4,
+    height: 42,
+    borderRadius: 2,
     flexShrink: 0,
   },
-  txIconRefunded: {
-    backgroundColor: "#F2F2F2",
-  },
-  txEmoji: { fontSize: 26 },
-
-  txDetails: { flex: 1, justifyContent: "center" },
-  txNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  txBody: { flex: 1, minWidth: 0 },
   txMerchant: {
-    fontSize: 16,
     fontFamily: "Manrope_600SemiBold",
-    color: "#201A1B",
-    marginBottom: 3,
-    flexShrink: 1,
+    fontSize: 14.5,
+    color: C.ink,
+    lineHeight: 18,
   },
-  txDate: {
-    fontSize: 13,
+  txMeta: {
     fontFamily: "Manrope_400Regular",
-    color: "#524346",
+    fontSize: 11.5,
+    color: C.inkSoft,
+    marginTop: 2,
   },
-  txAmount: {
-    fontSize: 15,
-    fontFamily: "Manrope_700Bold",
-    color: "#201A1B",
+
+  emoTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    flexShrink: 0,
     marginLeft: 8,
   },
+  emoTagLabel: {
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    fontSize: 14,
+  },
 
-  divider: {
-    height: 1,
-    backgroundColor: "rgba(236, 223, 225, 0.5)",
-    marginHorizontal: 16,
+  refundBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: "#E5DECC",
+  },
+  refundText: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 9,
+    letterSpacing: 0.8,
+    color: C.inkSoft,
+    textTransform: "uppercase",
   },
 
   strikethrough: {
     textDecorationLine: "line-through",
-    color: "#9CA3AF",
+    color: C.inkMute,
   },
-  strikethroughAmount: {
-    textDecorationLine: "line-through",
-    color: "#9CA3AF",
-    fontFamily: "Manrope_500Medium",
-  },
-  refundBadge: {
-    backgroundColor: "#E0F2F1",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  refundBadgeText: {
-    color: "#00796B",
-    fontSize: 9,
-    fontFamily: "Manrope_700Bold",
-    letterSpacing: 0.5,
+
+  emptyState: { paddingVertical: 36, alignItems: "center" },
+  emptyText: {
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontSize: 14,
+    color: C.inkSoft,
   },
 });

@@ -1,11 +1,10 @@
 import {
-  View, TextInput, Pressable, ScrollView, KeyboardAvoidingView,
-  Platform, Alert, ActivityIndicator, Modal, Animated,
-  TouchableWithoutFeedback, Dimensions, Keyboard, Text, StyleSheet,
+  View, TextInput, Pressable, KeyboardAvoidingView,
+  Platform, Alert, Modal, TouchableWithoutFeedback,
+  Keyboard, Text, StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
 import { getDb } from "../../database/db";
 import { insertTransaction } from "../../database/transactions";
@@ -13,6 +12,8 @@ import * as Location from "expo-location";
 import React from "react";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import MapView, { Region } from "react-native-maps";
+import Svg, { Path, Circle } from "react-native-svg";
+import { EmotionGlyph, emotionColor } from "../../components/EmotionGlyph";
 
 type Emotion = {
   id: number;
@@ -21,22 +22,24 @@ type Emotion = {
   color_hex: string | null;
 };
 
-const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const MONTHS = ["January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"];
+const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+const C = {
+  bg: "#FAF6EF",
+  ink: "#1F1B16",
+  inkMute: "rgba(31,27,22,0.45)",
+  inkSoft: "#7A7268",
+  rule: "rgba(0,0,0,0.10)",
+  blackBtn: "#1F1B16",
+  purple: "#9B82C9",
+};
 
 function getDateLabel(d: Date) {
-  return `${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  return `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
 function getTimeLabel(d: Date) {
   return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
-}
-function getTextColor(hex: string | null): string {
-  if (!hex) return "#524346";
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.55 ? "#333" : "#fff8f7";
 }
 
 export default function AddPurchase() {
@@ -53,35 +56,16 @@ export default function AddPurchase() {
 
   const [emotions, setEmotions] = useState<Emotion[]>([]);
   const [selectedEmotionIds, setSelectedEmotionIds] = useState<number[]>([]);
-  const [visibleEmotionIds, setVisibleEmotionIds] = useState<number[]>([]);
-  const [showEmotionOverlay, setShowEmotionOverlay] = useState(false);
-
-  const SHEET_H = Dimensions.get("window").height * 0.6;
-  const sheetAnim = useRef(new Animated.Value(SHEET_H)).current;
 
   const [showMap, setShowMap] = useState(false);
   const [mapRegion, setMapRegion] = useState<Region>({
     latitude: 41.178, longitude: -8.598, latitudeDelta: 0.005, longitudeDelta: 0.005,
   });
 
-  function openEmotionSheet() {
-    Keyboard.dismiss();
-    setShowEmotionOverlay(true);
-    sheetAnim.setValue(SHEET_H);
-    Animated.spring(sheetAnim, { toValue: 0, useNativeDriver: true, bounciness: 2 }).start();
-  }
-  function closeEmotionSheet() {
-    Animated.timing(sheetAnim, { toValue: SHEET_H, duration: 220, useNativeDriver: true })
-      .start(() => setShowEmotionOverlay(false));
-  }
-
   useEffect(() => {
     getDb()
-      .then(db => db.getAllAsync<Emotion>("SELECT id, name, emoji, color_hex FROM emotions ORDER BY name ASC;"))
-      .then(data => {
-        setEmotions(data);
-        setVisibleEmotionIds(data.length >= 3 ? [data[0].id, data[1].id, data[2].id] : data.map(e => e.id));
-      })
+      .then(db => db.getAllAsync<Emotion>("SELECT id, name, emoji, color_hex FROM emotions ORDER BY id ASC;"))
+      .then(setEmotions)
       .catch(console.error);
   }, []);
 
@@ -98,13 +82,8 @@ export default function AddPurchase() {
     Keyboard.dismiss();
     setEditingField(prev => prev === field ? null : field);
   };
-  const toggleEmotion = (id: number) =>
+  const handleSelectEmotion = (id: number) => {
     setSelectedEmotionIds(prev => prev.includes(id) ? [] : [id]);
-  const handleSelectFromOverlay = (id: number) => {
-    if (!visibleEmotionIds.includes(id))
-      setVisibleEmotionIds(prev => [id, prev[0], prev[1]]);
-    setSelectedEmotionIds([id]);
-    setShowEmotionOverlay(false);
   };
   const handleAmountChange = (text: string) =>
     setRawDigits(text.replace(/[^0-9.,]/g, ""));
@@ -162,233 +141,234 @@ export default function AddPurchase() {
     }
   };
 
+  const amount = parseFloat(rawDigits.replace(",", "."));
+  const hasAmount = !isNaN(amount) && amount > 0;
+  const canConfirm = hasAmount && item.trim().length > 0 && selectedEmotionIds.length > 0;
+
   return (
     <SafeAreaView style={s.root} edges={["top"]}>
       {/* ── Header ── */}
       <View style={s.header}>
-        <Pressable style={s.homeBtn} onPress={() => router.back()}>
-          <Ionicons name="home-outline" size={19} color="#524346" />
+        <Text style={s.headerTitle}>log expense</Text>
+        <Pressable hitSlop={8} onPress={() => router.back()} style={s.headerClose}>
+          <Svg width={22} height={22} viewBox="0 0 24 24">
+            <Path d="M6 6 L18 18 M18 6 L6 18" stroke={C.ink} strokeWidth={1.8} strokeLinecap="round" />
+          </Svg>
         </Pressable>
-        <Text style={s.headerTitle}>Add Purchase</Text>
-        <View style={s.headerSpacer} />
       </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-        <View style={s.content}>
-          {/* ── Amount ── */}
-          <View style={s.amountSection}>
-            <Text style={s.currencySymbol}>€</Text>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        {/* ── Price ── */}
+        <View style={s.priceWrap}>
+          <View style={s.priceRow}>
+            <Text style={[s.currency, !hasAmount && { color: C.inkMute }]}>€</Text>
             <TextInput
-              style={s.amountInput}
+              style={[s.priceInput, !hasAmount && { color: C.inkMute }]}
               keyboardType="decimal-pad"
               value={rawDigits}
               onChangeText={handleAmountChange}
-              placeholder="0,00"
-              placeholderTextColor="#d6c1c5"
+              placeholder="0.00"
+              placeholderTextColor={C.inkMute}
               underlineColorAndroid="transparent"
               returnKeyType="done"
             />
           </View>
+          <View style={s.priceUnderline} />
+        </View>
 
-          {/* ── Details Card ── */}
-          <View style={s.card}>
-            {/* Merchant */}
-            <Text style={s.cardLabel}>What did you buy ?</Text>
-            <View style={s.inputRow}>
-              <View style={s.inputIconWrap}>
-                <Ionicons name="grid-outline" size={17} color="#847376" />
-              </View>
-              <TextInput
-                style={s.textInput}
-                value={item}
-                onChangeText={setItem}
-                placeholder="Coffee, Groceries, etc..."
-                placeholderTextColor="#d6c1c5"
-                returnKeyType="done"
-                onSubmitEditing={() => Keyboard.dismiss()}
-              />
-            </View>
+        <View style={s.body}>
+          {/* what did you buy */}
+          <View>
+            <Text style={s.label}>what did you buy?</Text>
+            <TextInput
+              value={item}
+              onChangeText={setItem}
+              placeholder="e.g. starbucks, uber, groceries…"
+              placeholderTextColor={C.inkMute}
+              style={s.textInputLine}
+              returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
+            />
+            <View style={s.underline} />
+          </View>
 
-            <View style={s.divider} />
-
-            {/* Emotions */}
-            <Text style={s.cardLabel}>How were you feeling ?</Text>
-            <View style={s.emotionRow}>
-              {visibleEmotionIds.map(id => {
-                const em = emotions.find(e => e.id === id);
-                if (!em) return null;
-                const selected = selectedEmotionIds.includes(em.id);
-                const bg = em.color_hex ?? "#f8ebec";
+          {/* emotions */}
+          <View>
+            <Text style={s.label}>how were you feeling?</Text>
+            <View style={s.emotionGrid}>
+              {emotions.map(em => {
+                const isSel = selectedEmotionIds.includes(em.id);
+                const lower = em.name.toLowerCase();
+                const color = emotionColor(lower);
+                const ringColor = isSel ? color : "rgba(31,27,22,0.18)";
                 return (
                   <Pressable
                     key={em.id}
-                    style={[s.emotionCell, { backgroundColor: bg },
-                      selected && { borderWidth: 2, borderColor: "#8b4b5c" }]}
-                    onPress={() => toggleEmotion(em.id)}
+                    style={s.emotionCell}
+                    onPress={() => handleSelectEmotion(em.id)}
                   >
-                    {em.emoji ? <Text style={s.emotionEmoji}>{em.emoji}</Text> : null}
-                    <Text style={[s.emotionName, { color: getTextColor(em.color_hex) }]} numberOfLines={1}>
-                      {em.name}
+                    <View style={[
+                      s.emotionCircle,
+                      { borderColor: ringColor, backgroundColor: isSel ? color + "22" : "transparent",
+                        borderWidth: isSel ? 1.5 : 1.2 },
+                    ]}>
+                      <EmotionGlyph emotion={lower} color={isSel ? color : "#7A7268"} size={22} />
+                    </View>
+                    <Text style={[s.emotionLabel, { color: isSel ? color : C.inkSoft }]} numberOfLines={1}>
+                      {lower}
                     </Text>
                   </Pressable>
                 );
               })}
-              <Pressable style={[s.emotionCell, s.emotionMore]} onPress={openEmotionSheet}>
-                <Ionicons name="ellipsis-horizontal" size={20} color="#524346" />
-                <Text style={[s.emotionName, { color: "#524346" }]}>More</Text>
-              </Pressable>
             </View>
+          </View>
 
-            <View style={s.divider} />
-
-            {/* Date / Time */}
-            <View style={s.dateTimeRow}>
+          {/* when */}
+          <View>
+            <Text style={s.label}>when did you buy?</Text>
+            <View style={s.pillRow}>
               <Pressable
-                style={[s.dateChip, editingField === "date" && s.dateChipActive]}
+                style={[s.pill, editingField === "date" ? s.pillActive : s.pillIdle]}
                 onPress={() => toggleField("date")}
               >
-                <Ionicons name="calendar-outline" size={13}
-                  color={editingField === "date" ? "#8b4b5c" : "#524346"} />
-                <Text style={[s.dateChipText, editingField === "date" && s.dateChipTextActive]}
-                  numberOfLines={1}>
+                <Text style={editingField === "date" ? s.pillTextActive : s.pillTextIdle}>
                   {getDateLabel(date)}
                 </Text>
               </Pressable>
               <Pressable
-                style={[s.timeChip, editingField === "time" && s.dateChipActive]}
+                style={[s.pill, editingField === "time" ? s.pillActive : s.pillIdle]}
                 onPress={() => toggleField("time")}
               >
-                <Ionicons name="time-outline" size={13}
-                  color={editingField === "time" ? "#8b4b5c" : "#524346"} />
-                <Text style={[s.dateChipText, editingField === "time" && s.dateChipTextActive]}>
+                <Text style={editingField === "time" ? s.pillTextActive : s.pillTextIdle}>
                   {getTimeLabel(date)}
                 </Text>
               </Pressable>
             </View>
+            {editingField !== null && (
+              <View style={s.pickerWrap}>
+                <DateTimePicker
+                  value={date} mode={editingField} is24Hour
+                  display={Platform.OS === "ios" ? "spinner" : "default"}
+                  onChange={onDateChange}
+                />
+              </View>
+            )}
           </View>
 
-          {/* ── Date/Time Picker ── */}
-          {editingField !== null && (
-            <View style={[s.card, { padding: 8 }]}>
-              <DateTimePicker
-                value={date} mode={editingField} is24Hour
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={onDateChange}
-              />
+          {/* where */}
+          <View>
+            <View style={s.whereHeader}>
+              <Text style={[s.label, { marginBottom: 0 }]}>where?</Text>
+              <Pressable
+                style={[s.pillSm, s.pillIdle]}
+                onPress={() => { Keyboard.dismiss(); setShowMap(true); }}
+              >
+                <Svg width={14} height={12} viewBox="0 0 24 20">
+                  <Path
+                    d="M2 4 L8 2 L16 4 L22 2 L22 16 L16 18 L8 16 L2 18 Z M8 2 L8 16 M16 4 L16 18"
+                    fill="none" stroke={C.ink} strokeWidth={1.6} strokeLinejoin="round"
+                  />
+                </Svg>
+                <Text style={s.pillTextIdle}>map</Text>
+              </Pressable>
             </View>
-          )}
-
-          {/* ── Location Card ── */}
-          <View style={s.card}>
-            <View style={s.locationHeader}>
-              <Text style={s.cardLabel}>Location</Text>
-              <View style={s.locationActions}>
-                <Pressable style={s.locationBadgeGreen} onPress={handleAutoDetectLocation} disabled={detectingLocation}>
-                  {detectingLocation
-                    ? <ActivityIndicator size="small" color="#2a7a2a" />
-                    : <><Ionicons name="location-outline" size={12} color="#2a7a2a" />
-                      <Text style={s.locationBadgeTextGreen}> Detect</Text></>}
-                </Pressable>
-                <Pressable style={s.locationBadgeBlue} onPress={() => { Keyboard.dismiss(); setShowMap(true); }}>
-                  <Ionicons name="map-outline" size={12} color="#0066cc" />
-                  <Text style={s.locationBadgeTextBlue}> Map</Text>
-                </Pressable>
-              </View>
-            </View>
-            <View style={s.inputRow}>
-              <View style={s.inputIconWrap}>
-                <Ionicons name="location-outline" size={17} color="#847376" />
-              </View>
-              <TextInput
-                style={s.textInput}
-                value={location}
-                onChangeText={setLocation}
-                placeholder="Add location..."
-                placeholderTextColor="#d6c1c5"
-              />
-            </View>
+            <Pressable
+              onPress={handleAutoDetectLocation}
+              disabled={detectingLocation}
+              style={s.detectRow}
+            >
+              <Svg width={14} height={14} viewBox="0 0 24 24">
+                <Circle cx={12} cy={10} r={3} fill="none"
+                  stroke={location ? C.ink : C.inkSoft} strokeWidth={1.6} />
+                <Path
+                  d="M12 2 C7 2 4 6 4 10 C4 16 12 22 12 22 C12 22 20 16 20 10 C20 6 17 2 12 2 Z"
+                  fill="none" stroke={location ? C.ink : C.inkSoft} strokeWidth={1.6}
+                />
+              </Svg>
+              <Text
+                style={[s.detectText, { color: location ? C.ink : C.inkMute }]}
+                numberOfLines={1}
+              >
+                {detectingLocation ? "detecting…" : (location || "detect location")}
+              </Text>
+            </Pressable>
+            <View style={s.underline} />
           </View>
 
-          {/* ── Note Card ── */}
-          <View style={s.card}>
-            <Text style={s.cardLabel}>Any thoughts?</Text>
+          {/* notes */}
+          <View style={{ flex: 1, minHeight: 80 }}>
+            <Text style={s.label}>any thoughts?</Text>
             <TextInput
-              style={s.noteInput}
-              multiline value={note} onChangeText={setNote}
-              placeholder="e.g. I was stressed..."
-              placeholderTextColor="#d6c1c5"
+              multiline
+              value={note}
+              onChangeText={setNote}
+              placeholder="what was going through your head?"
+              placeholderTextColor={C.inkMute}
+              style={s.notesInput}
               returnKeyType="done"
-              blurOnSubmit={true}
+              blurOnSubmit
               onSubmitEditing={() => Keyboard.dismiss()}
             />
           </View>
+        </View>
 
+        {/* CTA */}
+        <View style={s.ctaWrap}>
+          <Pressable
+            style={[s.ctaBtn, !canConfirm && s.ctaDisabled, saving && { opacity: 0.6 }]}
+            onPress={handleDone}
+            disabled={!canConfirm || saving}
+          >
+            <Text style={s.ctaText}>
+              {saving ? "saving…" : "confirm purchase"}
+            </Text>
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
 
-      {/* ── CTA ── */}
-      <View style={s.ctaWrap}>
-        <Pressable
-          style={[s.ctaBtn, saving && { opacity: 0.6 }]}
-          onPress={handleDone}
-          disabled={saving}
-        >
-          <Ionicons name="checkmark" size={20} color="#773a4b" />
-          <Text style={s.ctaBtnText}>{saving ? "Saving..." : "Confirm Purchase"}</Text>
-        </Pressable>
-      </View>
-
-      {/* ── All Emotions Sheet ── */}
-      <Modal visible={showEmotionOverlay} animationType="none" transparent onRequestClose={closeEmotionSheet}>
-        <TouchableWithoutFeedback onPress={closeEmotionSheet}>
-          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(0,0,0,0.4)" }]} />
-        </TouchableWithoutFeedback>
-        <Animated.View style={[s.sheet, { transform: [{ translateY: sheetAnim }] }]}>
-          <View style={s.sheetHeader}>
-            <Text style={s.sheetTitle}>All Emotions</Text>
-            <Pressable onPress={closeEmotionSheet}>
-              <Ionicons name="close-circle" size={28} color="#e0e0e0" />
-            </Pressable>
-          </View>
-          <ScrollView contentContainerStyle={s.sheetGrid} showsVerticalScrollIndicator={false}>
-            {emotions.map(em => (
-              <Pressable
-                key={em.id}
-                onPress={() => handleSelectFromOverlay(em.id)}
-                style={[s.sheetEmotionCell, { backgroundColor: em.color_hex ?? "#e0d4ea" },
-                  selectedEmotionIds.includes(em.id) && s.sheetEmotionSelected]}
-              >
-                <Text style={s.emotionEmoji}>{em.emoji}</Text>
-                <Text style={[s.emotionName, { color: getTextColor(em.color_hex) }]} numberOfLines={1}>
-                  {em.name}
-                </Text>
+      {/* ── Map bottom sheet ── */}
+      <Modal
+        visible={showMap}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowMap(false)}
+      >
+        <View style={s.mapOverlay}>
+          <TouchableWithoutFeedback onPress={() => setShowMap(false)}>
+            <View style={StyleSheet.absoluteFillObject} />
+          </TouchableWithoutFeedback>
+          <View style={s.mapSheet}>
+            <View style={s.mapDragHandle} />
+            <View style={s.mapHeaderRow}>
+              <Text style={s.mapTitle}>Pick a place</Text>
+              <Pressable onPress={() => setShowMap(false)} hitSlop={8}>
+                <Svg width={18} height={18} viewBox="0 0 24 24">
+                  <Path d="M6 6 L18 18 M18 6 L6 18" stroke={C.ink} strokeWidth={1.8} strokeLinecap="round" />
+                </Svg>
               </Pressable>
-            ))}
-          </ScrollView>
-        </Animated.View>
-      </Modal>
-
-      {/* ── Map Modal ── */}
-      <Modal visible={showMap} animationType="slide" presentationStyle="pageSheet">
-        <View style={{ flex: 1, backgroundColor: "#fff" }}>
-          <View style={s.mapHeader}>
-            <Text style={s.mapHeaderTitle}>Pin Location</Text>
-            <Pressable onPress={() => setShowMap(false)} style={s.mapCloseBtn}>
-              <Ionicons name="close" size={24} color="#333" />
-            </Pressable>
-          </View>
-          <MapView
-            style={{ flex: 1 }}
-            initialRegion={mapRegion}
-            onRegionChangeComplete={setMapRegion}
-            showsUserLocation
-          />
-          <View style={s.mapPin}>
-            <Ionicons name="location" size={44} color="#ff4444" />
-          </View>
-          <View style={s.mapConfirmWrap}>
+            </View>
+            <View style={s.mapWrap}>
+              <MapView
+                style={{ flex: 1 }}
+                initialRegion={mapRegion}
+                onRegionChangeComplete={setMapRegion}
+                showsUserLocation
+              />
+              <View style={s.mapPin} pointerEvents="none">
+                <Svg width={28} height={36} viewBox="0 0 28 36">
+                  <Path
+                    d="M14 1 C7 1 2 6 2 13 C2 22 14 35 14 35 C14 35 26 22 26 13 C26 6 21 1 14 1 Z"
+                    fill={C.purple} stroke={C.ink} strokeWidth={1.4}
+                  />
+                  <Circle cx={14} cy={13} r={4.5} fill={C.bg} />
+                </Svg>
+              </View>
+              <View style={s.mapHint} pointerEvents="none">
+                <Text style={s.mapHintText}>drag the map to position the pin</Text>
+              </View>
+            </View>
             <Pressable style={s.mapConfirmBtn} onPress={handleConfirmMapLocation}>
-              <Text style={s.mapConfirmText}>Confirm Location</Text>
+              <Text style={s.mapConfirmText}>use this place</Text>
             </Pressable>
           </View>
         </View>
@@ -397,183 +377,253 @@ export default function AddPurchase() {
   );
 }
 
-/* ─── Styles ────────────────────────────────────────────────────────── */
-const CARD_SHADOW = {
-  shadowColor: "#8b4b5c",
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.07,
-  shadowRadius: 14,
-  elevation: 3,
-};
-
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#fff8f7" },
+  root: { flex: 1, backgroundColor: C.bg },
 
   // Header
   header: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: 24, paddingVertical: 20, backgroundColor: "#fff8f7",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 24,
+    paddingTop: 13,
+    paddingBottom: 8,
   },
-  homeBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: "#ffffff", alignItems: "center", justifyContent: "center",
-    shadowColor: "#8b4b5c", shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.07, shadowRadius: 14, elevation: 3,
-  },
-  headerSpacer: { width: 40 },
   headerTitle: {
-    fontFamily: "Manrope_600SemiBold", fontSize: 24,
-    color: "#201a1b", letterSpacing: -0.3,
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontSize: 30,
+    color: C.ink,
+    letterSpacing: -0.3,
+  },
+  headerClose: { padding: 4 },
+
+  // Price
+  priceWrap: { paddingHorizontal: 24, paddingTop: 14, paddingBottom: 12 },
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "center",
+  },
+  currency: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 26,
+    color: C.ink,
+    marginRight: 2,
+  },
+  priceInput: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 52,
+    color: C.ink,
+    textAlign: "center",
+    padding: 0,
+    minWidth: 120,
+  },
+  priceUnderline: { height: 1.5, backgroundColor: C.ink, marginTop: 8 },
+
+  // Body
+  body: { flex: 1, paddingHorizontal: 24, gap: 14 },
+  label: {
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontSize: 13,
+    color: C.inkSoft,
+    marginBottom: 8,
+    letterSpacing: 0.2,
   },
 
-  // Content (replaces ScrollView)
-  content: { flex: 1, paddingHorizontal: 24, paddingTop: 8 },
-
-  // Amount
-  amountSection: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    paddingTop: 0, paddingBottom: 24,
+  // What did you buy
+  textInputLine: {
+    fontFamily: "PlayfairDisplay_400Regular",
+    fontSize: 15,
+    color: C.ink,
+    paddingVertical: 4,
+    paddingBottom: 8,
   },
-  currencySymbol: {
-    fontFamily: "Manrope_600SemiBold", fontSize: 28,
-    color: "#d6c1c5", marginRight: 8,
-  },
-  amountInput: {
-    fontFamily: "Manrope_700Bold", fontSize: 52,
-    color: "#201a1b", letterSpacing: -1,
-    minWidth: 60, padding: 0, textAlign: "center",
-  },
-
-  // Card
-  card: {
-    backgroundColor: "#ffffff", borderRadius: 24, padding: 24,
-    marginBottom: 16, ...CARD_SHADOW,
-  },
-  cardLabel: {
-    fontFamily: "Manrope_600SemiBold", fontSize: 13,
-    color: "#524346", letterSpacing: 0.5, marginBottom: 12,
-  },
-
-  // Generic input row
-  inputRow: {
-    flexDirection: "row", alignItems: "center",
-    backgroundColor: "#f8ebec", borderRadius: 16,
-    paddingRight: 16,
-  },
-  inputIconWrap: {
-    width: 48, alignItems: "center", justifyContent: "center",
-  },
-  textInput: {
-    flex: 1, fontFamily: "Manrope_400Regular",
-    fontSize: 16, color: "#201a1b", paddingVertical: 14,
-  },
-
-  // Divider
-  divider: {
-    height: 1, backgroundColor: "#d6c1c5",
-    opacity: 0.5, marginVertical: 20,
-  },
+  underline: { height: 1, backgroundColor: C.rule },
 
   // Emotion grid
-  emotionRow: { flexDirection: "row", gap: 12 },
+  emotionGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingTop: 4,
+  },
   emotionCell: {
-    flex: 1, alignItems: "center", justifyContent: "center",
-    paddingVertical: 12, borderRadius: 16, gap: 4, minHeight: 76,
+    width: "25%",
+    alignItems: "center",
+    paddingVertical: 4,
+    gap: 6,
   },
-  emotionMore: { backgroundColor: "#f8ebec" },
-  emotionEmoji: { fontSize: 20 },
-  emotionName: {
-    fontFamily: "Manrope_600SemiBold", fontSize: 11,
-    textAlign: "center",
+  emotionCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emotionLabel: {
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontSize: 12.5,
   },
 
-  // Date/Time row
-  dateTimeRow: { flexDirection: "row", gap: 10 },
-  dateChip: {
-    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 6, paddingVertical: 8, paddingHorizontal: 10,
-    backgroundColor: "#f8ebec", borderRadius: 999,
+  // Pills
+  pillRow: { flexDirection: "row", gap: 8 },
+  pill: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 9999,
+    borderWidth: 1,
   },
-  timeChip: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 6, paddingVertical: 8, paddingHorizontal: 16,
-    backgroundColor: "#f8ebec", borderRadius: 999,
+  pillSm: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 9999,
+    borderWidth: 1,
   },
-  dateChipActive: { backgroundColor: "rgba(249,168,187,0.25)" },
-  dateChipText: {
-    fontFamily: "Manrope_400Regular", fontSize: 12, color: "#524346",
+  pillIdle: { borderColor: "rgba(31,27,22,0.22)", backgroundColor: "transparent" },
+  pillActive: { borderColor: C.ink, backgroundColor: C.ink },
+  pillTextIdle: {
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontSize: 14,
+    color: C.ink,
   },
-  dateChipTextActive: { fontFamily: "Manrope_600SemiBold", color: "#8b4b5c" },
+  pillTextActive: {
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontSize: 14,
+    color: "#FAF6EF",
+  },
+  pickerWrap: { marginTop: 4 },
 
-  // Location
-  locationHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  locationActions: { flexDirection: "row", gap: 8 },
-  locationBadgeGreen: {
-    flexDirection: "row", alignItems: "center", paddingVertical: 5,
-    paddingHorizontal: 12, borderRadius: 999, backgroundColor: "#e8f5e9",
+  // Where
+  whereHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
   },
-  locationBadgeBlue: {
-    flexDirection: "row", alignItems: "center", paddingVertical: 5,
-    paddingHorizontal: 12, borderRadius: 999, backgroundColor: "#e0f0ff",
+  detectRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 4,
+    paddingBottom: 8,
   },
-  locationBadgeTextGreen: { fontFamily: "Manrope_600SemiBold", fontSize: 11, color: "#2a7a2a" },
-  locationBadgeTextBlue: { fontFamily: "Manrope_600SemiBold", fontSize: 11, color: "#0066cc" },
+  detectText: {
+    fontFamily: "PlayfairDisplay_400Regular",
+    fontSize: 14,
+    flex: 1,
+  },
 
-  // Note
-  noteInput: {
-    fontFamily: "Manrope_400Regular", fontSize: 14,
-    color: "#201a1b", height: 28, textAlignVertical: "top",
+  // Notes
+  notesInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: C.rule,
+    borderRadius: 10,
+    padding: 10,
+    fontSize: 14,
+    color: C.ink,
+    minHeight: 80,
+    textAlignVertical: "top",
+    fontFamily: "PlayfairDisplay_400Regular",
   },
 
   // CTA
   ctaWrap: {
-    paddingHorizontal: 24, paddingBottom: 24, paddingTop: 10,
-    backgroundColor: "#fff8f7",
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 14,
+    backgroundColor: C.bg,
   },
   ctaBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 8, backgroundColor: "#f9a8bb",
-    paddingVertical: 16, borderRadius: 999,
-    shadowColor: "#8b4b5c", shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.14, shadowRadius: 24, elevation: 6,
+    backgroundColor: C.blackBtn,
+    paddingVertical: 16,
+    borderRadius: 4,
+    alignItems: "center",
   },
-  ctaBtnText: {
-    fontFamily: "Manrope_600SemiBold", fontSize: 15,
-    color: "#773a4b", letterSpacing: 0.3,
+  ctaDisabled: { opacity: 0.35 },
+  ctaText: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 13,
+    color: "#FAF6EF",
+    letterSpacing: 2,
+    textTransform: "uppercase",
   },
 
-  // Emotion sheet
-  sheet: {
-    position: "absolute", bottom: 0, left: 0, right: 0,
-    backgroundColor: "#fff", borderTopLeftRadius: 32, borderTopRightRadius: 32,
-    padding: 24, maxHeight: "85%",
+  // Map sheet
+  mapOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(31,27,22,0.35)",
+    justifyContent: "flex-end",
   },
-  sheetHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 },
-  sheetTitle: { fontFamily: "Manrope_700Bold", fontSize: 20, color: "#201a1b" },
-  sheetGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, justifyContent: "center", paddingBottom: 40 },
-  sheetEmotionCell: {
-    width: "30%", alignItems: "center", justifyContent: "center",
-    paddingVertical: 16, borderRadius: 18,
+  mapSheet: {
+    backgroundColor: C.bg,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 24,
+    maxHeight: "90%",
   },
-  sheetEmotionSelected: { borderWidth: 3, borderColor: "#201a1b" },
-
-  // Map
-  mapHeader: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    padding: 16, backgroundColor: "#fff",
-    borderBottomWidth: 1, borderBottomColor: "#f0f0f0",
+  mapDragHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(0,0,0,0.18)",
+    alignSelf: "center",
+    marginBottom: 12,
   },
-  mapHeaderTitle: { fontFamily: "Manrope_700Bold", fontSize: 18, color: "#1a1a1a" },
-  mapCloseBtn: { position: "absolute", right: 16, padding: 4 },
+  mapHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  mapTitle: {
+    fontFamily: "PlayfairDisplay_400Regular",
+    fontSize: 20,
+    color: C.ink,
+  },
+  mapWrap: {
+    height: 440,
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.08)",
+  },
   mapPin: {
-    position: "absolute", top: "50%", left: "50%",
-    transform: [{ translateX: -22 }, { translateY: -44 }],
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: -14 }, { translateY: -32 }],
   },
-  mapConfirmWrap: { position: "absolute", bottom: 40, left: 24, right: 24 },
+  mapHint: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 9999,
+    backgroundColor: "rgba(255,252,246,0.85)",
+  },
+  mapHintText: {
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontSize: 10.5,
+    color: C.inkSoft,
+  },
   mapConfirmBtn: {
-    backgroundColor: "#1a1a1a", padding: 18,
-    borderRadius: 16, alignItems: "center",
-    shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 10, elevation: 4,
+    backgroundColor: C.blackBtn,
+    paddingVertical: 14,
+    marginTop: 14,
+    borderRadius: 4,
+    alignItems: "center",
   },
-  mapConfirmText: { color: "#fff", fontFamily: "Manrope_700Bold", fontSize: 16 },
+  mapConfirmText: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 12,
+    color: "#FAF6EF",
+    letterSpacing: 2,
+    textTransform: "uppercase",
+  },
 });

@@ -17,6 +17,12 @@ import {
   Manrope_600SemiBold,
   Manrope_700Bold,
 } from "@expo-google-fonts/manrope";
+import {
+  PlayfairDisplay_400Regular,
+  PlayfairDisplay_400Regular_Italic,
+  PlayfairDisplay_700Bold,
+  PlayfairDisplay_700Bold_Italic,
+} from "@expo-google-fonts/playfair-display";
 
 import { getDb } from "../database/db";
 import { seedDatabase } from "../database/seed";
@@ -73,6 +79,10 @@ export default function RootLayout() {
     Manrope_500Medium,
     Manrope_600SemiBold,
     Manrope_700Bold,
+    PlayfairDisplay_400Regular,
+    PlayfairDisplay_400Regular_Italic,
+    PlayfairDisplay_700Bold,
+    PlayfairDisplay_700Bold_Italic,
   });
 
   useEffect(() => {

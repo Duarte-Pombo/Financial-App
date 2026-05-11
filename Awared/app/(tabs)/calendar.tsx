@@ -1,517 +1,852 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import { View, StyleSheet, Pressable, FlatList, Animated } from "react-native";
-import { Text } from "@/components/Text";
-import { Ionicons } from "@expo/vector-icons";
-import MonthlyHeatmapPanel from "@/components/MonthlyHeatmapPanel";
-import { getWeekHeatmapData, WeekDayData, WeekEmotionStat } from "@/database/transactions";
-import { getDb } from "@/database/db";
+import React, { useState, useCallback, useId } from "react";
+import {
+  View, Text, Pressable, ScrollView, StyleSheet, Dimensions, Platform,
+} from "react-native";
+import { useFocusEffect } from "expo-router";
+import Svg, { Circle, G, Defs, RadialGradient, Stop } from "react-native-svg";
+import {
+  getWeekHeatmapData, getMonthHeatmapData,
+  WeekDayData, HeatmapMonthData, HeatmapTx,
+} from "../../database/transactions";
+import {
+  EmotionGlyph, EMOTION_NAMES, emotionColor,
+} from "../../components/EmotionGlyph";
 
-const DAY_LABELS       = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const DAY_LABELS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const MONTHS_LONG = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const C = {
+  bg: "#FAF6EF",
+  ink: "#1F1B16",
+  inkMute: "rgba(31,27,22,0.45)",
+  inkSoft: "#7A7268",
+  rule: "rgba(0,0,0,0.10)",
+  ruleSoft: "rgba(0,0,0,0.06)",
+  purple: "#9B82C9",
+  ringBg: "#E5DECC",
+  blobBg: "#ECE5D6",
+};
 
-const BAR_MAX_H = 120;
-const ITEM_W = 82;
-const WEEKS_BACK = 7;
+const MONTHS_LONG = ["january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december"];
+const MONTHS_SHORT = ["jan", "feb", "mar", "apr", "may", "jun",
+  "jul", "aug", "sep", "oct", "nov", "dec"];
+const DAY_LABELS_FULL = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+const WEEK_LABELS = ["m", "t", "w", "t", "f", "s", "s"];
+const MONTH_WEEK_LABELS = ["s", "m", "t", "w", "t", "f", "s"];
 
+const SCREEN_W = Dimensions.get("window").width;
+const MONTH_GRID_PAD = 16;
+const MONTH_CELL_W = (SCREEN_W - MONTH_GRID_PAD * 2) / 7;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 function getMonday(d: Date): Date {
   const day = d.getDay();
-  const diff = (day === 0 ? -6 : 1 - day);
-  const monday = new Date(d);
-  monday.setDate(d.getDate() + diff);
-  monday.setHours(0, 0, 0, 0);
-  return monday;
+  const diff = day === 0 ? -6 : 1 - day;
+  const m = new Date(d);
+  m.setDate(d.getDate() + diff);
+  m.setHours(0, 0, 0, 0);
+  return m;
+}
+function formatWeekRange(monday: Date): string {
+  const end = new Date(monday);
+  end.setDate(monday.getDate() + 6);
+  if (monday.getMonth() === end.getMonth()) {
+    return `week of ${MONTHS_SHORT[monday.getMonth()]} ${monday.getDate()} – ${end.getDate()}`;
+  }
+  return `${MONTHS_SHORT[monday.getMonth()]} ${monday.getDate()} – ${MONTHS_SHORT[end.getMonth()]} ${end.getDate()}`;
+}
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function startOfDay(d: Date): Date {
+  const n = new Date(d);
+  n.setHours(0, 0, 0, 0);
+  return n;
 }
 
-function formatWeekLabel(d: Date): string {
-  const end = new Date(d);
-  end.setDate(d.getDate() + 6);
-  return `${MONTHS[d.getMonth()]} ${d.getDate()} – ${MONTHS[end.getMonth()]} ${end.getDate()}`;
-}
+// ─── DayRing (weekly) ────────────────────────────────────────────────────────
+type Dist = Array<[string, number]>;
 
-function aggregateEmotions(days: WeekDayData[]): WeekEmotionStat[] {
-  const map = new Map<string, WeekEmotionStat>();
-  for (const day of days)
-    for (const e of day.emotions) {
-      if (map.has(e.name)) map.get(e.name)!.count += e.count;
-      else map.set(e.name, { ...e });
-    }
-  return Array.from(map.values()).sort((a, b) => b.count - a.count);
-}
-
-function buildWeekStarts(): Date[] {
-  const thisMonday = getMonday(new Date());
-  return Array.from({ length: WEEKS_BACK + 1 }, (_, i) => {
-    const d = new Date(thisMonday);
-    d.setDate(thisMonday.getDate() - (WEEKS_BACK - i) * 7);
-    return d;
+function DayRing({
+  size, count, dist, label, sub, selected, dim, onPress,
+}: {
+  size: number;
+  count: number;
+  dist: Dist;
+  label: string;
+  sub: string | number;
+  selected: boolean;
+  dim: boolean;
+  onPress: () => void;
+}) {
+  const stroke = 3.4;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const total = dist.reduce((sum, [, w]) => sum + w, 0) || 1;
+  let offset = 0;
+  const segments = dist.map(([e, w], i) => {
+    const len = (w / total) * c;
+    const seg = {
+      i,
+      color: emotionColor(e),
+      dasharray: `${len} ${c - len}`,
+      dashoffset: -offset,
+    };
+    offset += len;
+    return seg;
   });
-}
-
-const WEEK_STARTS = buildWeekStarts();
-const THIS_WEEK_IDX = WEEK_STARTS.length - 1;
-
-export default function Calendar() {
-  const today = new Date();
-
-  const [weekIdx,          setWeekIdx]          = useState(THIS_WEEK_IDX);
-  const [weekDays,         setWeekDays]         = useState<WeekDayData[]>(Array.from({ length: 7 }, () => ({ count: 0, emotions: [] })));
-  const [allEmotions,      setAllEmotions]      = useState<WeekEmotionStat[]>([]);
-  const [selectedDay,      setSelectedDay]      = useState<number | null>(null);
-  const [selectedEmotion,  setSelectedEmotion]  = useState<string | null>(null);
-  const flatRef   = useRef<FlatList>(null);
-  const pillAnim  = useRef(new Animated.Value(0)).current;
-  const [activeTab, setActiveTab] = useState<0 | 1>(0);
-
-  const [monthYear,  setMonthYear]  = useState(today.getFullYear());
-  const [monthMonth, setMonthMonth] = useState(today.getMonth());
-
-  useEffect(() => {
-    (async () => {
-      const db = await getDb();
-      const rows = await db.getAllAsync<{ name: string; emoji: string; color_hex: string }>(
-        "SELECT name, emoji, color_hex FROM emotions ORDER BY id"
-      );
-      setAllEmotions(rows.map((r) => ({ ...r, count: 0 })));
-    })();
-  }, []);
-
-  const loadWeek = useCallback(async () => {
-    const days = await getWeekHeatmapData(global.userID, WEEK_STARTS[weekIdx]);
-    setWeekDays(days);
-  }, [weekIdx]);
-
-  useEffect(() => {
-    setSelectedDay(null);
-    loadWeek();
-  }, [loadWeek]);
-
-  const LOOPED = [...allEmotions, ...allEmotions, ...allEmotions];
-
-  const canGoBackMonth    = !(monthYear === today.getFullYear() && monthMonth === today.getMonth() - 11);
-  const canGoForwardMonth = !(monthYear === today.getFullYear() && monthMonth === today.getMonth());
-
-  function changeMonth(dir: -1 | 1) {
-    let m = monthMonth + dir, y = monthYear;
-    if (m < 0)  { m = 11; y--; }
-    if (m > 11) { m = 0;  y++; }
-    setMonthMonth(m); setMonthYear(y);
-  }
-
-  function goMonthly() {
-    setActiveTab(1);
-    Animated.spring(pillAnim, { toValue: 116, useNativeDriver: true, tension: 180, friction: 22 }).start();
-  }
-
-  function goWeekly() {
-    setActiveTab(0);
-    Animated.spring(pillAnim, { toValue: 0, useNativeDriver: true, tension: 180, friction: 22 }).start();
-  }
-
-  const isThisWeek   = weekIdx === THIS_WEEK_IDX;
-  const canGoBack    = weekIdx > 0;
-  const canGoForward = weekIdx < THIS_WEEK_IDX;
-  const hasFilter    = selectedEmotion !== null;
-
-  function handleWeekChange(dir: -1 | 1) {
-    setWeekIdx((p) => p + dir);
-    setSelectedDay(null);
-  }
-
-  function toggleEmotion(name: string) {
-    setSelectedEmotion((prev) => prev === name ? null : name);
-    setSelectedDay(null);
-  }
-
-  function handleMomentumScrollEnd(e: any) {
-    if (allEmotions.length === 0) return;
-    const x    = e.nativeEvent.contentOffset.x;
-    const setW = allEmotions.length * ITEM_W;
-    if (x < setW) {
-      flatRef.current?.scrollToOffset({ offset: x + setW, animated: false });
-    } else if (x >= setW * 2) {
-      flatRef.current?.scrollToOffset({ offset: x - setW, animated: false });
-    }
-  }
-
-  const barData = weekDays.map((day) => {
-    if (!hasFilter) return { count: day.count, color: "#d4d4d4" };
-    const match = day.emotions.find((e) => e.name === selectedEmotion);
-    const color = allEmotions.find((e) => e.name === selectedEmotion)?.color_hex ?? "#d4d4d4";
-    return { count: match?.count ?? 0, color };
-  });
-
-  const maxCount     = Math.max(...barData.map((d) => d.count), 1);
-  const weekEmotions = aggregateEmotions(weekDays);
-
-  const activeEmotions = hasFilter
-    ? weekEmotions.filter((e) => e.name === selectedEmotion)
-    : selectedDay !== null
-      ? weekDays[selectedDay].emotions
-      : weekEmotions;
-
-  const totalEmotions = hasFilter
-    ? weekEmotions.reduce((s, e) => s + e.count, 0)
-    : activeEmotions.reduce((s, e) => s + e.count, 0);
-
-  const totalPurchases = weekDays.reduce((s, d) => s + d.count, 0);
-  const weekLabel = isThisWeek ? "This week" : formatWeekLabel(WEEK_STARTS[weekIdx]);
-
-  let sectionTitle = "Emotions this week";
-  if (hasFilter) {
-    sectionTitle = `${selectedEmotion} this week`;
-  } else if (selectedDay !== null) {
-    sectionTitle = `Emotions on ${DAY_LABELS[selectedDay]}`;
-  }
 
   return (
-    <View style={styles.screen}>
-
-      {/* ── Header with underline tabs ── */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Text style={styles.screenTitle}>Expense Heatmap</Text>
-          <View style={styles.tabRow}>
-            <Pressable onPress={goWeekly} style={styles.tabItem}>
-              <Text style={[styles.tabText, activeTab === 0 && styles.tabTextActive]}>Weekly</Text>
-              {activeTab === 0 && <View style={styles.tabUnderline} />}
-            </Pressable>
-            <Pressable onPress={goMonthly} style={styles.tabItem}>
-              <Text style={[styles.tabText, activeTab === 1 && styles.tabTextActive]}>Monthly</Text>
-              {activeTab === 1 && <View style={styles.tabUnderline} />}
-            </Pressable>
-          </View>
-        </View>
-        <View style={styles.headerBorder} />
-      </View>
-
-      {/* ── Navigator strip ── */}
-      <View style={styles.navRow}>
-        {activeTab === 0 ? (
-          <View style={styles.weekNav}>
-            <Pressable
-              style={[styles.navArrow, !canGoBack && styles.navDisabled]}
-              onPress={() => canGoBack && handleWeekChange(-1)}
-            >
-              <Ionicons name="chevron-back" size={18} color={canGoBack ? "#6b21a8" : "#d8b4fe"} />
-            </Pressable>
-            <Text style={styles.navLabelText}>{weekLabel}</Text>
-            <Pressable
-              style={[styles.navArrow, !canGoForward && styles.navDisabled]}
-              onPress={() => canGoForward && handleWeekChange(1)}
-            >
-              <Ionicons name="chevron-forward" size={18} color={canGoForward ? "#6b21a8" : "#d8b4fe"} />
-            </Pressable>
-          </View>
-        ) : (
-          <View style={styles.weekNav}>
-            <Pressable
-              style={[styles.navArrow, !canGoBackMonth && styles.navDisabled]}
-              onPress={() => canGoBackMonth && changeMonth(-1)}
-            >
-              <Ionicons name="chevron-back" size={18} color={canGoBackMonth ? "#6b21a8" : "#d8b4fe"} />
-            </Pressable>
-            <Text style={styles.navLabelText}>{MONTHS_LONG[monthMonth]} {monthYear}</Text>
-            <Pressable
-              style={[styles.navArrow, !canGoForwardMonth && styles.navDisabled]}
-              onPress={() => canGoForwardMonth && changeMonth(1)}
-            >
-              <Ionicons name="chevron-forward" size={18} color={canGoForwardMonth ? "#6b21a8" : "#d8b4fe"} />
-            </Pressable>
-          </View>
+    <Pressable
+      onPress={onPress}
+      style={{ alignItems: "center", opacity: dim ? 0.45 : 1, paddingVertical: 2 }}
+    >
+      <View style={{ width: size, height: size, justifyContent: "center", alignItems: "center" }}>
+        <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+          <G rotation={-90} origin={`${size / 2}, ${size / 2}`}>
+            <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.ringBg} strokeWidth={stroke} />
+            {dist.length === 0 && (
+              <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#D8D0BF" strokeWidth={stroke} />
+            )}
+            {segments.map((s) => (
+              <Circle
+                key={s.i} cx={size / 2} cy={size / 2} r={r}
+                fill="none" stroke={s.color} strokeWidth={stroke}
+                strokeDasharray={s.dasharray} strokeDashoffset={s.dashoffset}
+                strokeLinecap="butt"
+              />
+            ))}
+          </G>
+        </Svg>
+        <Text style={{ fontSize: 13.5, fontWeight: "600", color: C.ink, fontFamily: "Manrope_600SemiBold" }}>
+          {count}
+        </Text>
+        {selected && (
+          <View style={{
+            position: "absolute", top: -4, left: -4, right: -4, bottom: -4,
+            borderRadius: (size + 8) / 2, borderWidth: 1.5, borderColor: C.purple,
+          }} />
         )}
       </View>
+      <Text style={{
+        fontSize: 12, fontFamily: "PlayfairDisplay_400Regular_Italic",
+        color: selected ? C.ink : C.inkSoft, marginTop: 4,
+      }}>{label}</Text>
+      <Text style={{
+        fontSize: 11, fontFamily: "PlayfairDisplay_400Regular_Italic",
+        color: C.inkMute, marginTop: 1,
+      }}>{sub}</Text>
+    </Pressable>
+  );
+}
 
-      {/* ── Panels ── */}
-      {activeTab === 0 ? (
-        <View style={styles.panelContent}>
+// ─── MonthBlob (monthly grid cell) ───────────────────────────────────────────
+function MonthBlob({
+  size, num, emotions, selected, today, onPress,
+}: {
+  size: number;
+  num: number;
+  emotions: string[];
+  selected: boolean;
+  today: boolean;
+  onPress: () => void;
+}) {
+  const id = useId().replace(/:/g, "");
+  const has = emotions.length > 0;
 
-          {/* ── Emotion slider ── */}
-          {allEmotions.length > 0 && (
-            <View style={styles.sliderWrap}>
-              <FlatList
-                ref={flatRef}
-                data={LOOPED}
-                keyExtractor={(_, i) => String(i)}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                snapToInterval={ITEM_W}
-                decelerationRate="fast"
-                initialScrollIndex={allEmotions.length}
-                getItemLayout={(_, index) => ({ length: ITEM_W, offset: ITEM_W * index, index })}
-                onMomentumScrollEnd={handleMomentumScrollEnd}
-                renderItem={({ item }) => {
-                  const isOn = selectedEmotion === item.name;
-                  return (
-                    <Pressable
-                      style={[
-                        styles.sliderItem,
-                        isOn && {
-                          backgroundColor: item.color_hex + "22",
-                          borderColor: item.color_hex,
-                          borderWidth: 1,
-                        },
-                      ]}
-                      onPress={() => toggleEmotion(item.name)}
-                    >
-                      <Text style={styles.sliderEmoji}>{item.emoji}</Text>
-                      <Text style={[styles.sliderLabel, isOn && { color: "#1a1a1a", fontFamily: "RobotoSerif_600SemiBold" }]}>
-                        {item.name}
-                      </Text>
-                    </Pressable>
-                  );
-                }}
-              />
-            </View>
-          )}
-
-          {/* ── Bar chart ── */}
-          <View style={styles.chartCard}>
-            <View style={styles.chartHeader}>
-              <Text style={styles.chartStatNum}>{totalPurchases}</Text>
-              <Text style={styles.chartStatLabel}> purchases this week</Text>
-            </View>
-            <View style={styles.barsRow}>
-              {barData.map((bar, i) => {
-                const isSelected = !hasFilter && selectedDay === i;
-                let barColor: string;
-                if (hasFilter) {
-                  barColor = bar.color;
-                } else if (isSelected) {
-                  barColor = "#6b21a8";
-                } else {
-                  barColor = "#d8b4fe";
-                }
-                return (
-                  <Pressable
-                    key={i}
-                    style={styles.barColumn}
-                    onPress={() => !hasFilter && setSelectedDay(isSelected ? null : i)}
-                    disabled={hasFilter}
-                  >
-                    <Text style={[styles.barCount, isSelected && styles.barCountSelected]}>
-                      {bar.count > 0 ? bar.count : ""}
-                    </Text>
-                    <View style={styles.barTrack}>
-                      <View
-                        style={[
-                          styles.bar,
-                          {
-                            height: bar.count > 0 ? Math.max((bar.count / maxCount) * BAR_MAX_H, 6) : 0,
-                            backgroundColor: barColor,
-                          },
-                        ]}
-                      />
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <View style={styles.baseline} />
-            <View style={styles.dayLabelsRow}>
-              {DAY_LABELS_SHORT.map((lbl, i) => (
-                <View key={i} style={styles.dayLabelCell}>
-                  <Text style={[styles.dayLabel, !hasFilter && selectedDay === i && styles.dayLabelSelected]}>
-                    {lbl}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          {/* ── Emotion breakdown ── */}
-          <View style={styles.emotionCard}>
-            <Text style={styles.sectionTitle}>{sectionTitle}</Text>
-            {hasFilter ? (
-              <View style={styles.filterCount}>
-                <Text style={[styles.filterCountNumber, { color: allEmotions.find(e => e.name === selectedEmotion)?.color_hex ?? "#333" }]}>
-                  {activeEmotions[0]?.count ?? 0}
-                </Text>
-                <Text style={styles.filterCountLabel}>purchases</Text>
-              </View>
-            ) : activeEmotions.length > 0 ? (
-              activeEmotions.map((stat) => {
-                const pct = totalEmotions > 0 ? Math.round((stat.count / totalEmotions) * 100) : 0;
-                return (
-                  <View key={stat.name} style={[styles.emotionRow, { borderLeftColor: stat.color_hex }]}>
-                    <Text style={styles.emotionEmoji}>{stat.emoji}</Text>
-                    <Text style={styles.emotionName}>{stat.name}</Text>
-                    <Text style={styles.emotionPct}>{pct}%</Text>
-                    <View style={[styles.emotionCountBadge, { backgroundColor: stat.color_hex + "28" }]}>
-                      <Text style={[styles.emotionCountText, { color: stat.color_hex }]}>{stat.count}</Text>
-                    </View>
-                  </View>
-                );
-              })
-            ) : (
-              <Text style={styles.emptyText}>No emotions logged this week.</Text>
-            )}
-          </View>
-
-        </View>
-      ) : (
-        <View style={styles.monthlyPanel}>
-          <MonthlyHeatmapPanel year={monthYear} month={monthMonth} />
-        </View>
+  return (
+    <Pressable onPress={onPress} style={{
+      width: size, height: size,
+      alignItems: "center", justifyContent: "center",
+    }}>
+      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+        <Defs>
+          {emotions.length === 1 ? (
+            <RadialGradient
+              id={`b${id}-0`} cx="0.5" cy="0.5" rx="0.5" ry="0.5"
+              gradientUnits="objectBoundingBox"
+            >
+              <Stop offset="0%" stopColor={emotionColor(emotions[0])} stopOpacity="0.8" />
+              <Stop offset="55%" stopColor={emotionColor(emotions[0])} stopOpacity="0.4" />
+              <Stop offset="100%" stopColor={emotionColor(emotions[0])} stopOpacity="0.06" />
+            </RadialGradient>
+          ) : emotions.map((e, i) => {
+            const cx = ((30 + i * 40) / 100).toFixed(2);
+            const cy = ((35 + (i % 2) * 30) / 100).toFixed(2);
+            return (
+              <RadialGradient
+                key={i} id={`b${id}-${i}`} cx={cx} cy={cy} rx="0.7" ry="0.7"
+                gradientUnits="objectBoundingBox"
+              >
+                <Stop offset="0%" stopColor={emotionColor(e)} stopOpacity="0.67" />
+                <Stop offset="35%" stopColor={emotionColor(e)} stopOpacity="0.27" />
+                <Stop offset="70%" stopColor={emotionColor(e)} stopOpacity="0" />
+              </RadialGradient>
+            );
+          })}
+        </Defs>
+        {has && <Circle cx={size / 2} cy={size / 2} r={size / 2} fill={C.blobBg} />}
+        {has && emotions.map((_, i) => (
+          <Circle key={i} cx={size / 2} cy={size / 2} r={size / 2} fill={`url(#b${id}-${i})`} />
+        ))}
+      </Svg>
+      <Text style={{
+        fontSize: 12, color: has ? C.ink : C.inkSoft,
+        fontFamily: today ? "Manrope_700Bold" : "Manrope_400Regular",
+      }}>{num}</Text>
+      {selected && (
+        <View style={{
+          position: "absolute", top: -3, left: -3, right: -3, bottom: -3,
+          borderRadius: (size + 6) / 2, borderWidth: 1.5, borderColor: C.purple,
+        }} />
       )}
+    </Pressable>
+  );
+}
+
+// ─── DonutChart ──────────────────────────────────────────────────────────────
+function DonutChart({
+  data, size, thickness, children,
+}: {
+  data: Dist;
+  size: number;
+  thickness: number;
+  children?: React.ReactNode;
+}) {
+  const r = (size - thickness) / 2;
+  const c = 2 * Math.PI * r;
+  const total = data.reduce((s, [, v]) => s + v, 0) || 1;
+  let offset = 0;
+
+  return (
+    <View style={{ width: size, height: size, justifyContent: "center", alignItems: "center" }}>
+      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+        <G rotation={-90} origin={`${size / 2}, ${size / 2}`}>
+          <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.blobBg} strokeWidth={thickness} />
+          {data.map(([e, v], i) => {
+            const len = (v / total) * c;
+            const node = (
+              <Circle
+                key={i} cx={size / 2} cy={size / 2} r={r} fill="none"
+                stroke={emotionColor(e)} strokeWidth={thickness}
+                strokeDasharray={`${len} ${c - len}`} strokeDashoffset={-offset}
+                strokeLinecap="butt"
+              />
+            );
+            offset += len;
+            return node;
+          })}
+        </G>
+      </Svg>
+      <View style={{ alignItems: "center", justifyContent: "center" }}>
+        {children}
+      </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#fdf3ff" },
+// ─── LegendItem ──────────────────────────────────────────────────────────────
+function LegendItem({
+  emo, small, large, active, dim, onPress,
+}: {
+  emo: string;
+  small?: boolean;
+  large?: boolean;
+  active?: boolean;
+  dim?: boolean;
+  onPress?: () => void;
+}) {
+  const color = active ? emotionColor(emo) : C.inkSoft;
+  const Wrap: any = onPress ? Pressable : View;
+  const glyphSize = large ? 34 : small ? 18 : 30;
+  const labelSize = large ? 18 : small ? 13 : 22;
+  const gap = large ? 8 : small ? 4 : 6;
+  return (
+    <Wrap onPress={onPress} style={{
+      alignItems: "center", opacity: dim ? 0.4 : 1,
+      paddingHorizontal: large ? 8 : 2,
+    }}>
+      <EmotionGlyph emotion={emo} color={emotionColor(emo)} size={glyphSize} />
+      <Text style={{
+        fontSize: labelSize, marginTop: gap,
+        fontFamily: active ? "PlayfairDisplay_700Bold_Italic" : "PlayfairDisplay_400Regular_Italic",
+        color,
+        borderBottomWidth: active ? 1.5 : 0,
+        borderBottomColor: active ? emotionColor(emo) : "transparent",
+        paddingBottom: active ? 1 : 0,
+      }}>{emo}</Text>
+    </Wrap>
+  );
+}
+
+// ─── DayPurchases — list of purchases for selected day ──────────────────────
+function DayPurchases({ transactions }: { transactions: HeatmapTx[] }) {
+  return (
+    <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
+      <Text style={{
+        fontSize: 13, color: C.inkSoft, letterSpacing: 1.4,
+        fontFamily: "Manrope_600SemiBold",
+        textTransform: "uppercase", marginBottom: 10,
+      }}>purchases</Text>
+      {transactions.length === 0 ? (
+        <Text style={{
+          color: C.inkMute, fontSize: 13,
+          fontFamily: "PlayfairDisplay_400Regular_Italic",
+          paddingVertical: 8,
+        }}>no purchases on this day</Text>
+      ) : transactions.map((tx, i) => (
+        <View key={i} style={{
+          flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10,
+          borderTopWidth: i ? 1 : 0, borderTopColor: C.ruleSoft,
+        }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{
+              fontFamily: "Manrope_600SemiBold", fontSize: 14, color: C.ink,
+            }} numberOfLines={1}>{tx.merchant_name}</Text>
+            <Text style={{
+              fontSize: 12, color: C.inkSoft, fontFamily: "Manrope_400Regular", marginTop: 2,
+            }} numberOfLines={1}>
+              €{tx.amount.toFixed(2)}
+              {tx.category_name ? ` · ${tx.category_name.toLowerCase()}` : ""}
+            </Text>
+          </View>
+          {tx.emotion_name && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <EmotionGlyph
+                emotion={tx.emotion_name.toLowerCase()}
+                color={emotionColor(tx.emotion_name)} size={14}
+              />
+              <Text style={{
+                fontSize: 13, fontFamily: "PlayfairDisplay_400Regular_Italic",
+                color: emotionColor(tx.emotion_name),
+              }}>{tx.emotion_name.toLowerCase()}</Text>
+            </View>
+          )}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// ─── Summary ─────────────────────────────────────────────────────────────────
+function Summary({
+  title, totalSpent, purchases, topEmotion, emotionAgg,
+}: {
+  title: string;
+  totalSpent: number;
+  purchases: number;
+  topEmotion: string | null;
+  emotionAgg: Array<{ emotion: string; count: number; pct: number }>;
+}) {
+  return (
+    <View style={{ paddingHorizontal: 24, paddingTop: 18 }}>
+      <Text style={{
+        fontSize: 22, textAlign: "center", marginBottom: 14,
+        fontFamily: "PlayfairDisplay_400Regular_Italic", color: C.ink,
+      }}>{title}</Text>
+      <View style={{
+        flexDirection: "row", justifyContent: "space-between", marginBottom: 16,
+      }}>
+        <View style={{ alignItems: "flex-start" }}>
+          <Text style={{ fontSize: 22, fontFamily: "Manrope_700Bold", color: C.ink }}>
+            €{Math.round(totalSpent)}
+          </Text>
+          <Text style={st.smallLabel}>total spent</Text>
+        </View>
+        <View style={{ alignItems: "flex-start" }}>
+          <Text style={{ fontSize: 22, fontFamily: "Manrope_700Bold", color: C.ink }}>
+            {purchases}
+          </Text>
+          <Text style={st.smallLabel}>purchases</Text>
+        </View>
+        <View style={{ alignItems: "flex-start" }}>
+          {topEmotion ? (
+            <EmotionGlyph emotion={topEmotion} color={emotionColor(topEmotion)} size={22} />
+          ) : (
+            <Text style={{ fontSize: 22, color: C.inkMute }}>—</Text>
+          )}
+          <Text style={st.smallLabel}>top emotion</Text>
+        </View>
+      </View>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+        <DonutChart
+          data={emotionAgg.map(e => [e.emotion, e.count] as [string, number])}
+          size={110} thickness={14}
+        >
+          <Text style={{
+            fontSize: 13, fontFamily: "PlayfairDisplay_400Regular_Italic", color: C.inkSoft,
+          }}>emotions</Text>
+        </DonutChart>
+        <View style={{ flex: 1, gap: 6 }}>
+          {emotionAgg.slice(0, 4).map((e) => (
+            <View key={e.emotion} style={{
+              flexDirection: "row", alignItems: "center", gap: 8,
+            }}>
+              <EmotionGlyph emotion={e.emotion} color={emotionColor(e.emotion)} size={14} />
+              <Text style={{
+                flex: 1, fontFamily: "PlayfairDisplay_400Regular_Italic",
+                fontSize: 13, color: C.ink,
+              }}>{e.emotion}</Text>
+              <Text style={{
+                fontSize: 13, color: C.inkSoft, fontFamily: "Manrope_400Regular",
+              }}>{Math.round(e.pct * 100)}%</Text>
+            </View>
+          ))}
+          {emotionAgg.length === 0 && (
+            <Text style={{
+              fontFamily: "PlayfairDisplay_400Regular_Italic",
+              fontSize: 13, color: C.inkMute,
+            }}>no emotion data yet</Text>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ─── Screen ──────────────────────────────────────────────────────────────────
+export default function Calendar() {
+  const today = new Date();
+  const todayMonday = getMonday(today);
+
+  const [viewMode, setViewMode] = useState<"weekly" | "monthly">("weekly");
+  const [weekStart, setWeekStart] = useState<Date>(todayMonday);
+  const [monthYear, setMonthYear] = useState(today.getFullYear());
+  const [monthMonth, setMonthMonth] = useState(today.getMonth());
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [filter, setFilter] = useState<string | null>(null);
+
+  const [weekDays, setWeekDays] = useState<WeekDayData[]>(
+    Array.from({ length: 7 }, () => ({ count: 0, emotions: [] }))
+  );
+  const [monthData, setMonthData] = useState<HeatmapMonthData>({});
+
+  const loadWeek = useCallback(async () => {
+    const days = await getWeekHeatmapData(global.userID, weekStart);
+    setWeekDays(days);
+  }, [weekStart]);
+
+  const dataYear = viewMode === "monthly" ? monthYear : weekStart.getFullYear();
+  const dataMonth = viewMode === "monthly" ? monthMonth : weekStart.getMonth();
+
+  const loadMonth = useCallback(async () => {
+    const m = await getMonthHeatmapData(global.userID, dataYear, dataMonth);
+    setMonthData(m);
+  }, [dataYear, dataMonth]);
+
+  useFocusEffect(useCallback(() => {
+    loadWeek();
+    loadMonth();
+  }, [loadWeek, loadMonth]));
+
+  // Weekly grid helpers
+  const weekDayCount = (i: number) => filter
+    ? (weekDays[i].emotions.find(e => e.name.toLowerCase() === filter)?.count ?? 0)
+    : weekDays[i].count;
+  const weekDayDist = (i: number): Dist =>
+    weekDays[i].emotions.map(e => [e.name.toLowerCase(), e.count]);
+  const weekDayDistFiltered = (i: number): Dist => {
+    const raw = weekDayDist(i);
+    return filter ? raw.filter(([e]) => e === filter) : raw;
+  };
+
+  // Weekly summary
+  const weekTotalSpent = (() => {
+    let sum = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      sum += monthData[dateKey(d)]?.totalAmount ?? 0;
+    }
+    return sum;
+  })();
+  const weekTotalPurchases = weekDays.reduce((s, d) => s + d.count, 0);
+  const weekEmotionAgg = (() => {
+    const map = new Map<string, number>();
+    weekDays.forEach(d => d.emotions.forEach(e => {
+      const k = e.name.toLowerCase();
+      map.set(k, (map.get(k) ?? 0) + e.count);
+    }));
+    const total = Array.from(map.values()).reduce((a, b) => a + b, 0) || 1;
+    return Array.from(map.entries())
+      .map(([emotion, count]) => ({ emotion, count, pct: count / total }))
+      .sort((a, b) => b.count - a.count);
+  })();
+  const weekTopEmotion = weekEmotionAgg[0]?.emotion ?? null;
+
+  // Monthly grid helpers
+  function emotionsForMonthDay(dayNum: number): string[] {
+    const d = new Date(monthYear, monthMonth, dayNum);
+    const entry = monthData[dateKey(d)];
+    if (!entry) return [];
+    const set = new Set<string>();
+    entry.transactions.forEach(t => {
+      if (t.emotion_name) set.add(t.emotion_name.toLowerCase());
+    });
+    return Array.from(set).slice(0, 3);
+  }
+
+  // Monthly summary
+  const monthDayKeys = Object.keys(monthData);
+  const monthTotalSpent = monthDayKeys.reduce((s, k) => s + monthData[k].totalAmount, 0);
+  const monthTotalPurchases = monthDayKeys.reduce((s, k) => s + monthData[k].transactions.length, 0);
+  const monthEmotionAgg = (() => {
+    const map = new Map<string, number>();
+    monthDayKeys.forEach(k => monthData[k].transactions.forEach(t => {
+      if (t.emotion_name) {
+        const lk = t.emotion_name.toLowerCase();
+        map.set(lk, (map.get(lk) ?? 0) + 1);
+      }
+    }));
+    const total = Array.from(map.values()).reduce((a, b) => a + b, 0) || 1;
+    return Array.from(map.entries())
+      .map(([emotion, count]) => ({ emotion, count, pct: count / total }))
+      .sort((a, b) => b.count - a.count);
+  })();
+  const monthTopEmotion = monthEmotionAgg[0]?.emotion ?? null;
+
+  // Day detail
+  function getDayDetail() {
+    if (selectedDay === null) return null;
+    let date: Date;
+    let emotionDist: Dist;
+    if (viewMode === "weekly") {
+      date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + selectedDay);
+      emotionDist = weekDayDist(selectedDay);
+    } else {
+      date = new Date(monthYear, monthMonth, selectedDay);
+      const map = new Map<string, number>();
+      (monthData[dateKey(date)]?.transactions ?? []).forEach(t => {
+        if (t.emotion_name) {
+          const lk = t.emotion_name.toLowerCase();
+          map.set(lk, (map.get(lk) ?? 0) + 1);
+        }
+      });
+      emotionDist = Array.from(map.entries());
+    }
+    const dayData = monthData[dateKey(date)];
+    return {
+      date,
+      dateLabel: `${DAY_LABELS_FULL[date.getDay()]}, ${MONTHS_SHORT[date.getMonth()]} ${date.getDate()}`,
+      emotionDist,
+      transactions: dayData?.transactions ?? [],
+    };
+  }
+  const dayDetail = getDayDetail();
+
+  // Day-specific summary (same shape as week/month summary, but scoped to the day)
+  const daySummary = (() => {
+    if (!dayDetail) return null;
+    const total = dayDetail.emotionDist.reduce((s, [, v]) => s + v, 0) || 1;
+    const emotionAgg = dayDetail.emotionDist
+      .map(([emotion, count]) => ({ emotion, count, pct: count / total }))
+      .sort((a, b) => b.count - a.count);
+    const purchasesCount = viewMode === "weekly" && selectedDay !== null
+      ? weekDays[selectedDay].count
+      : dayDetail.transactions.length;
+    const totalSpent = dayDetail.transactions.reduce((s, t) => s + t.amount, 0);
+    return {
+      totalSpent,
+      purchases: purchasesCount,
+      topEmotion: emotionAgg[0]?.emotion ?? null,
+      emotionAgg,
+    };
+  })();
+
+  // Navigation
+  const canWeekForward = startOfDay(weekStart).getTime() < startOfDay(todayMonday).getTime();
+  const canMonthForward =
+    monthYear < today.getFullYear() ||
+    (monthYear === today.getFullYear() && monthMonth < today.getMonth());
+
+  function changeWeek(dir: -1 | 1) {
+    if (dir === 1 && !canWeekForward) return;
+    const next = new Date(weekStart);
+    next.setDate(weekStart.getDate() + dir * 7);
+    setWeekStart(next);
+    setSelectedDay(null);
+  }
+  function changeMonth(dir: -1 | 1) {
+    if (dir === 1 && !canMonthForward) return;
+    let m = monthMonth + dir, y = monthYear;
+    if (m < 0) { m = 11; y--; }
+    if (m > 11) { m = 0; y++; }
+    setMonthMonth(m); setMonthYear(y);
+    setSelectedDay(null);
+  }
+
+  // Render
+  return (
+    <View style={st.root}>
+      <View style={st.header}>
+        <Text style={st.title}>expense heatmap</Text>
+      </View>
+
+      <View style={st.tabs}>
+        <Pressable onPress={() => { setViewMode("weekly"); setSelectedDay(null); }} style={st.tabBtn}>
+          <Text style={[st.tabText, viewMode === "weekly" && st.tabTextActive]}>weekly</Text>
+          {viewMode === "weekly" && <View style={st.tabUnderline} />}
+        </Pressable>
+        <Text style={st.tabSep}>·</Text>
+        <Pressable onPress={() => { setViewMode("monthly"); setSelectedDay(null); }} style={st.tabBtn}>
+          <Text style={[st.tabText, viewMode === "monthly" && st.tabTextActive]}>monthly</Text>
+          {viewMode === "monthly" && <View style={st.tabUnderline} />}
+        </Pressable>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 140 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {viewMode === "weekly" ? (
+          <>
+            {/* Week stepper */}
+            <View style={st.navRow}>
+              <Pressable onPress={() => changeWeek(-1)} style={st.navBtn}>
+                <Text style={st.navArrow}>‹</Text>
+              </Pressable>
+              <Text style={st.navLabel}>{formatWeekRange(weekStart)}</Text>
+              <Pressable
+                onPress={() => changeWeek(1)}
+                style={[st.navBtn, !canWeekForward && { opacity: 0.3 }]}
+                disabled={!canWeekForward}
+              >
+                <Text style={st.navArrow}>›</Text>
+              </Pressable>
+            </View>
+
+            {/* Filter strip */}
+            <ScrollView
+              horizontal showsHorizontalScrollIndicator={false}
+              contentContainerStyle={st.legendStrip}
+            >
+              {EMOTION_NAMES.map((emo) => (
+                <LegendItem
+                  key={emo} emo={emo} large
+                  active={filter === emo}
+                  dim={filter !== null && filter !== emo}
+                  onPress={() => { setFilter(filter === emo ? null : emo); setSelectedDay(null); }}
+                />
+              ))}
+            </ScrollView>
+
+            {/* Day rings */}
+            <View style={st.daysGrid}>
+              {[0, 1, 2, 3, 4, 5, 6].map((i) => {
+                const d = new Date(weekStart);
+                d.setDate(weekStart.getDate() + i);
+                return (
+                  <DayRing
+                    key={i} size={42}
+                    count={weekDayCount(i)}
+                    dist={weekDayDistFiltered(i)}
+                    label={WEEK_LABELS[i]}
+                    sub={d.getDate()}
+                    selected={selectedDay === i}
+                    dim={selectedDay !== null && selectedDay !== i}
+                    onPress={() => setSelectedDay(selectedDay === i ? null : i)}
+                  />
+                );
+              })}
+            </View>
+
+            <View style={st.sectionRule} />
+
+            {dayDetail && daySummary ? (
+              <>
+                <Summary
+                  title={dayDetail.dateLabel}
+                  totalSpent={daySummary.totalSpent}
+                  purchases={daySummary.purchases}
+                  topEmotion={daySummary.topEmotion}
+                  emotionAgg={daySummary.emotionAgg}
+                />
+                <DayPurchases transactions={dayDetail.transactions} />
+              </>
+            ) : (
+              <Summary
+                title="weekly summary"
+                totalSpent={weekTotalSpent}
+                purchases={weekTotalPurchases}
+                topEmotion={weekTopEmotion}
+                emotionAgg={weekEmotionAgg}
+              />
+            )}
+          </>
+        ) : (
+          <>
+            {/* Month stepper */}
+            <View style={st.navRow}>
+              <Pressable onPress={() => changeMonth(-1)} style={st.navBtn}>
+                <Text style={st.navArrow}>‹</Text>
+              </Pressable>
+              <Text style={st.navLabel}>{MONTHS_LONG[monthMonth]} {monthYear}</Text>
+              <Pressable
+                onPress={() => changeMonth(1)}
+                style={[st.navBtn, !canMonthForward && { opacity: 0.3 }]}
+                disabled={!canMonthForward}
+              >
+                <Text style={st.navArrow}>›</Text>
+              </Pressable>
+            </View>
+
+            {/* Weekday header */}
+            <View style={st.monthWeekHeader}>
+              {MONTH_WEEK_LABELS.map((w, i) => (
+                <View key={i} style={{ width: MONTH_CELL_W, alignItems: "center" }}>
+                  <Text style={st.weekHeaderLabel}>{w}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Blob grid */}
+            <View style={st.monthGrid}>
+              {(() => {
+                const firstWd = new Date(monthYear, monthMonth, 1).getDay();
+                const numDays = new Date(monthYear, monthMonth + 1, 0).getDate();
+                const cells: (number | null)[] = [
+                  ...Array(firstWd).fill(null),
+                  ...Array.from({ length: numDays }, (_, i) => i + 1),
+                ];
+                while (cells.length % 7 !== 0) cells.push(null);
+                return cells.map((d, i) => (
+                  <View key={i} style={{
+                    width: MONTH_CELL_W, height: MONTH_CELL_W,
+                    alignItems: "center", justifyContent: "center",
+                  }}>
+                    {d !== null && (
+                      <MonthBlob
+                        size={34} num={d}
+                        emotions={emotionsForMonthDay(d)}
+                        selected={selectedDay === d}
+                        today={
+                          today.getFullYear() === monthYear &&
+                          today.getMonth() === monthMonth &&
+                          today.getDate() === d
+                        }
+                        onPress={() => setSelectedDay(selectedDay === d ? null : d)}
+                      />
+                    )}
+                  </View>
+                ));
+              })()}
+            </View>
+
+            {/* Full legend */}
+            <View style={st.monthLegend}>
+              {EMOTION_NAMES.map((emo) => (
+                <View key={emo} style={st.monthLegendCell}>
+                  <LegendItem emo={emo} small active />
+                </View>
+              ))}
+            </View>
+
+            <View style={st.sectionRule} />
+
+            {dayDetail && daySummary ? (
+              <>
+                <Summary
+                  title={dayDetail.dateLabel}
+                  totalSpent={daySummary.totalSpent}
+                  purchases={daySummary.purchases}
+                  topEmotion={daySummary.topEmotion}
+                  emotionAgg={daySummary.emotionAgg}
+                />
+                <DayPurchases transactions={dayDetail.transactions} />
+              </>
+            ) : (
+              <Summary
+                title="monthly summary"
+                totalSpent={monthTotalSpent}
+                purchases={monthTotalPurchases}
+                topEmotion={monthTopEmotion}
+                emotionAgg={monthEmotionAgg}
+              />
+            )}
+          </>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+const st = StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.bg },
 
   header: {
-    paddingTop: 60,
-    paddingHorizontal: 20,
-    backgroundColor: "#fdf3ff",
+    paddingTop: Platform.OS === "ios" ? 56 : 40,
+    paddingBottom: 14, paddingHorizontal: 24, alignItems: "center",
   },
-  headerTop: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    paddingBottom: 12,
+  title: {
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontSize: 30, color: C.ink, letterSpacing: -0.3,
   },
-  screenTitle: {
-    fontSize: 22,
-    fontFamily: "RobotoSerif_700Bold",
-    color: "#1a1a1a",
-    letterSpacing: -0.3,
-  },
-  headerBorder: { height: 1, backgroundColor: "#ede4f7" },
 
-  tabRow: { flexDirection: "row", gap: 18, alignItems: "flex-end" },
-  tabItem: { paddingBottom: 12, position: "relative" },
-  tabText: { fontSize: 13, fontFamily: "RobotoSerif_400Regular", color: "#c4a8e0" },
-  tabTextActive: { color: "#6b21a8", fontFamily: "RobotoSerif_600SemiBold" },
+  tabs: {
+    flexDirection: "row", justifyContent: "center", alignItems: "baseline",
+    gap: 14, paddingBottom: 22,
+  },
+  tabBtn: { paddingVertical: 2, alignItems: "center" },
+  tabText: {
+    fontSize: 19, fontFamily: "PlayfairDisplay_400Regular_Italic",
+    color: C.inkMute,
+  },
+  tabTextActive: {
+    fontFamily: "PlayfairDisplay_700Bold_Italic", color: C.ink,
+  },
   tabUnderline: {
-    position: "absolute",
-    bottom: -1,
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: "#6b21a8",
-    borderRadius: 1,
+    height: 1.5, backgroundColor: C.purple, width: "100%", marginTop: 2,
+  },
+  tabSep: { color: C.inkMute, fontSize: 14 },
+
+  navRow: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 18, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 14,
+  },
+  navBtn: { paddingHorizontal: 4, paddingVertical: 2 },
+  navArrow: { fontSize: 22, color: C.inkSoft, lineHeight: 24 },
+  navLabel: {
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontSize: 20, color: C.ink,
   },
 
-  navRow: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4 },
-  monthlyPanel: { flex: 1 },
-  panelContent: { flex: 1, paddingHorizontal: 20, paddingTop: 4 },
+  legendStrip: {
+    paddingHorizontal: 16, paddingTop: 6, paddingBottom: 22, gap: 6,
+    flexDirection: "row", alignItems: "flex-start",
+  },
 
-  weekNav: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 16,
+  daysGrid: {
+    flexDirection: "row", justifyContent: "space-between",
+    paddingHorizontal: 12, paddingBottom: 18,
   },
-  navArrow: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
-  navDisabled: { opacity: 0.35 },
-  navLabelText: { fontSize: 15, fontFamily: "RobotoSerif_600SemiBold", color: "#333" },
 
-  sliderWrap: { marginBottom: 20, marginHorizontal: -20 },
-  sliderItem: {
-    width: ITEM_W,
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "transparent",
+  sectionRule: {
+    height: 1, backgroundColor: C.rule, marginHorizontal: 24, marginTop: 4,
   },
-  sliderEmoji: { fontSize: 20, marginBottom: 4 },
-  sliderLabel: { fontSize: 10, color: "#bbb", textAlign: "center" },
 
-  chartCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    paddingBottom: 12,
-    marginBottom: 16,
-    shadowColor: "#a78bda",
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
+  monthWeekHeader: {
+    flexDirection: "row", paddingHorizontal: MONTH_GRID_PAD, paddingBottom: 4,
   },
-  chartHeader: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    marginBottom: 12,
+  weekHeaderLabel: {
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontSize: 11.5, color: C.inkMute,
   },
-  chartStatNum: {
-    fontSize: 22,
-    fontFamily: "RobotoSerif_700Bold",
-    color: "#6b21a8",
-  },
-  chartStatLabel: {
-    fontSize: 13,
-    fontFamily: "RobotoSerif_400Regular",
-    color: "#bbb",
-  },
-  barsRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    paddingTop: 4,
-    paddingBottom: 0,
-  },
-  barColumn: { flex: 1, alignItems: "center", justifyContent: "flex-end" },
-  barCount: { fontSize: 11, color: "#d8b4fe", marginBottom: 3, height: 14 },
-  barCountSelected: { color: "#6b21a8", fontFamily: "RobotoSerif_600SemiBold" },
-  barTrack: { width: "45%", height: BAR_MAX_H, justifyContent: "flex-end" },
-  bar: {
-    width: "100%",
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-  },
-  baseline: { height: 1, backgroundColor: "#ede4f7", marginTop: 0 },
-  dayLabelsRow: { flexDirection: "row", paddingTop: 8 },
-  dayLabelCell: { flex: 1, alignItems: "center" },
-  dayLabel: { fontSize: 11, color: "#bbb" },
-  dayLabelSelected: { color: "#6b21a8", fontFamily: "RobotoSerif_600SemiBold" },
+  monthGrid: {
+    flexDirection: "row", flexWrap: "wrap",
+    paddingHorizontal: MONTH_GRID_PAD, paddingBottom: 8,
+  },   
 
-  emotionCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: "#a78bda",
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
+  monthLegend: {
+    flexDirection: "row", flexWrap: "wrap",
+    paddingHorizontal: 22, paddingTop: 14, paddingBottom: 18,
   },
-  sectionTitle: {
-    fontSize: 15,
-    fontFamily: "RobotoSerif_600SemiBold",
-    color: "#333",
-    marginBottom: 12,
+  monthLegendCell: {
+    width: "25%", alignItems: "center", marginBottom: 12,
   },
-  emotionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderLeftWidth: 3,
-    marginBottom: 7,
-    backgroundColor: "#fff",
-    borderTopRightRadius: 6,
-    borderBottomRightRadius: 6,
+
+  smallLabel: {
+    fontSize: 12, color: C.inkSoft,
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    marginTop: 2,
   },
-  emotionEmoji: { fontSize: 15, marginRight: 8 },
-  emotionName: { fontSize: 13, color: "#444", fontFamily: "RobotoSerif_500Medium", flex: 1 },
-  emotionPct: { fontSize: 11, color: "#bbb", marginRight: 8 },
-  emotionCountBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    minWidth: 30,
-    alignItems: "center",
-  },
-  emotionCountText: { fontSize: 11, fontFamily: "RobotoSerif_600SemiBold" },
-  emptyText: { color: "#ccc", fontSize: 14, paddingVertical: 4 },
-  filterCount: { alignItems: "center", paddingVertical: 16 },
-  filterCountNumber: { fontSize: 52, fontFamily: "RobotoSerif_700Bold", lineHeight: 58 },
-  filterCountLabel: { fontSize: 13, color: "#999", marginTop: 2 },
 });
