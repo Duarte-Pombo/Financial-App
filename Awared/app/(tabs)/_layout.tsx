@@ -1,114 +1,121 @@
-import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { View, Platform, StyleSheet } from "react-native";
 import React from "react";
+import { View, Text, Platform, StyleSheet, Pressable } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { withLayoutContext } from "expo-router";
+import {
+  createMaterialTopTabNavigator,
+  MaterialTopTabNavigationOptions,
+  MaterialTopTabNavigationEventMap,
+} from "@react-navigation/material-top-tabs";
+import {
+  ParamListBase,
+  TabNavigationState,
+} from "@react-navigation/native";
 
-type IconProps = {
-  focused: boolean;
-  iconName: React.ComponentProps<typeof Ionicons>["name"];
-  activeIcon: React.ComponentProps<typeof Ionicons>["name"];
-  size?: number;
+const { Navigator } = createMaterialTopTabNavigator();
+
+const MaterialTopTabs = withLayoutContext<
+  MaterialTopTabNavigationOptions,
+  typeof Navigator,
+  TabNavigationState<ParamListBase>,
+  MaterialTopTabNavigationEventMap
+>(Navigator);
+
+type IconName = React.ComponentProps<typeof Ionicons>["name"];
+
+const TAB_ORDER = ["index", "calendar", "addPurchase", "insights", "profile"] as const;
+const TAB_META: Record<string, { idle: IconName; active: IconName; label: string; size?: number }> = {
+  index: { idle: "home-outline", active: "home-sharp", label: "Home" },
+  calendar: { idle: "calendar-outline", active: "calendar", label: "Calendar" },
+  addPurchase: { idle: "add-circle-outline", active: "add-circle", label: "Add", size: 24 },
+  insights: { idle: "stats-chart-outline", active: "stats-chart", label: "Insights" },
+  profile: { idle: "person-outline", active: "person", label: "Profile" },
 };
 
-function TabIcon({ focused, iconName, activeIcon, size = 22 }: IconProps) {
+function CustomTabBar({ state, navigation }: any) {
   return (
-    <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-      <Ionicons
-        name={focused ? activeIcon : iconName}
-        color={focused ? "#F9A8BB" : "#9CA3AF"}
-        size={size}
-      />
+    <View style={styles.bar}>
+      {state.routes.map((route: any, index: number) => {
+        const focused = state.index === index;
+        const meta = TAB_META[route.name];
+        if (!meta) return null;
+
+        const onPress = () => {
+          const event = navigation.emit({
+            type: "tabPress",
+            target: route.key,
+            canPreventDefault: true,
+          });
+          if (!focused && !event.defaultPrevented) {
+            navigation.navigate(route.name);
+          }
+        };
+
+        return (
+          <Pressable
+            key={route.key}
+            onPress={onPress}
+            style={styles.item}
+            android_ripple={null}
+          >
+            <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+              <Ionicons
+                name={focused ? meta.active : meta.idle}
+                color={focused ? "#F9A8BB" : "#9CA3AF"}
+                size={meta.size ?? 22}
+              />
+            </View>
+            <Text
+              style={[styles.label, { color: focused ? "#F9A8BB" : "#9CA3AF" }]}
+            >
+              {meta.label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
 
 export default function TabsLayout() {
   return (
-    <Tabs
+    <MaterialTopTabs
+      tabBarPosition="bottom"
+      tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
-        headerShown: false,
-        tabBarShowLabel: true,
-        tabBarActiveTintColor: "#F9A8BB",
-        tabBarInactiveTintColor: "#9CA3AF",
-        tabBarLabelStyle: {
-          fontSize: 10,
-          fontFamily: "Manrope_600SemiBold",
-          marginTop: -4,
-        },
-        tabBarStyle: {
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: Platform.OS === "ios" ? 90 : 68,
-          backgroundColor: "#F5F0E6",
-          borderTopWidth: 0,
-          borderTopLeftRadius: 32,
-          borderTopRightRadius: 32,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: -8 },
-          shadowOpacity: 0.04,
-          shadowRadius: 24,
-          elevation: 16,
-          paddingBottom: Platform.OS === "ios" ? 24 : 8,
-          paddingTop: 8,
-        },
-        tabBarItemStyle: {
-          paddingTop: 4,
-        },
+        swipeEnabled: true,
+        animationEnabled: true,
+        lazy: false,
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} iconName="home-outline" activeIcon="home-sharp" />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="calendar"
-        options={{
-          title: "Calendar",
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} iconName="calendar-outline" activeIcon="calendar" />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="addPurchase"
-        options={{
-          title: "Add",
-          tabBarStyle: { display: "none" },
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} iconName="add-circle-outline" activeIcon="add-circle" size={24} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="insights"
-        options={{
-          title: "Insights",
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} iconName="stats-chart-outline" activeIcon="stats-chart" />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} iconName="person-outline" activeIcon="person" />
-          ),
-        }}
-      />
-    </Tabs>
+      {TAB_ORDER.map((name) => (
+        <MaterialTopTabs.Screen key={name} name={name} />
+      ))}
+    </MaterialTopTabs>
   );
 }
 
 const styles = StyleSheet.create({
+  bar: {
+    flexDirection: "row",
+    height: Platform.OS === "ios" ? 90 : 68,
+    backgroundColor: "#F5F0E6",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 24,
+    elevation: 16,
+    paddingBottom: Platform.OS === "ios" ? 24 : 8,
+    paddingTop: 8,
+  },
+  item: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "flex-start",
+    paddingTop: 4,
+  },
   iconWrap: {
     width: 44,
     height: 30,
@@ -120,5 +127,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(249, 168, 187, 0.18)",
     paddingHorizontal: 12,
     width: "auto",
+  },
+  label: {
+    fontSize: 10,
+    fontFamily: "Manrope_600SemiBold",
+    marginTop: -2,
   },
 });

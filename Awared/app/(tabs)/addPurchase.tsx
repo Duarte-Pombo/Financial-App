@@ -3,7 +3,6 @@ import {
   Platform, Alert, Modal, TouchableWithoutFeedback,
   Keyboard, Text, StyleSheet,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, useCallback, useEffect } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
 import { getDb } from "../../database/db";
@@ -49,7 +48,6 @@ export default function AddPurchase() {
   const [rawDigits, setRawDigits] = useState("");
   const [item, setItem] = useState("");
   const [location, setLocation] = useState("");
-  const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [date, setDate] = useState(new Date());
   const [editingField, setEditingField] = useState<"date" | "time" | null>(null);
@@ -70,7 +68,7 @@ export default function AddPurchase() {
   }, []);
 
   useFocusEffect(useCallback(() => {
-    setRawDigits(""); setItem(""); setLocation(""); setNote("");
+    setRawDigits(""); setItem(""); setLocation("");
     setSelectedEmotionIds([]); setSaving(false); setDate(new Date()); setEditingField(null);
   }, []));
 
@@ -127,7 +125,6 @@ export default function AddPurchase() {
       await insertTransaction({
         user_id: global.userID, amount,
         merchant_name: item || undefined,
-        note: note || undefined,
         location: location || undefined,
         emotion_ids: selectedEmotionIds,
         currency_code: "EUR", type: "cash",
@@ -146,15 +143,10 @@ export default function AddPurchase() {
   const canConfirm = hasAmount && item.trim().length > 0 && selectedEmotionIds.length > 0;
 
   return (
-    <SafeAreaView style={s.root} edges={["top"]}>
+    <View style={s.root}>
       {/* ── Header ── */}
       <View style={s.header}>
         <Text style={s.headerTitle}>log expense</Text>
-        <Pressable hitSlop={8} onPress={() => router.back()} style={s.headerClose}>
-          <Svg width={22} height={22} viewBox="0 0 24 24">
-            <Path d="M6 6 L18 18 M18 6 L6 18" stroke={C.ink} strokeWidth={1.8} strokeLinecap="round" />
-          </Svg>
-        </Pressable>
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -294,22 +286,6 @@ export default function AddPurchase() {
             </Pressable>
             <View style={s.underline} />
           </View>
-
-          {/* notes */}
-          <View style={{ flex: 1, minHeight: 80 }}>
-            <Text style={s.label}>any thoughts?</Text>
-            <TextInput
-              multiline
-              value={note}
-              onChangeText={setNote}
-              placeholder="what was going through your head?"
-              placeholderTextColor={C.inkMute}
-              style={s.notesInput}
-              returnKeyType="done"
-              blurOnSubmit
-              onSubmitEditing={() => Keyboard.dismiss()}
-            />
-          </View>
         </View>
 
         {/* CTA */}
@@ -373,7 +349,7 @@ export default function AddPurchase() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -382,20 +358,17 @@ const s = StyleSheet.create({
 
   // Header
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    paddingTop: Platform.OS === "ios" ? 52 : 38,
+    paddingBottom: 10,
     paddingHorizontal: 24,
-    paddingTop: 13,
-    paddingBottom: 8,
+    alignItems: "flex-start",
   },
   headerTitle: {
     fontFamily: "PlayfairDisplay_400Regular_Italic",
-    fontSize: 30,
+    fontSize: 28,
     color: C.ink,
     letterSpacing: -0.3,
   },
-  headerClose: { padding: 4 },
 
   // Price
   priceWrap: { paddingHorizontal: 24, paddingTop: 14, paddingBottom: 12 },
@@ -405,13 +378,13 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   currency: {
-    fontFamily: "PlayfairDisplay_700Bold",
+    fontFamily: "LibreCaslonText_700Bold",
     fontSize: 26,
     color: C.ink,
     marginRight: 2,
   },
   priceInput: {
-    fontFamily: "PlayfairDisplay_700Bold",
+    fontFamily: "LibreCaslonText_700Bold",
     fontSize: 52,
     color: C.ink,
     textAlign: "center",
@@ -513,20 +486,6 @@ const s = StyleSheet.create({
     fontFamily: "PlayfairDisplay_400Regular",
     fontSize: 14,
     flex: 1,
-  },
-
-  // Notes
-  notesInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: C.rule,
-    borderRadius: 10,
-    padding: 10,
-    fontSize: 14,
-    color: C.ink,
-    minHeight: 80,
-    textAlignVertical: "top",
-    fontFamily: "PlayfairDisplay_400Regular",
   },
 
   // CTA

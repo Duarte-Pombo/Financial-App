@@ -3,6 +3,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import React from "react";
 import {
   useFonts,
@@ -23,6 +24,10 @@ import {
   PlayfairDisplay_700Bold,
   PlayfairDisplay_700Bold_Italic,
 } from "@expo-google-fonts/playfair-display";
+import {
+  LibreCaslonText_400Regular,
+  LibreCaslonText_700Bold,
+} from "@expo-google-fonts/libre-caslon-text";
 
 import { getDb } from "../database/db";
 import { seedDatabase } from "../database/seed";
@@ -83,6 +88,8 @@ export default function RootLayout() {
     PlayfairDisplay_400Regular_Italic,
     PlayfairDisplay_700Bold,
     PlayfairDisplay_700Bold_Italic,
+    LibreCaslonText_400Regular,
+    LibreCaslonText_700Bold,
   });
 
   useEffect(() => {
@@ -120,7 +127,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="dark" backgroundColor="#fdf3ff" />
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -130,8 +137,9 @@ export default function RootLayout() {
         <Stack.Screen name="settings" options={{ headerShown: false, animation: "slide_from_bottom" }} />
         <Stack.Screen name="transaction/[id]" options={{ headerShown: false, animation: "slide_from_right" }} />
         <Stack.Screen name="history" options={{ headerShown: false, animation: "slide_from_right" }} />
+        <Stack.Screen name="allPurchases" options={{ headerShown: false, animation: "slide_from_right" }} />
         <Stack.Screen name="edit/[id]" options={{ headerShown: false, animation: "slide_from_right" }} />
       </Stack>
-    </>
+    </GestureHandlerRootView>
   );
 }

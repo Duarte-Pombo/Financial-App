@@ -269,9 +269,6 @@ function LegendItem({
         fontSize: labelSize, marginTop: gap,
         fontFamily: active ? "PlayfairDisplay_700Bold_Italic" : "PlayfairDisplay_400Regular_Italic",
         color,
-        borderBottomWidth: active ? 1.5 : 0,
-        borderBottomColor: active ? emotionColor(emo) : "transparent",
-        paddingBottom: active ? 1 : 0,
       }}>{emo}</Text>
     </Wrap>
   );
@@ -581,6 +578,7 @@ export default function Calendar() {
         <Text style={st.title}>expense heatmap</Text>
       </View>
 
+
       <View style={st.tabs}>
         <Pressable onPress={() => { setViewMode("weekly"); setSelectedDay(null); }} style={st.tabBtn}>
           <Text style={[st.tabText, viewMode === "weekly" && st.tabTextActive]}>weekly</Text>
@@ -594,7 +592,7 @@ export default function Calendar() {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 140 }}
+        contentContainerStyle={{ paddingBottom: 28 }}
         showsVerticalScrollIndicator={false}
       >
         {viewMode === "weekly" ? (
@@ -774,21 +772,23 @@ const st = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
 
   header: {
-    paddingTop: Platform.OS === "ios" ? 56 : 40,
-    paddingBottom: 14, paddingHorizontal: 24, alignItems: "center",
+    paddingTop: Platform.OS === "ios" ? 52 : 38,
+    paddingBottom: 10,
+    paddingHorizontal: 24,
+    alignItems: "flex-start",
   },
   title: {
     fontFamily: "PlayfairDisplay_400Regular_Italic",
-    fontSize: 30, color: C.ink, letterSpacing: -0.3,
+    fontSize: 28, color: C.ink, letterSpacing: -0.3,
   },
 
   tabs: {
     flexDirection: "row", justifyContent: "center", alignItems: "baseline",
-    gap: 14, paddingBottom: 22,
+    gap: 14, paddingBottom: 2,
   },
-  tabBtn: { paddingVertical: 2, alignItems: "center" },
+  tabBtn: { paddingVertical: 1, alignItems: "center" },
   tabText: {
-    fontSize: 19, fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontSize: 34, fontFamily: "PlayfairDisplay_400Regular_Italic",
     color: C.inkMute,
   },
   tabTextActive: {
@@ -801,7 +801,7 @@ const st = StyleSheet.create({
 
   navRow: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 18, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 14,
+    gap: 18, paddingHorizontal: 24, paddingTop: 6, paddingBottom: 10,
   },
   navBtn: { paddingHorizontal: 4, paddingVertical: 2 },
   navArrow: { fontSize: 22, color: C.inkSoft, lineHeight: 24 },
