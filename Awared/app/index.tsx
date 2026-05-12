@@ -1,12 +1,31 @@
 import React, { useState } from "react";
-import { Text, View, StyleSheet, Pressable, TextInput, Alert } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  Text,
+  Alert,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { router } from "expo-router";
 import { getDb } from "@/database/db";
+import {
+  AUTH_C,
+  Field,
+  PrimaryButton,
+  OrDivider,
+  AltSignInRow,
+  SwitchMode,
+  Headline,
+} from "@/components/AuthForm";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   async function attemptLogin() {
     if (!email || !password) {
@@ -14,121 +33,128 @@ export default function Login() {
       return;
     }
 
+    setBusy(true);
     try {
       let db = await getDb();
-      let hash = btoa(password); 
-      
+      let hash = btoa(password);
+
       const user = await db.getFirstAsync<{ id: number }>(
         "SELECT id FROM users WHERE (email = ? or username = ?) AND password_hash = ?",
-        [email.trim(), email.trim(), hash]
+        [email.trim(), email.trim(), hash],
       );
 
       if (user != null) {
         global.userID = user.id;
-        router.replace("/(tabs)"); 
+        router.replace("/(tabs)");
       } else {
         Alert.alert("Login Failed", "Wrong Credentials. Please try again.");
       }
     } catch (error) {
       console.error(error);
       Alert.alert("Error", "Something went wrong during login.");
+    } finally {
+      setBusy(false);
     }
   }
 
+  const canSubmit = email.trim().length > 0 && password.length > 0;
+
   return (
-    <View style={styles.container}>
-      <View style={styles.mainContent}>
-        
-        <Text style={styles.pageTitle}>Welcome Back!</Text>
-        
-        <View style={styles.card}>
-          <Text style={styles.inputLabel}>Email or Username</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="e.g. mindful@app.com" 
-            placeholderTextColor="#bbb"
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.form}>
+          <Headline
+            kicker="WELCOME BACK — LOG IN"
+            line1="Good to see"
+            line2="you again."
+          />
+
+          <Field
+            label="Email or username"
             value={email}
             onChangeText={setEmail}
+            placeholder="you@somewhere.com"
             autoCapitalize="none"
+            keyboardType="email-address"
           />
-          
-          <Text style={styles.inputLabel}>Password</Text>
-          <View style={styles.passwordContainer}>
-            <TextInput 
-              style={styles.passwordInput} 
-              placeholder="••••••••" 
-              placeholderTextColor="#bbb"
-              secureTextEntry={!showPassword} 
-              value={password}
-              onChangeText={setPassword} 
-            />
-            <Pressable onPress={() => setShowPassword(!showPassword)}>
-              <Text style={styles.toggleText}>{showPassword ? "Hide" : "Show"}</Text>
+
+          <Field
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            placeholder="••••••••"
+            secureTextEntry
+            showToggle
+            showSecure={showPassword}
+            onToggleShow={() => setShowPassword((s) => !s)}
+          />
+
+          <View style={styles.forgotRow}>
+            <Pressable
+              onPress={() =>
+                Alert.alert(
+                  "Forgot Password",
+                  "Password recovery coming soon.",
+                )
+              }
+              hitSlop={6}
+            >
+              <Text style={styles.forgotText}>Forgot your password?</Text>
             </Pressable>
           </View>
 
-          <Pressable onPress={() => Alert.alert("Forgot Password", "Password recovery coming soon.")}>
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-          </Pressable>
+          <PrimaryButton
+            label="LOG IN"
+            onPress={attemptLogin}
+            disabled={!canSubmit}
+            busy={busy}
+          />
 
-          <Pressable style={styles.primaryButton} onPress={attemptLogin}>
-            <Text style={styles.primaryButtonText}>Login</Text>
-          </Pressable>
+          <OrDivider />
+          <AltSignInRow />
+
+          <SwitchMode
+            prompt="New here?"
+            ctaLabel="Sign up"
+            onPress={() => router.push("/register")}
+          />
         </View>
-
-      </View>
-
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>New here?</Text>
-        <Pressable style={styles.secondaryButton} onPress={() => router.push("/register")}>
-          <Text style={styles.secondaryButtonText}>Create an Account</Text>
-        </Pressable>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fdf3ff" },
-  mainContent: { flex: 1, justifyContent: "center", paddingHorizontal: 20 },
-  
-  pageTitle: {
-    fontSize: 28, fontFamily: "RobotoSerif_700Bold", color: "#1a1a1a",
-    marginBottom: 24, textAlign: "center"
+  root: {
+    flex: 1,
+    backgroundColor: AUTH_C.bg,
   },
-
-  card: {
-    backgroundColor: "#fff", borderRadius: 20, padding: 20,
-    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingVertical: 16,
   },
-
-  inputLabel: { fontSize: 13, color: "#666", marginBottom: 6, marginLeft: 4, fontFamily: "RobotoSerif_500Medium" },
-  input: {
-    height: 48, width: "100%", marginBottom: 16, borderWidth: 1,
-    borderColor: "#e0e0e0", borderRadius: 12, padding: 12, backgroundColor: "#fafafa",
-    fontFamily: "RobotoSerif_400Regular"
+  form: {
+    paddingHorizontal: 28,
   },
-  
-  passwordContainer: {
-    flexDirection: "row", alignItems: "center", width: "100%", marginBottom: 8,
-    borderWidth: 1, borderColor: "#e0e0e0", borderRadius: 12, backgroundColor: "#fafafa", paddingRight: 15
+  forgotRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    paddingTop: 10,
   },
-  passwordInput: { flex: 1, height: 48, padding: 12, fontFamily: "RobotoSerif_400Regular" },
-  toggleText: { color: "#6b21a8", fontFamily: "RobotoSerif_600SemiBold", fontSize: 13 },
-  
-  forgotPasswordText: { color: "#6b21a8", alignSelf: "flex-end", marginBottom: 24, fontSize: 13, fontFamily: "RobotoSerif_500Medium" },
-  
-  primaryButton: {
-    height: 50, width: "100%", backgroundColor: "#9b72cf", borderRadius: 12,
-    justifyContent: "center", alignItems: "center"
+  forgotText: {
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontSize: 13,
+    color: AUTH_C.inkSoft,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(31,27,22,0.25)",
+    paddingBottom: 1,
   },
-  primaryButtonText: { color: "white", fontFamily: "RobotoSerif_700Bold", fontSize: 16 },
-
-  footer: { paddingBottom: 40, justifyContent: "center", alignItems: "center", gap: 10 },
-  footerText: { color: "#666", fontFamily: "RobotoSerif_400Regular" },
-  secondaryButton: {
-    height: 44, width: "60%", backgroundColor: "#e0c8f8", borderRadius: 12,
-    justifyContent: "center", alignItems: "center"
-  },
-  secondaryButtonText: { color: "#6b21a8", fontFamily: "RobotoSerif_600SemiBold", fontSize: 15 },
 });

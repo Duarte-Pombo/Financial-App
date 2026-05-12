@@ -1,7 +1,23 @@
 import React, { useState } from "react";
-import { Text, View, StyleSheet, Pressable, TextInput, Alert, ScrollView } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Alert,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { router } from "expo-router";
 import { getDb } from "@/database/db";
+import {
+  AUTH_C,
+  Field,
+  PrimaryButton,
+  OrDivider,
+  AltSignInRow,
+  SwitchMode,
+  Headline,
+} from "@/components/AuthForm";
 
 export default function Register() {
   const [email, setEmail] = useState("");
@@ -9,16 +25,20 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const validatePassword = (pass: string) => {
     const minLength = 8;
     const hasNumber = /\d/;
     const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/;
 
-    if (pass.length < minLength) return "Password must be at least 8 characters long.";
-    if (!hasNumber.test(pass)) return "Password must contain at least one number.";
-    if (!hasSpecialChar.test(pass)) return "Password must contain at least one special character.";
-    return null; 
+    if (pass.length < minLength)
+      return "Password must be at least 8 characters long.";
+    if (!hasNumber.test(pass))
+      return "Password must contain at least one number.";
+    if (!hasSpecialChar.test(pass))
+      return "Password must contain at least one special character.";
+    return null;
   };
 
   async function registerNewUser() {
@@ -38,138 +58,123 @@ export default function Register() {
       return;
     }
 
+    setBusy(true);
     try {
       let db = await getDb();
       let hash = btoa(password);
-      
+
       let insert = await db.runAsync(
         "INSERT INTO users (email, username, password_hash) VALUES (?, ?, ?)",
-        [email.trim(), username.trim(), hash]
+        [email.trim(), username.trim(), hash],
       );
-      
+
       global.userID = insert.lastInsertRowId;
-      
+
       router.replace("/(tabs)");
     } catch (error: any) {
       console.error(error);
-      if (error.message.includes("UNIQUE constraint failed")) {
+      if (error.message?.includes("UNIQUE constraint failed")) {
         Alert.alert("Error", "Email or Username already exists.");
       } else {
         Alert.alert("Registration Failed", "Something went wrong.");
       }
+    } finally {
+      setBusy(false);
     }
   }
 
+  const canSubmit =
+    email.trim().length > 0 &&
+    username.trim().length > 0 &&
+    password.length > 0 &&
+    passwordConfirm.length > 0;
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      <View style={styles.mainContent}>
-        
-        <Text style={styles.pageTitle}>Welcome to Awared!</Text>
-        
-        <View style={styles.card}>
-          <Text style={styles.inputLabel}>Email</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="mindful@app.com" 
-            placeholderTextColor="#bbb"
-            value={email} 
-            onChangeText={setEmail} 
-            autoCapitalize="none" 
-            keyboardType="email-address" 
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.form}>
+          <Headline
+            kicker="SIGN UP"
+            line1="Start taking control"
+            line2="Be Awared"
           />
-          
-          <Text style={styles.inputLabel}>Username</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="Your handle" 
-            placeholderTextColor="#bbb"
-            value={username} 
-            onChangeText={setUsername} 
-            autoCapitalize="none" 
-          />
-          
-          <Text style={styles.inputLabel}>Password</Text>
-          <View style={styles.passwordContainer}>
-            <TextInput 
-              style={styles.passwordInput} 
-              placeholder="••••••••" 
-              placeholderTextColor="#bbb"
-              secureTextEntry={!showPassword} 
-              value={password}
-              onChangeText={setPassword} 
-            />
-            <Pressable onPress={() => setShowPassword(!showPassword)}>
-              <Text style={styles.toggleText}>{showPassword ? "Hide" : "Show"}</Text>
-            </Pressable>
-          </View>
 
-          <Text style={styles.inputLabel}>Confirm Password</Text>
-          <TextInput 
-            style={styles.input} 
-            secureTextEntry={!showPassword} 
-            placeholder="••••••••" 
-            placeholderTextColor="#bbb"
+          <Field
+            label="what should we call you"
+            value={username}
+            onChangeText={setUsername}
+            placeholder="your handle"
+            autoCapitalize="none"
+          />
+
+          <Field
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@somewhere.com"
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+
+          <Field
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            placeholder="at least 8 characters"
+            secureTextEntry
+            showToggle
+            showSecure={showPassword}
+            onToggleShow={() => setShowPassword((s) => !s)}
+          />
+
+          <Field
+            label="Confirm password"
             value={passwordConfirm}
-            onChangeText={setPasswordConfirm} 
+            onChangeText={setPasswordConfirm}
+            placeholder="••••••••"
+            secureTextEntry
+            showSecure={showPassword}
           />
 
-          <Pressable style={styles.primaryButton} onPress={registerNewUser}>
-            <Text style={styles.primaryButtonText}>Register</Text>
-          </Pressable>
+          <PrimaryButton
+            label="CREATE ACCOUNT"
+            onPress={registerNewUser}
+            disabled={!canSubmit}
+            busy={busy}
+          />
+
+          <OrDivider />
+          <AltSignInRow />
+
+          <SwitchMode
+            prompt="already have an account?"
+            ctaLabel="log in"
+            onPress={() => router.push("/")}
+          />
         </View>
-
-      </View>
-
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>Already have an account?</Text>
-        <Pressable style={styles.secondaryButton} onPress={() => router.push("/")}>
-          <Text style={styles.secondaryButtonText}>Login here</Text>
-        </Pressable>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fdf3ff" },
-  scrollContent: { flexGrow: 1 },
-  mainContent: { flex: 1, justifyContent: "center", paddingHorizontal: 20, paddingTop: 40 },
-  
-  pageTitle: {
-    fontSize: 28, fontFamily: "RobotoSerif_700Bold", color: "#1a1a1a",
-    marginBottom: 24, textAlign: "center"
+  root: {
+    flex: 1,
+    backgroundColor: AUTH_C.bg,
   },
-
-  card: {
-    backgroundColor: "#fff", borderRadius: 20, padding: 20,
-    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingVertical: 16,
   },
-
-  inputLabel: { fontSize: 13, color: "#666", marginBottom: 6, marginLeft: 4, fontFamily: "RobotoSerif_500Medium" },
-  input: {
-    height: 48, width: "100%", marginBottom: 16, borderWidth: 1,
-    borderColor: "#e0e0e0", borderRadius: 12, padding: 12, backgroundColor: "#fafafa",
-    fontFamily: "RobotoSerif_400Regular"
+  form: {
+    paddingHorizontal: 28,
   },
-  
-  passwordContainer: {
-    flexDirection: "row", alignItems: "center", width: "100%", marginBottom: 16,
-    borderWidth: 1, borderColor: "#e0e0e0", borderRadius: 12, backgroundColor: "#fafafa", paddingRight: 15
-  },
-  passwordInput: { flex: 1, height: 48, padding: 12, fontFamily: "RobotoSerif_400Regular" },
-  toggleText: { color: "#6b21a8", fontFamily: "RobotoSerif_600SemiBold", fontSize: 13 },
-  
-  primaryButton: {
-    height: 50, width: "100%", backgroundColor: "#9b72cf", borderRadius: 12,
-    justifyContent: "center", alignItems: "center", marginTop: 10
-  },
-  primaryButtonText: { color: "white", fontFamily: "RobotoSerif_700Bold", fontSize: 16 },
-
-  footer: { paddingVertical: 40, justifyContent: "center", alignItems: "center", gap: 10 },
-  footerText: { color: "#666", fontFamily: "RobotoSerif_400Regular" },
-  secondaryButton: {
-    height: 44, width: "60%", backgroundColor: "#e0c8f8", borderRadius: 12,
-    justifyContent: "center", alignItems: "center"
-  },
-  secondaryButtonText: { color: "#6b21a8", fontFamily: "RobotoSerif_600SemiBold", fontSize: 15 },
 });
