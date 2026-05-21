@@ -224,7 +224,7 @@ function pearsonCorrelation(xs: number[], ys: number[]): number {
 
 // ─── Free insight generation ──────────────────────────────────────────────────
 
-function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insight[] {
+function generateInsights(scored: ScoredTransaction[], avgSpend: number, currency: string): Insight[] {
   const insights: Insight[] = [];
 
   if (scored.length === 0) {
@@ -302,7 +302,7 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
     insights.push({
       id: "emotion-trigger", type: "pattern",
       title: `${topData.emoji} ${topEmotion} is your top spending trigger`,
-      body: `You've made ${topData.count} purchase${topData.count > 1 ? "s" : ""} while feeling ${topEmotion.toLowerCase()}, totalling €${topData.totalAmount.toFixed(2)}.${merchantSentence} Emotional spending loops often start here.`,
+      body: `You've made ${topData.count} purchase${topData.count > 1 ? "s" : ""} while feeling ${topEmotion.toLowerCase()}, totalling ${currency}${topData.totalAmount.toFixed(2)}.${merchantSentence} Emotional spending loops often start here.`,
       icon: topData.emoji, accentColor: "#7c3aed", bgColor: "#f5f3ff",
       actions: [
         `When you feel ${topEmotion.toLowerCase()}, try journaling for 5 minutes first`,
@@ -327,7 +327,7 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
     insights.push({
       id: "late-night", type: "risk",
       title: "Late-night spending habit",
-      body: `${lateNight.length} of your purchases happened after 9 PM, totalling €${lateTotal.toFixed(2)}. Your peak hour is ${peakHour}:00 — when willpower research says inhibition is at its lowest.`,
+      body: `${lateNight.length} of your purchases happened after 9 PM, totalling ${currency}${lateTotal.toFixed(2)}. Your peak hour is ${peakHour}:00 — when willpower research says inhibition is at its lowest.`,
       icon: "🌙", accentColor: "#1d4ed8", bgColor: "#eff6ff",
       actions: [
         "Enable Do Not Disturb mode after 10 PM on shopping apps",
@@ -354,10 +354,10 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
       insights.push({
         id: "top-category", type: "pattern",
         title: `${catData.icon} ${catName} is your biggest spend`,
-        body: `You've spent €${catData.total.toFixed(2)} across ${catData.count} purchase${catData.count > 1 ? "s" : ""} in ${catName} (avg €${perPurchase} each). This category carries elevated impulse risk.`,
+        body: `You've spent ${currency}${catData.total.toFixed(2)} across ${catData.count} purchase${catData.count > 1 ? "s" : ""} in ${catName} (avg ${currency}${perPurchase} each). This category carries elevated impulse risk.`,
         icon: catData.icon, accentColor: "#0369a1", bgColor: "#f0f9ff",
         actions: [
-          `Set a weekly cap of €${(catData.total * 0.75).toFixed(0)} for ${catName}`,
+          `Set a weekly cap of ${currency}${(catData.total * 0.75).toFixed(0)} for ${catName}`,
           "Review if each purchase here was planned or spontaneous",
           "Try a 1-week challenge: log the urge before you spend here",
         ],
@@ -372,10 +372,10 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
     insights.push({
       id: "big-purchases", type: "tip",
       title: "Above-average purchases flagged",
-      body: `${bigPurchases.length} transaction${bigPurchases.length > 1 ? "s were" : " was"} more than 2× your average (€${computedAvg.toFixed(2)}), totalling €${bigTotal.toFixed(2)}. These carry the highest financial risk when made impulsively.`,
+      body: `${bigPurchases.length} transaction${bigPurchases.length > 1 ? "s were" : " was"} more than 2× your average (${currency}${computedAvg.toFixed(2)}), totalling ${currency}${bigTotal.toFixed(2)}. These carry the highest financial risk when made impulsively.`,
       icon: "💸", accentColor: "#b45309", bgColor: "#fff7ed",
       actions: [
-        `For purchases over €${(computedAvg * 2).toFixed(0)}, sleep on it before buying`,
+        `For purchases over ${currency}${(computedAvg * 2).toFixed(0)}, sleep on it before buying`,
         "Keep a 'big purchase wishlist' — revisit it after 72 hours",
       ],
     });
@@ -401,7 +401,7 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
 
 // ─── Premium insight generation ───────────────────────────────────────────────
 
-function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number): Insight[] {
+function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number, currency: string): Insight[] {
   const insights: Insight[] = [];
 
   if (scored.length < 3) {
@@ -443,7 +443,7 @@ function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number):
         bgColor: r < -0.3 ? "#fef2f2" : "#f5f3ff",
         actions: [
           r < -0.3
-            ? `When you're feeling low, set a €${(avgSpend * 0.6).toFixed(0)} soft cap for the next 2 hours`
+            ? `When you're feeling low, set a ${currency}${(avgSpend * 0.6).toFixed(0)} soft cap for the next 2 hours`
             : "Track spending before and after emotional highs to detect reward loops",
           "Log your emotion *before* opening your wallet — the act alone reduces impulse rates",
           "Compare your mood score to your daily spend total at week's end",
@@ -481,11 +481,11 @@ function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number):
     insights.push({
       id: "premium-cluster", type: "risk",
       title: "Your high-risk spending fingerprint",
-      body: `Vector clustering of your ${highRiskTxs.length} riskiest transactions (cluster coherence: ${coherence}%) reveals a repeating pattern: ${energyDesc} ${emotionDesc} state, ${HOUR_LABELS(centroidHour)} on ${DOW_NAMES[centroidDow]}s, averaging €${centroidAmount.toFixed(2)} per purchase. This is your personal risk archetype.`,
+      body: `Vector clustering of your ${highRiskTxs.length} riskiest transactions (cluster coherence: ${coherence}%) reveals a repeating pattern: ${energyDesc} ${emotionDesc} state, ${HOUR_LABELS(centroidHour)} on ${DOW_NAMES[centroidDow]}s, averaging ${currency}${centroidAmount.toFixed(2)} per purchase. This is your personal risk archetype.`,
       icon: "🧬", accentColor: "#7c3aed", bgColor: "#f5f3ff",
       actions: [
         `On ${DOW_NAMES[centroidDow]} ${HOUR_LABELS(centroidHour)}s, activate a spending cooldown automatically`,
-        `Set a hard limit of €${(centroidAmount * 0.6).toFixed(0)} for any single purchase during your risk window`,
+        `Set a hard limit of ${currency}${(centroidAmount * 0.6).toFixed(0)} for any single purchase during your risk window`,
         "Use this fingerprint as your personal warning sign — if these three factors align, pause first",
       ],
     });
@@ -516,10 +516,10 @@ function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number):
     insights.push({
       id: "premium-weekly-rhythm", type: "pattern",
       title: `${DOW_NAMES[riskiest.dow]} is your highest-risk day`,
-      body: `Weekly rhythm analysis shows ${DOW_NAMES[riskiest.dow]} averages a risk score of ${riskiest.avgRisk.toFixed(1)} — ${riskRatio}× higher than ${DOW_NAMES[safest.dow]} (${safest.avgRisk.toFixed(1)}), your calmest day. Average spend on your risk day: €${riskiest.avgAmount.toFixed(2)}.`,
+      body: `Weekly rhythm analysis shows ${DOW_NAMES[riskiest.dow]} averages a risk score of ${riskiest.avgRisk.toFixed(1)} — ${riskRatio}× higher than ${DOW_NAMES[safest.dow]} (${safest.avgRisk.toFixed(1)}), your calmest day. Average spend on your risk day: ${currency}${riskiest.avgAmount.toFixed(2)}.`,
       icon: "📅", accentColor: "#0369a1", bgColor: "#f0f9ff",
       actions: [
-        `Set a strict daily cap of €${(riskiest.avgAmount * 1.2).toFixed(0)} every ${DOW_NAMES[riskiest.dow]}`,
+        `Set a strict daily cap of ${currency}${(riskiest.avgAmount * 1.2).toFixed(0)} every ${DOW_NAMES[riskiest.dow]}`,
         `Schedule something grounding on ${DOW_NAMES[riskiest.dow]}s to reduce emotional pressure`,
         `Use ${DOW_NAMES[safest.dow]} to review any ${DOW_NAMES[riskiest.dow]} purchases and decide if you'd repeat them`,
       ],
@@ -557,12 +557,12 @@ function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number):
     insights.push({
       id: "premium-merchant", type: "risk",
       title: `You visit ${top.name} when emotionally low`,
-      body: `Merchant vulnerability analysis: ${top.name} has an average emotional polarity of ${top.avgPolarity.toFixed(1)}/5 at visit time (vulnerability score: ${vulnerabilityScore}/100). Across ${top.count} visits you've spent €${top.totalAmount.toFixed(2)} — €${top.avgAmount.toFixed(2)} per visit on average.`,
+      body: `Merchant vulnerability analysis: ${top.name} has an average emotional polarity of ${top.avgPolarity.toFixed(1)}/5 at visit time (vulnerability score: ${vulnerabilityScore}/100). Across ${top.count} visits you've spent ${currency}${top.totalAmount.toFixed(2)} — ${currency}${top.avgAmount.toFixed(2)} per visit on average.`,
       icon: "🏪", accentColor: "#b45309", bgColor: "#fff7ed",
       actions: [
         `Apply a 15-minute rule before visiting ${top.name} when feeling negative`,
         "This merchant may be serving an emotional need — identify the feeling it satisfies",
-        `Try a €${(top.avgAmount * 0.6).toFixed(0)} spending cap when visiting ${top.name} in a low mood`,
+        `Try a ${currency}${(top.avgAmount * 0.6).toFixed(0)} spending cap when visiting ${top.name} in a low mood`,
       ],
     });
   }
@@ -591,7 +591,7 @@ function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number):
           actions: [
             "This is the window where a 10-minute pause has the highest ROI",
             "Check in with your emotional state before your next purchase today",
-            "Consider setting a €0 intention for the next 2 hours",
+            `Consider setting a ${currency}0 intention for the next 2 hours`,
           ],
         });
       }
@@ -634,10 +634,12 @@ function UpgradeModal({
   visible,
   onClose,
   onUpgrade,
+  currency,
 }: {
   visible: boolean;
   onClose: () => void;
   onUpgrade: () => void;
+  currency: string;
 }) {
   return (
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
@@ -672,7 +674,7 @@ function UpgradeModal({
 
           {/* CTA */}
           <TouchableOpacity style={ms.cta} onPress={onUpgrade} activeOpacity={0.85}>
-            <Text style={ms.ctaText}>Unlock for €1.99 / month</Text>
+            <Text style={ms.ctaText}>Unlock for {currency}1.99 / month</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={onClose} style={ms.dismissBtn}>
@@ -847,6 +849,7 @@ export default function Insights() {
   const [premiumInsights, setPremiumInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [currency, setCurrency] = useState<string>("€");
   const [stats, setStats] = useState<{
     totalSpend: number; txCount: number; avgScore: number;
     topEmotion: string | null; topEmoji: string | null;
@@ -862,6 +865,14 @@ export default function Insights() {
     try {
       const db = await getDb();
       TEMP_USER_ID = global.userID;
+
+      // ── Fetch user currency ──
+      const userRow = await db.getFirstAsync<{ currency_code: string }>(
+        "SELECT currency_code FROM users WHERE id = ?",
+        [TEMP_USER_ID]
+      );
+      const userCurrency = userRow?.currency_code ?? "€";
+      setCurrency(userCurrency);
 
       const rows = await db.getAllAsync<RawTransaction>(
         `SELECT
@@ -886,7 +897,7 @@ export default function Insights() {
       );
 
       if (rows.length === 0) {
-        setInsights(generateInsights([], AVG_SPEND));
+        setInsights(generateInsights([], AVG_SPEND, userCurrency));
         setPremiumInsights([]);
         setStats(null);
         return;
@@ -927,8 +938,8 @@ export default function Insights() {
         topEmoji: topEmotionEntry?.[1].emoji ?? null,
       });
 
-      setInsights(generateInsights(scored, avgSpend));
-      setPremiumInsights(generatePremiumInsights(scored, avgSpend));
+      setInsights(generateInsights(scored, avgSpend, userCurrency));
+      setPremiumInsights(generatePremiumInsights(scored, avgSpend, userCurrency));
 
       if (isPremium && scored.length >= 3) {
         fetchAiInsights(scored, setAiInsights);
@@ -1021,7 +1032,7 @@ export default function Insights() {
             {stats && (
               <View style={styles.statsStrip}>
                 <View style={styles.statCard}>
-                  <Text style={styles.statValue}>€{stats.totalSpend.toFixed(0)}</Text>
+                  <Text style={styles.statValue}>{currency}{stats.totalSpend.toFixed(0)}</Text>
                   <Text style={styles.statLabel}>Total spent</Text>
                 </View>
                 <View style={styles.statCard}>
@@ -1134,7 +1145,7 @@ export default function Insights() {
             <Text style={styles.upgradeBannerSub}>Vector analysis · Behavioral clusters</Text>
           </View>
           <View style={styles.upgradeBannerBtn}>
-            <Text style={styles.upgradeBannerBtnText}>€1.99 / mo</Text>
+            <Text style={styles.upgradeBannerBtnText}>{currency}1.99 / mo</Text>
           </View>
         </Pressable>
       )}
@@ -1147,6 +1158,7 @@ export default function Insights() {
           setIsPremium(true);
           setShowUpgradeModal(false);
         }}
+        currency={currency}
       />
     </View>
   );
