@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -6,6 +6,7 @@ import {
   Pressable,
   Alert,
   Image,
+  Animated,
 } from "react-native";
 import { Text } from "@/components/Text";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,6 +14,16 @@ import * as ImagePicker from "expo-image-picker";
 import { useNavigation } from "@react-navigation/native";
 import { getDb } from "@/database/db";
 import { router, useFocusEffect } from "expo-router";
+import {
+  loadAchievements,
+  runAchievementEngine,
+  AchievementWithStatus,
+  ACHIEVEMENT_DEFS,
+} from "@/database/achievementEngine";
+
+// ─────────────────────────────────────────────────────────────
+//  TYPES
+// ─────────────────────────────────────────────────────────────
 
 type ProfileStats = {
   username: string;
@@ -22,6 +33,10 @@ type ProfileStats = {
   topEmotionEmoji: string | null;
   topEmotionColor: string | null;
 };
+
+// ─────────────────────────────────────────────────────────────
+//  DATA LOADERS
+// ─────────────────────────────────────────────────────────────
 
 async function loadProfileStats(userId: string | number): Promise<ProfileStats> {
   const db = await getDb();
@@ -62,20 +77,94 @@ async function saveAvatarUri(userId: string | number, uri: string) {
   await db.runAsync("UPDATE users SET avatar_url = ? WHERE id = ?", [uri, userId]);
 }
 
+// ─────────────────────────────────────────────────────────────
+//  ACHIEVEMENT CARD COMPONENT
+// ─────────────────────────────────────────────────────────────
+
+function AchievementCard({ item }: { item: AchievementWithStatus }) {
+  const hasProgress = item.progress !== undefined && !item.unlocked;
+
+  return (
+    <View style={[styles.achievementCard, !item.unlocked && styles.achievementCardLocked]}>
+      {/* Emoji badge */}
+      <View style={[styles.achievementEmojiBadge, !item.unlocked && styles.achievementEmojiBadgeLocked]}>
+        <Text style={[styles.achievementEmoji, !item.unlocked && { opacity: 0.3 }]}>
+          {item.emoji}
+        </Text>
+        {item.unlocked && (
+          <View style={styles.unlockedCheckmark}>
+            <Ionicons name="checkmark" size={10} color="#fff" />
+          </View>
+        )}
+      </View>
+
+      {/* Text */}
+      <View style={styles.achievementTextWrap}>
+        <Text style={[styles.achievementTitle, !item.unlocked && styles.achievementTitleLocked]}>
+          {item.title}
+        </Text>
+        <Text style={[styles.achievementDesc, !item.unlocked && styles.achievementDescLocked]}>
+          {item.description}
+        </Text>
+
+        {/* Progress bar for countable achievements */}
+        {hasProgress && (
+          <View style={styles.progressBarWrap}>
+            <View style={styles.progressBarBg}>
+              <View style={[styles.progressBarFill, { width: `${item.progress}%` as any }]} />
+            </View>
+            <Text style={styles.progressLabel}>
+              {item.current}/{item.target}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Status tag */}
+      {item.unlocked ? (
+        <View style={styles.unlockedBadge}>
+          <Text style={styles.unlockedBadgeText}>✓</Text>
+        </View>
+      ) : (
+        <View style={styles.lockedBadge}>
+          <Ionicons name="lock-closed" size={12} color="#c4a8e0" />
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+//  MAIN SCREEN
+// ─────────────────────────────────────────────────────────────
+
 export default function Profile() {
   const navigation = useNavigation();
   const [stats, setStats] = useState<ProfileStats | null>(null);
+  const [achievements, setAchievements] = useState<AchievementWithStatus[]>([]);
+  const [achievementsExpanded, setAchievementsExpanded] = useState(false);
 
-  const load = async () => {
-    const data = await loadProfileStats(global.userID);
+  const load = useCallback(async () => {
+    const [data] = await Promise.all([loadProfileStats(global.userID)]);
     setStats(data);
-  };
+
+    // Run engine (unlocks newly earned), then load display state
+    await runAchievementEngine(global.userID);
+    const all = await loadAchievements(global.userID);
+    // Sort: unlocked first, then by definition order
+    const sorted = [
+      ...all.filter((a) => a.unlocked),
+      ...all.filter((a) => !a.unlocked),
+    ];
+    setAchievements(sorted);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       load();
     }, [load])
   );
+
   async function handlePickPhoto() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -91,7 +180,7 @@ export default function Profile() {
     if (!result.canceled && result.assets[0]) {
       const uri = result.assets[0].uri;
       await saveAvatarUri(global.userID, uri);
-      setStats((prev) => prev ? { ...prev, avatarUri: uri } : prev);
+      setStats((prev) => (prev ? { ...prev, avatarUri: uri } : prev));
     }
   }
 
@@ -123,11 +212,16 @@ export default function Profile() {
   }
 
   const initials = stats?.username?.slice(0, 2).toUpperCase() ?? "??";
+  const unlockedCount = achievements.filter((a) => a.unlocked).length;
+  const totalCount = ACHIEVEMENT_DEFS.length;
+
+  // Show first 4 by default, all when expanded
+  const visibleAchievements = achievementsExpanded ? achievements : achievements.slice(0, 4);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
 
-      {/* ── Settings Button (Top Right) ── */}
+      {/* ── Settings Button ── */}
       <Pressable style={styles.settingsButton} onPress={() => router.push("/settings")}>
         <Ionicons name="settings-outline" size={26} color="#1a1a1a" />
       </Pressable>
@@ -177,18 +271,63 @@ export default function Profile() {
         </View>
       </View>
 
-      {/* ── Achievements placeholder ── */}
+      {/* ── Achievements ── */}
       <View style={styles.card}>
-        <View style={styles.cardTitleRow}>
-          <Text style={styles.cardTitle}>Achievements</Text>
-          <View style={styles.comingSoonBadge}>
-            <Text style={styles.comingSoonText}>coming soon</Text>
+        {/* Header */}
+        <View style={styles.achievementsHeader}>
+          <View>
+            <Text style={styles.cardTitle}>Achievements</Text>
+            <Text style={styles.achievementsSubtitle}>
+              {unlockedCount} of {totalCount} unlocked
+            </Text>
+          </View>
+          {/* Overall progress ring (simple pill) */}
+          <View style={styles.achievementsPillWrap}>
+            <View style={styles.achievementsPill}>
+              <View
+                style={[
+                  styles.achievementsPillFill,
+                  { width: `${Math.round((unlockedCount / totalCount) * 100)}%` as any },
+                ]}
+              />
+            </View>
+            <Text style={styles.achievementsPillText}>
+              {Math.round((unlockedCount / totalCount) * 100)}%
+            </Text>
           </View>
         </View>
-        <View style={styles.achievementsPlaceholder}>
-          <Ionicons name="trophy-outline" size={36} color="#d4b8f0" />
-          <Text style={styles.placeholderText}>Achievements are on their way</Text>
-        </View>
+
+        {/* Achievement list */}
+        {achievements.length === 0 ? (
+          <View style={styles.achievementsEmpty}>
+            <Ionicons name="trophy-outline" size={36} color="#d4b8f0" />
+            <Text style={styles.placeholderText}>Start logging to earn achievements!</Text>
+          </View>
+        ) : (
+          <>
+            {visibleAchievements.map((item) => (
+              <AchievementCard key={item.id} item={item} />
+            ))}
+
+            {achievements.length > 4 && (
+              <Pressable
+                style={styles.expandButton}
+                onPress={() => setAchievementsExpanded((v) => !v)}
+              >
+                <Text style={styles.expandButtonText}>
+                  {achievementsExpanded
+                    ? "Show less"
+                    : `Show all ${totalCount} achievements`}
+                </Text>
+                <Ionicons
+                  name={achievementsExpanded ? "chevron-up" : "chevron-down"}
+                  size={16}
+                  color="#6b21a8"
+                />
+              </Pressable>
+            )}
+          </>
+        )}
       </View>
 
       {/* ── Account actions ── */}
@@ -217,16 +356,32 @@ export default function Profile() {
   );
 }
 
+// ─────────────────────────────────────────────────────────────
+//  STYLES
+// ─────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fdf3ff" },
   content: { padding: 20, paddingTop: 70 },
 
+  settingsButton: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    padding: 8,
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+
+  // ── Avatar ──────────────────────────────────────────────────
   avatarSection: { alignItems: "center", marginBottom: 28 },
   avatarWrap: { position: "relative", marginBottom: 12 },
-  avatarImage: {
-    width: 96, height: 96, borderRadius: 48,
-    borderWidth: 3, borderColor: "#6b21a8",
-  },
+  avatarImage: { width: 96, height: 96, borderRadius: 48, borderWidth: 3, borderColor: "#6b21a8" },
   avatarPlaceholder: {
     width: 96, height: 96, borderRadius: 48,
     backgroundColor: "#e0c8f8",
@@ -243,18 +398,15 @@ const styles = StyleSheet.create({
   },
   username: { fontSize: 22, fontFamily: "RobotoSerif_700Bold", color: "#1a1a1a" },
 
+  // ── Cards ───────────────────────────────────────────────────
   card: {
     backgroundColor: "#fff", borderRadius: 20, padding: 18, marginBottom: 16,
     shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
   },
-  cardTitle: { fontSize: 15, fontFamily: "RobotoSerif_600SemiBold", color: "#444", marginBottom: 16 },
-  cardTitleRow: { flexDirection: "row", alignItems: "center", marginBottom: 16, gap: 10 },
-  comingSoonBadge: {
-    backgroundColor: "#f3e8ff", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
-  },
-  comingSoonText: { fontSize: 10, color: "#6b21a8", fontFamily: "RobotoSerif_500Medium" },
+  cardTitle: { fontSize: 15, fontFamily: "RobotoSerif_600SemiBold", color: "#444", marginBottom: 4 },
 
-  statsRow: { flexDirection: "row", alignItems: "center" },
+  // ── Stats ───────────────────────────────────────────────────
+  statsRow: { flexDirection: "row", alignItems: "center", marginTop: 12 },
   statItem: { flex: 1, alignItems: "center", gap: 4 },
   statValue: { fontSize: 32, fontFamily: "RobotoSerif_700Bold", color: "#1a1a1a" },
   statEmoji: { fontSize: 36 },
@@ -263,26 +415,163 @@ const styles = StyleSheet.create({
   statSubLabel: { fontSize: 10, color: "#bbb", textAlign: "center" },
   statDivider: { width: 1, height: 60, backgroundColor: "#f0f0f0" },
 
-  achievementsPlaceholder: {
-    alignItems: "center", paddingVertical: 20, gap: 10,
+  // ── Achievements header ─────────────────────────────────────
+  achievementsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 16,
   },
-  placeholderText: { fontSize: 13, color: "#c4a8e0", fontFamily: "RobotoSerif_500Medium" },
+  achievementsSubtitle: {
+    fontSize: 12,
+    color: "#aaa",
+    fontFamily: "RobotoSerif_400Regular",
+    marginTop: 2,
+  },
+  achievementsPillWrap: { alignItems: "flex-end", gap: 4 },
+  achievementsPill: {
+    width: 80,
+    height: 6,
+    backgroundColor: "#f0e6ff",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  achievementsPillFill: {
+    height: "100%",
+    backgroundColor: "#9b72cf",
+    borderRadius: 3,
+  },
+  achievementsPillText: {
+    fontSize: 11,
+    color: "#9b72cf",
+    fontFamily: "RobotoSerif_600SemiBold",
+  },
 
+  // ── Achievement card ─────────────────────────────────────────
+  achievementCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f8f0ff",
+    gap: 12,
+  },
+  achievementCardLocked: {
+    opacity: 0.55,
+  },
+  achievementEmojiBadge: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: "#f3e8ff",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  achievementEmojiBadgeLocked: {
+    backgroundColor: "#f5f5f5",
+  },
+  achievementEmoji: { fontSize: 22 },
+  unlockedCheckmark: {
+    position: "absolute",
+    bottom: -3,
+    right: -3,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#4caf50",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "#fff",
+  },
+  achievementTextWrap: { flex: 1 },
+  achievementTitle: {
+    fontSize: 14,
+    fontFamily: "RobotoSerif_600SemiBold",
+    color: "#2a2a2a",
+    marginBottom: 2,
+  },
+  achievementTitleLocked: { color: "#999" },
+  achievementDesc: {
+    fontSize: 12,
+    fontFamily: "RobotoSerif_400Regular",
+    color: "#666",
+    lineHeight: 17,
+  },
+  achievementDescLocked: { color: "#bbb" },
+
+  // Progress bar inside achievement card
+  progressBarWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 6,
+  },
+  progressBarBg: {
+    flex: 1,
+    height: 4,
+    backgroundColor: "#f0e6ff",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: "#9b72cf",
+    borderRadius: 2,
+  },
+  progressLabel: {
+    fontSize: 10,
+    color: "#9b72cf",
+    fontFamily: "RobotoSerif_600SemiBold",
+    minWidth: 28,
+    textAlign: "right",
+  },
+
+  // Status badges
+  unlockedBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#e8f5e9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  unlockedBadgeText: {
+    fontSize: 12,
+    color: "#4caf50",
+    fontFamily: "RobotoSerif_700Bold",
+  },
+  lockedBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#f5f5f5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // Empty + expand
+  achievementsEmpty: { alignItems: "center", paddingVertical: 20, gap: 10 },
+  placeholderText: { fontSize: 13, color: "#c4a8e0", fontFamily: "RobotoSerif_500Medium" },
+  expandButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  expandButtonText: {
+    fontSize: 14,
+    color: "#6b21a8",
+    fontFamily: "RobotoSerif_600SemiBold",
+  },
+
+  // ── Account actions ─────────────────────────────────────────
   actionRow: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 4 },
   actionIcon: { width: 38, height: 38, borderRadius: 11, alignItems: "center", justifyContent: "center" },
   actionLabel: { flex: 1, fontSize: 15, fontFamily: "RobotoSerif_500Medium", color: "#333" },
   actionDivider: { height: 1, backgroundColor: "#f5f5f5", marginVertical: 10 },
-  settingsButton: {
-    position: "absolute",
-    top: 50, // Adjust this based on your safe area / header
-    right: 20,
-    zIndex: 10,
-    padding: 8,
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
-  },
 });
