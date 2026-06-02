@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.Awared"
     },
     "androidNavigationBar": {
       "visible": "sticky-immersive"
@@ -23,7 +24,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.Awared"
+      "package": "com.anonymous.Awared",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
@@ -44,11 +46,19 @@
         }
       ],
       "expo-sqlite",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "04857157-bdcb-4811-af87-8f96fb71c1c1"
+      }
+    },
+    "owner": "awaredcamila"
   }
 }
