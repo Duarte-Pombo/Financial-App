@@ -45,6 +45,19 @@ type Insight = {
   actions: string[];
 };
 
+type AiInsight = {
+  type: "pattern" | "warning" | "tip" | "positive";
+  title: string;
+  body: string;
+  actions: string[];
+};
+
+type AiInsightsState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "success"; data: AiInsight[]; latencyMs: number }
+  | { status: "error"; message: string; retryable: boolean };
+
 type ScoredTransaction = RawTransaction & {
   impulseScore: number;
   scoreBreakdown: {
@@ -77,6 +90,20 @@ const CATEGORY_WEIGHTS: Record<string, number> = {
   Bills: 0,
   Education: 0,
   Other: 2,
+};
+
+/** Base URL of your Express server. Change for production. */
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
+
+// Map insight types to the same visual language as the existing Insight cards
+const AI_INSIGHT_STYLE: Record<
+  AiInsight["type"],
+  { icon: string; accentColor: string; bgColor: string }
+> = {
+  warning: { icon: "🧠", accentColor: "#dc2626", bgColor: "#fef2f2" },
+  pattern: { icon: "🔍", accentColor: "#7c3aed", bgColor: "#f5f3ff" },
+  tip: { icon: "💡", accentColor: "#b45309", bgColor: "#fff7ed" },
+  positive: { icon: "✨", accentColor: "#059669", bgColor: "#ecfdf5" },
 };
 
 // ─── Free-tier scoring helpers ────────────────────────────────────────────────
@@ -197,7 +224,7 @@ function pearsonCorrelation(xs: number[], ys: number[]): number {
 
 // ─── Free insight generation ──────────────────────────────────────────────────
 
-function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insight[] {
+function generateInsights(scored: ScoredTransaction[], avgSpend: number, currency: string): Insight[] {
   const insights: Insight[] = [];
 
   if (scored.length === 0) {
@@ -275,7 +302,7 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
     insights.push({
       id: "emotion-trigger", type: "pattern",
       title: `${topData.emoji} ${topEmotion} is your top spending trigger`,
-      body: `You've made ${topData.count} purchase${topData.count > 1 ? "s" : ""} while feeling ${topEmotion.toLowerCase()}, totalling €${topData.totalAmount.toFixed(2)}.${merchantSentence} Emotional spending loops often start here.`,
+      body: `You've made ${topData.count} purchase${topData.count > 1 ? "s" : ""} while feeling ${topEmotion.toLowerCase()}, totalling ${currency}${topData.totalAmount.toFixed(2)}.${merchantSentence} Emotional spending loops often start here.`,
       icon: topData.emoji, accentColor: "#7c3aed", bgColor: "#f5f3ff",
       actions: [
         `When you feel ${topEmotion.toLowerCase()}, try journaling for 5 minutes first`,
@@ -300,7 +327,7 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
     insights.push({
       id: "late-night", type: "risk",
       title: "Late-night spending habit",
-      body: `${lateNight.length} of your purchases happened after 9 PM, totalling €${lateTotal.toFixed(2)}. Your peak hour is ${peakHour}:00 — when willpower research says inhibition is at its lowest.`,
+      body: `${lateNight.length} of your purchases happened after 9 PM, totalling ${currency}${lateTotal.toFixed(2)}. Your peak hour is ${peakHour}:00 — when willpower research says inhibition is at its lowest.`,
       icon: "🌙", accentColor: "#1d4ed8", bgColor: "#eff6ff",
       actions: [
         "Enable Do Not Disturb mode after 10 PM on shopping apps",
@@ -327,10 +354,10 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
       insights.push({
         id: "top-category", type: "pattern",
         title: `${catData.icon} ${catName} is your biggest spend`,
-        body: `You've spent €${catData.total.toFixed(2)} across ${catData.count} purchase${catData.count > 1 ? "s" : ""} in ${catName} (avg €${perPurchase} each). This category carries elevated impulse risk.`,
+        body: `You've spent ${currency}${catData.total.toFixed(2)} across ${catData.count} purchase${catData.count > 1 ? "s" : ""} in ${catName} (avg ${currency}${perPurchase} each). This category carries elevated impulse risk.`,
         icon: catData.icon, accentColor: "#0369a1", bgColor: "#f0f9ff",
         actions: [
-          `Set a weekly cap of €${(catData.total * 0.75).toFixed(0)} for ${catName}`,
+          `Set a weekly cap of ${currency}${(catData.total * 0.75).toFixed(0)} for ${catName}`,
           "Review if each purchase here was planned or spontaneous",
           "Try a 1-week challenge: log the urge before you spend here",
         ],
@@ -345,10 +372,10 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
     insights.push({
       id: "big-purchases", type: "tip",
       title: "Above-average purchases flagged",
-      body: `${bigPurchases.length} transaction${bigPurchases.length > 1 ? "s were" : " was"} more than 2× your average (€${computedAvg.toFixed(2)}), totalling €${bigTotal.toFixed(2)}. These carry the highest financial risk when made impulsively.`,
+      body: `${bigPurchases.length} transaction${bigPurchases.length > 1 ? "s were" : " was"} more than 2× your average (${currency}${computedAvg.toFixed(2)}), totalling ${currency}${bigTotal.toFixed(2)}. These carry the highest financial risk when made impulsively.`,
       icon: "💸", accentColor: "#b45309", bgColor: "#fff7ed",
       actions: [
-        `For purchases over €${(computedAvg * 2).toFixed(0)}, sleep on it before buying`,
+        `For purchases over ${currency}${(computedAvg * 2).toFixed(0)}, sleep on it before buying`,
         "Keep a 'big purchase wishlist' — revisit it after 72 hours",
       ],
     });
@@ -374,7 +401,7 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number): Insigh
 
 // ─── Premium insight generation ───────────────────────────────────────────────
 
-function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number): Insight[] {
+function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number, currency: string): Insight[] {
   const insights: Insight[] = [];
 
   if (scored.length < 3) {
@@ -416,7 +443,7 @@ function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number):
         bgColor: r < -0.3 ? "#fef2f2" : "#f5f3ff",
         actions: [
           r < -0.3
-            ? `When you're feeling low, set a €${(avgSpend * 0.6).toFixed(0)} soft cap for the next 2 hours`
+            ? `When you're feeling low, set a ${currency}${(avgSpend * 0.6).toFixed(0)} soft cap for the next 2 hours`
             : "Track spending before and after emotional highs to detect reward loops",
           "Log your emotion *before* opening your wallet — the act alone reduces impulse rates",
           "Compare your mood score to your daily spend total at week's end",
@@ -454,11 +481,11 @@ function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number):
     insights.push({
       id: "premium-cluster", type: "risk",
       title: "Your high-risk spending fingerprint",
-      body: `Vector clustering of your ${highRiskTxs.length} riskiest transactions (cluster coherence: ${coherence}%) reveals a repeating pattern: ${energyDesc} ${emotionDesc} state, ${HOUR_LABELS(centroidHour)} on ${DOW_NAMES[centroidDow]}s, averaging €${centroidAmount.toFixed(2)} per purchase. This is your personal risk archetype.`,
+      body: `Vector clustering of your ${highRiskTxs.length} riskiest transactions (cluster coherence: ${coherence}%) reveals a repeating pattern: ${energyDesc} ${emotionDesc} state, ${HOUR_LABELS(centroidHour)} on ${DOW_NAMES[centroidDow]}s, averaging ${currency}${centroidAmount.toFixed(2)} per purchase. This is your personal risk archetype.`,
       icon: "🧬", accentColor: "#7c3aed", bgColor: "#f5f3ff",
       actions: [
         `On ${DOW_NAMES[centroidDow]} ${HOUR_LABELS(centroidHour)}s, activate a spending cooldown automatically`,
-        `Set a hard limit of €${(centroidAmount * 0.6).toFixed(0)} for any single purchase during your risk window`,
+        `Set a hard limit of ${currency}${(centroidAmount * 0.6).toFixed(0)} for any single purchase during your risk window`,
         "Use this fingerprint as your personal warning sign — if these three factors align, pause first",
       ],
     });
@@ -489,10 +516,10 @@ function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number):
     insights.push({
       id: "premium-weekly-rhythm", type: "pattern",
       title: `${DOW_NAMES[riskiest.dow]} is your highest-risk day`,
-      body: `Weekly rhythm analysis shows ${DOW_NAMES[riskiest.dow]} averages a risk score of ${riskiest.avgRisk.toFixed(1)} — ${riskRatio}× higher than ${DOW_NAMES[safest.dow]} (${safest.avgRisk.toFixed(1)}), your calmest day. Average spend on your risk day: €${riskiest.avgAmount.toFixed(2)}.`,
+      body: `Weekly rhythm analysis shows ${DOW_NAMES[riskiest.dow]} averages a risk score of ${riskiest.avgRisk.toFixed(1)} — ${riskRatio}× higher than ${DOW_NAMES[safest.dow]} (${safest.avgRisk.toFixed(1)}), your calmest day. Average spend on your risk day: ${currency}${riskiest.avgAmount.toFixed(2)}.`,
       icon: "📅", accentColor: "#0369a1", bgColor: "#f0f9ff",
       actions: [
-        `Set a strict daily cap of €${(riskiest.avgAmount * 1.2).toFixed(0)} every ${DOW_NAMES[riskiest.dow]}`,
+        `Set a strict daily cap of ${currency}${(riskiest.avgAmount * 1.2).toFixed(0)} every ${DOW_NAMES[riskiest.dow]}`,
         `Schedule something grounding on ${DOW_NAMES[riskiest.dow]}s to reduce emotional pressure`,
         `Use ${DOW_NAMES[safest.dow]} to review any ${DOW_NAMES[riskiest.dow]} purchases and decide if you'd repeat them`,
       ],
@@ -530,12 +557,12 @@ function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number):
     insights.push({
       id: "premium-merchant", type: "risk",
       title: `You visit ${top.name} when emotionally low`,
-      body: `Merchant vulnerability analysis: ${top.name} has an average emotional polarity of ${top.avgPolarity.toFixed(1)}/5 at visit time (vulnerability score: ${vulnerabilityScore}/100). Across ${top.count} visits you've spent €${top.totalAmount.toFixed(2)} — €${top.avgAmount.toFixed(2)} per visit on average.`,
+      body: `Merchant vulnerability analysis: ${top.name} has an average emotional polarity of ${top.avgPolarity.toFixed(1)}/5 at visit time (vulnerability score: ${vulnerabilityScore}/100). Across ${top.count} visits you've spent ${currency}${top.totalAmount.toFixed(2)} — ${currency}${top.avgAmount.toFixed(2)} per visit on average.`,
       icon: "🏪", accentColor: "#b45309", bgColor: "#fff7ed",
       actions: [
         `Apply a 15-minute rule before visiting ${top.name} when feeling negative`,
         "This merchant may be serving an emotional need — identify the feeling it satisfies",
-        `Try a €${(top.avgAmount * 0.6).toFixed(0)} spending cap when visiting ${top.name} in a low mood`,
+        `Try a ${currency}${(top.avgAmount * 0.6).toFixed(0)} spending cap when visiting ${top.name} in a low mood`,
       ],
     });
   }
@@ -564,7 +591,7 @@ function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number):
           actions: [
             "This is the window where a 10-minute pause has the highest ROI",
             "Check in with your emotional state before your next purchase today",
-            "Consider setting a €0 intention for the next 2 hours",
+            `Consider setting a ${currency}0 intention for the next 2 hours`,
           ],
         });
       }
@@ -607,10 +634,12 @@ function UpgradeModal({
   visible,
   onClose,
   onUpgrade,
+  currency,
 }: {
   visible: boolean;
   onClose: () => void;
   onUpgrade: () => void;
+  currency: string;
 }) {
   return (
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
@@ -645,7 +674,7 @@ function UpgradeModal({
 
           {/* CTA */}
           <TouchableOpacity style={ms.cta} onPress={onUpgrade} activeOpacity={0.85}>
-            <Text style={ms.ctaText}>Unlock for €1.99 / month</Text>
+            <Text style={ms.ctaText}>Unlock for {currency}1.99 / month</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={onClose} style={ms.dismissBtn}>
@@ -659,6 +688,160 @@ function UpgradeModal({
   );
 }
 
+// ─── AI Section Fetch Logic & Components ──────────────────────────────────────
+
+async function fetchAiInsights(
+  scored: ScoredTransaction[],
+  setAiInsights: React.Dispatch<React.SetStateAction<AiInsightsState>>,
+  signal?: AbortSignal
+): Promise<void> {
+  setAiInsights({ status: "loading" });
+
+  try {
+    const res = await fetch(`${API_BASE}/api/insights/analyze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // We send the scored payload; the server handles all masking.
+      // We deliberately exclude: user_id, device info, exact timestamps.
+      body: JSON.stringify({ transactions: scored }),
+      signal,
+    });
+
+    const json = await res.json();
+
+    if (!res.ok || !json.ok) {
+      setAiInsights({
+        status: "error",
+        message: json.error ?? "Something went wrong. Please try again.",
+        retryable: json.retryable ?? res.status >= 500,
+      });
+      return;
+    }
+
+    setAiInsights({
+      status: "success",
+      data: json.insights as AiInsight[],
+      latencyMs: json.meta?.modelLatencyMs ?? 0,
+    });
+
+  } catch (err: unknown) {
+    if ((err as Error).name === "AbortError") return; // component unmounted
+
+    setAiInsights({
+      status: "error",
+      message: "Could not reach the analysis server. Check your connection.",
+      retryable: true,
+    });
+  }
+}
+
+function AiInsightsSection({
+  state,
+  onRetry,
+  expanded,
+  onToggle,
+}: {
+  state: AiInsightsState;
+  onRetry: () => void;
+  expanded: string | null;
+  onToggle: (id: string) => void;
+}) {
+  if (state.status === "idle") return null;
+
+  return (
+    <View style={{ marginTop: 4 }}>
+      {/* Section header */}
+      <View style={aiStyles.sectionHeader}>
+        <Text style={aiStyles.sectionTitle}>🧠 AI Behavioral Analysis</Text>
+        {state.status === "success" && (
+          <Text style={aiStyles.latencyBadge}>
+            {(state.latencyMs / 1000).toFixed(1)}s
+          </Text>
+        )}
+      </View>
+
+      {state.status === "loading" && (
+        <View style={aiStyles.loadingCard}>
+          <ActivityIndicator color="#7c3aed" />
+          <Text style={aiStyles.loadingText}>
+            Analysing your emotional spending patterns…
+          </Text>
+        </View>
+      )}
+
+      {state.status === "error" && (
+        <View style={aiStyles.errorCard}>
+          <Text style={aiStyles.errorText}>{state.message}</Text>
+          {state.retryable && (
+            <Pressable style={aiStyles.retryBtn} onPress={onRetry}>
+              <Text style={aiStyles.retryText}>Try again</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
+
+      {state.status === "success" &&
+        state.data.map((insight, i) => {
+          const style = AI_INSIGHT_STYLE[insight.type];
+          const cardId = `ai_${i}`;
+          const isOpen = expanded === cardId;
+
+          return (
+            <Pressable
+              key={cardId}
+              style={[
+                aiStyles.card,
+                { backgroundColor: style.bgColor, borderLeftColor: style.accentColor },
+              ]}
+              onPress={() => onToggle(cardId)}
+            >
+              <View style={aiStyles.cardHeader}>
+                <View
+                  style={[
+                    aiStyles.iconBadge,
+                    { backgroundColor: style.accentColor + "20" },
+                  ]}
+                >
+                  <Text style={aiStyles.iconText}>{style.icon}</Text>
+                </View>
+                <View style={aiStyles.cardTitleBlock}>
+                  <Text style={aiStyles.cardTitle}>{insight.title}</Text>
+                  <Text style={[aiStyles.aiBadge, { color: style.accentColor }]}>
+                    AI · Human-grade
+                  </Text>
+                </View>
+                <Text style={[aiStyles.chevron, { color: style.accentColor }]}>
+                  {isOpen ? "▲" : "▼"}
+                </Text>
+              </View>
+
+              {isOpen && (
+                <View style={aiStyles.cardBody}>
+                  <Text style={aiStyles.cardBodyText}>{insight.body}</Text>
+                  {insight.actions.length > 0 && (
+                    <View style={aiStyles.actionsBlock}>
+                      {insight.actions.map((action, j) => (
+                        <View
+                          key={j}
+                          style={[
+                            aiStyles.actionRow,
+                            { borderLeftColor: style.accentColor },
+                          ]}
+                        >
+                          <Text style={aiStyles.actionText}>{action}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+            </Pressable>
+          );
+        })}
+    </View>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Insights() {
@@ -666,6 +849,7 @@ export default function Insights() {
   const [premiumInsights, setPremiumInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [currency, setCurrency] = useState<string>("€");
   const [stats, setStats] = useState<{
     totalSpend: number; txCount: number; avgScore: number;
     topEmotion: string | null; topEmoji: string | null;
@@ -674,10 +858,21 @@ export default function Insights() {
   const [isPremium, setIsPremium] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
+  const [aiInsights, setAiInsights] = useState<AiInsightsState>({ status: "idle" });
+  const [lastScored, setLastScored] = useState<ScoredTransaction[]>([]);
+
   const loadInsights = useCallback(async () => {
     try {
       const db = await getDb();
       TEMP_USER_ID = global.userID;
+
+      // ── Fetch user currency ──
+      const userRow = await db.getFirstAsync<{ currency_code: string }>(
+        "SELECT currency_code FROM users WHERE id = ?",
+        [TEMP_USER_ID]
+      );
+      const userCurrency = userRow?.currency_code ?? "€";
+      setCurrency(userCurrency);
 
       const rows = await db.getAllAsync<RawTransaction>(
         `SELECT
@@ -702,7 +897,7 @@ export default function Insights() {
       );
 
       if (rows.length === 0) {
-        setInsights(generateInsights([], AVG_SPEND));
+        setInsights(generateInsights([], AVG_SPEND, userCurrency));
         setPremiumInsights([]);
         setStats(null);
         return;
@@ -721,6 +916,8 @@ export default function Insights() {
         const day = tx.transacted_at.slice(0, 10);
         return scoreTransaction(tx, dayCountMap[day] ?? 1, avgSpend);
       });
+
+      setLastScored(scored);
 
       const avgScore = scored.reduce((s, t) => s + t.impulseScore, 0) / scored.length;
 
@@ -741,15 +938,19 @@ export default function Insights() {
         topEmoji: topEmotionEntry?.[1].emoji ?? null,
       });
 
-      setInsights(generateInsights(scored, avgSpend));
-      setPremiumInsights(generatePremiumInsights(scored, avgSpend));
+      setInsights(generateInsights(scored, avgSpend, userCurrency));
+      setPremiumInsights(generatePremiumInsights(scored, avgSpend, userCurrency));
+
+      if (isPremium && scored.length >= 3) {
+        fetchAiInsights(scored, setAiInsights);
+      }
     } catch (err) {
       console.error("[insights]", err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [isPremium]);
 
   useFocusEffect(
     useCallback(() => {
@@ -831,7 +1032,7 @@ export default function Insights() {
             {stats && (
               <View style={styles.statsStrip}>
                 <View style={styles.statCard}>
-                  <Text style={styles.statValue}>€{stats.totalSpend.toFixed(0)}</Text>
+                  <Text style={styles.statValue}>{currency}{stats.totalSpend.toFixed(0)}</Text>
                   <Text style={styles.statLabel}>Total spent</Text>
                 </View>
                 <View style={styles.statCard}>
@@ -888,7 +1089,16 @@ export default function Insights() {
 
             {isPremium ? (
               // Full premium cards
-              premiumInsights.map(renderInsightCard)
+              <>
+                {premiumInsights.map(renderInsightCard)}
+
+                <AiInsightsSection
+                  state={aiInsights}
+                  onRetry={() => fetchAiInsights(lastScored, setAiInsights)}
+                  expanded={expanded}
+                  onToggle={(id) => setExpanded(expanded === id ? null : id)}
+                />
+              </>
             ) : (
               // Locked preview cards
               <>
@@ -935,7 +1145,7 @@ export default function Insights() {
             <Text style={styles.upgradeBannerSub}>Vector analysis · Behavioral clusters</Text>
           </View>
           <View style={styles.upgradeBannerBtn}>
-            <Text style={styles.upgradeBannerBtnText}>€1.99 / mo</Text>
+            <Text style={styles.upgradeBannerBtnText}>{currency}1.99 / mo</Text>
           </View>
         </Pressable>
       )}
@@ -948,6 +1158,7 @@ export default function Insights() {
           setIsPremium(true);
           setShowUpgradeModal(false);
         }}
+        currency={currency}
       />
     </View>
   );
@@ -1129,4 +1340,133 @@ const ms = StyleSheet.create({
   dismissText: { fontSize: 14, color: "#aaa" },
 
   legal: { fontSize: 10, color: "#ccc", textAlign: "center" },
+});
+
+// ─── AI Section Styles ────────────────────────────────────────────────────────
+const aiStyles = StyleSheet.create({
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+    marginTop: 8,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#555",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  latencyBadge: {
+    fontSize: 11,
+    color: "#a78bfa",
+    fontStyle: "italic",
+  },
+
+  // Loading state
+  loadingCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#f5f3ff",
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: "#7c3aed",
+    flex: 1,
+  },
+
+  // Error state
+  errorCard: {
+    backgroundColor: "#fef2f2",
+    borderRadius: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: "#dc2626",
+    padding: 14,
+    marginBottom: 12,
+    gap: 10,
+  },
+  errorText: {
+    fontSize: 13,
+    color: "#991b1b",
+    lineHeight: 19,
+  },
+  retryBtn: {
+    alignSelf: "flex-start",
+    backgroundColor: "#dc2626",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  retryText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#fff",
+  },
+
+  // Insight cards (mirrors existing card styles)
+  card: {
+    borderRadius: 16,
+    borderLeftWidth: 3,
+    padding: 14,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  iconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  iconText: { fontSize: 16 },
+  cardTitleBlock: { flex: 1 },
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1a1a1a",
+    lineHeight: 19,
+  },
+  aiBadge: {
+    fontSize: 10,
+    fontWeight: "500",
+    marginTop: 2,
+    letterSpacing: 0.3,
+  },
+  chevron: { fontSize: 10, paddingLeft: 4 },
+  cardBody: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 0.5,
+    borderTopColor: "#00000015",
+  },
+  cardBodyText: {
+    fontSize: 13,
+    color: "#444",
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  actionsBlock: { gap: 6 },
+  actionRow: {
+    borderLeftWidth: 2,
+    paddingLeft: 10,
+    paddingVertical: 5,
+    backgroundColor: "#00000008",
+    borderRadius: 4,
+  },
+  actionText: { fontSize: 12, color: "#555", lineHeight: 17 },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import {
   Text,
   View,
@@ -7,8 +7,9 @@ import {
   ActivityIndicator,
   ScrollView,
   Platform,
+  Animated,
 } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
 import Svg, { Circle } from "react-native-svg";
 import { getDb } from "@/database/db";
 import { EmotionGlyph, emotionColor } from "../../components/EmotionGlyph";
@@ -82,13 +83,45 @@ function emotionSymbol(emotion: string | null): string {
 
 export default function Index() {
   const router = useRouter();
+  const params = useLocalSearchParams();
 
   const [weekTxs, setWeekTxs] = useState<WeekTx[]>([]);
   const [recent, setRecent] = useState<RecentTx[]>([]);
   const [monthTopEmotion, setMonthTopEmotion] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [userCurrency, setUserCurrency] = useState<string>("€");
+  const [monthlySpent, setMonthlySpent] = useState<number>(0);
+  const [budgetGoal, setBudgetGoal] = useState<number | null>(null);
+
   const [filter, setFilter] = useState<string | null>(null);
+
+  // --- Success toast (triggered after adding a purchase) ---
+  const [showToast, setShowToast] = useState(false);
+  const toastAnim = useRef(new Animated.Value(-100)).current;
+
+  useEffect(() => {
+    if (params.added === "true") {
+      setShowToast(true);
+      Animated.spring(toastAnim, {
+        toValue: 20,
+        useNativeDriver: true,
+      }).start();
+
+      const timer = setTimeout(() => {
+        Animated.timing(toastAnim, {
+          toValue: -100,
+          duration: 300,
+          useNativeDriver: true,
+        }).start(() => {
+          setShowToast(false);
+          router.setParams({ added: "", timestamp: "" });
+        });
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [params.added, params.timestamp]);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -96,6 +129,14 @@ export default function Index() {
     try {
       const db = await getDb();
       const userID = global.userID;
+
+      const user = await db.getFirstAsync<{ currency_code: string }>(
+        `SELECT currency_code FROM users WHERE id = ?`,
+        [userID]
+      );
+      if (user && user.currency_code) {
+        setUserCurrency(user.currency_code);
+      }
 
       const latest = await db.getFirstAsync<{ md: string | null }>(
         `SELECT MAX(transacted_at) as md FROM transactions
@@ -156,6 +197,33 @@ export default function Index() {
       );
 
       setMonthTopEmotion(topRows[0]?.name ?? null);
+
+      const now = new Date();
+      const currentYm = `${now.getFullYear()}-${String(
+        now.getMonth() + 1
+      ).padStart(2, "0")}`;
+
+      const monthRow = await db.getFirstAsync<{ total: number }>(
+        `SELECT COALESCE(SUM(amount), 0) as total
+         FROM transactions
+         WHERE user_id = ?
+           AND strftime('%Y-%m', transacted_at) = ?
+           AND type != 'refunded'`,
+        [userID, currentYm]
+      );
+      setMonthlySpent(monthRow?.total ?? 0);
+
+      await db.runAsync(
+        `CREATE TABLE IF NOT EXISTS user_settings (
+          user_id TEXT PRIMARY KEY,
+          monthly_budget REAL
+        )`
+      );
+      const settings = await db.getFirstAsync<{ monthly_budget: number }>(
+        `SELECT monthly_budget FROM user_settings WHERE user_id = ?`,
+        [userID]
+      );
+      setBudgetGoal(settings?.monthly_budget || null);
     } catch (err) {
       console.error("home load error:", err);
     } finally {
@@ -214,6 +282,12 @@ export default function Index() {
 
   const visibleRecent = recent.slice(0, 5);
 
+  const progressPercentage =
+    budgetGoal && budgetGoal > 0
+      ? Math.min((monthlySpent / budgetGoal) * 100, 100)
+      : 0;
+  const isOverBudget = !!budgetGoal && monthlySpent > budgetGoal;
+
   const EmoWord = ({ emo }: { emo: string }) => {
     const active = filter === emo;
     const dim = filter !== null && !active;
@@ -238,6 +312,15 @@ export default function Index() {
 
   return (
     <View style={s.root}>
+      {showToast && (
+        <Animated.View
+          style={[s.toastContainer, { transform: [{ translateY: toastAnim }] }]}
+        >
+          <Text style={s.toastCheck}>✓</Text>
+          <Text style={s.toastText}>Purchase added successfully</Text>
+        </Animated.View>
+      )}
+
       <View style={s.header}>
         <Text style={s.greeting}>{greeting()}</Text>
 
@@ -264,12 +347,12 @@ export default function Index() {
                 {"\n"}purchases{"\n"}
                 averaged{" "}
                 <Text style={s.heroAmount}>
-                  €{Math.round(headline.high.avg)}
+                  {userCurrency}{Math.round(headline.high.avg)}
                 </Text>{" "}
                 —{"\n"}
                 your <EmoWord emo={headline.low.emotion} /> ones{" "}
                 <Text style={s.heroAmount}>
-                  €{Math.round(headline.low.avg)}
+                  {userCurrency}{Math.round(headline.low.avg)}
                 </Text>
               </Text>
             ) : (
@@ -277,7 +360,7 @@ export default function Index() {
                 Your <EmoWord emo={headline.high.emotion} />
                 {"\n"}purchases averaged{"\n"}
                 <Text style={s.heroAmount}>
-                  €{Math.round(headline.high.avg)}
+                  {userCurrency}{Math.round(headline.high.avg)}
                 </Text>
               </Text>
             )
@@ -298,7 +381,7 @@ export default function Index() {
           <View style={s.statsRow}>
             <View style={s.statCell}>
               <Text style={s.statLabel}>SPENT</Text>
-              <Text style={s.statValue}>€{Math.round(stats.spent)}</Text>
+              <Text style={s.statValue}>{userCurrency}{Math.round(stats.spent)}</Text>
             </View>
 
             <View style={s.statCell}>
@@ -312,6 +395,42 @@ export default function Index() {
             </View>
           </View>
         </View>
+
+        <Pressable
+          style={({ pressed }) => [s.budgetWrap, pressed && { opacity: 0.7 }]}
+          onPress={() => router.push("/budget")}
+        >
+          <View style={s.budgetHeader}>
+            <Text style={s.kicker}>THIS MONTH</Text>
+            <Text style={s.budgetEdit}>
+              {budgetGoal ? "edit goal" : "set goal"}
+            </Text>
+          </View>
+
+          <Text style={s.budgetAmount}>
+            {userCurrency}{monthlySpent.toFixed(2)}
+          </Text>
+
+          {budgetGoal ? (
+            <View style={s.progressContainer}>
+              <View style={s.progressBarBackground}>
+                <View
+                  style={[
+                    s.progressBarFill,
+                    { width: `${progressPercentage}%` },
+                    isOverBudget && { backgroundColor: "#C25B5B" },
+                  ]}
+                />
+              </View>
+              <Text style={s.progressText}>
+                {isOverBudget ? "over budget by " : "out of "}
+                {userCurrency}{budgetGoal.toFixed(2)} this month
+              </Text>
+            </View>
+          ) : (
+            <Text style={s.budgetHint}>tap to set a monthly budget goal</Text>
+          )}
+        </Pressable>
 
         <View style={s.emoOfMonth}>
           <Text style={s.kicker}>EMOTION OF THE MONTH</Text>
@@ -463,6 +582,88 @@ const s = StyleSheet.create({
 
   scrollContent: {
     paddingBottom: 28,
+  },
+
+  toastContainer: {
+    position: "absolute",
+    top: 0,
+    left: 24,
+    right: 24,
+    backgroundColor: C.ink,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    zIndex: 100,
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  toastCheck: {
+    color: "#fff",
+    fontFamily: "Manrope_700Bold",
+    fontSize: 16,
+  },
+  toastText: {
+    color: "#fff",
+    fontSize: 15,
+    fontFamily: "Manrope_600SemiBold",
+  },
+
+  budgetWrap: {
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    paddingBottom: 4,
+  },
+  budgetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  budgetEdit: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 11,
+    letterSpacing: 1,
+    color: C.purple,
+    marginBottom: 10,
+  },
+  budgetAmount: {
+    fontFamily: "LibreCaslonText_700Bold",
+    fontSize: 36,
+    color: C.ink,
+    letterSpacing: -0.6,
+    marginBottom: 12,
+  },
+  budgetHint: {
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontSize: 14,
+    color: C.inkSoft,
+  },
+  progressContainer: {
+    width: "100%",
+  },
+  progressBarBackground: {
+    width: "100%",
+    height: 8,
+    backgroundColor: "rgba(0,0,0,0.08)",
+    borderRadius: 4,
+    overflow: "hidden",
+    marginBottom: 8,
+  },
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: C.purple,
+    borderRadius: 4,
+  },
+  progressText: {
+    fontFamily: "Manrope_400Regular",
+    fontSize: 13,
+    color: C.inkSoft,
   },
 
   hero: {
@@ -687,12 +888,6 @@ txEmotion: {
     flexShrink: 0,
     alignItems: "flex-end",
     justifyContent: "center",
-  },
-  txEmotion: {
-    fontFamily: "PlayfairDisplay_700Bold_Italic",
-    fontSize: 16,
-    lineHeight: 20,
-    textAlign: "right",
   },
 
   refundBadge: {

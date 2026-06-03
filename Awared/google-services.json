@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "322304101724",
+    "project_id": "awared-470cf",
+    "storage_bucket": "awared-470cf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:322304101724:android:3d3d4e32effd6e81d88599",
+        "android_client_info": {
+          "package_name": "com.anonymous.Awared"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBdXeiCHtrKZLLtoTfiYryebaBg72ltHnQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

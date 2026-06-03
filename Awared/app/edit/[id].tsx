@@ -16,7 +16,7 @@ export default function EditTransaction() {
   const [merchant, setMerchant] = useState("");
   const [location, setLocation] = useState("");
   const [note, setNote] = useState("");
-  const [currency, setCurrency] = useState("EUR");
+  const [currency, setCurrency] = useState("€");
 
   // Emotion States
   const [availableEmotions, setAvailableEmotions] = useState<any[]>([]);
@@ -43,7 +43,6 @@ export default function EditTransaction() {
           setMerchant(tx.merchant_name || "");
           setLocation(tx.location || "");
           setNote(tx.note || "");
-          setCurrency(tx.currency_code || "EUR");
           setEmotionLogId(tx.emotion_log_id);
 
           // 3. If the transaction has an emotion log, fetch its current emotion
@@ -55,6 +54,17 @@ export default function EditTransaction() {
             if (log) setSelectedEmotionId(log.emotion_id);
           }
         }
+
+        if (global.userID) {
+           const user = await db.getFirstAsync<{ currency_code: string }>(
+             `SELECT currency_code FROM users WHERE id = ?`,
+             [global.userID]
+           );
+           if (user && user.currency_code) {
+             setCurrency(user.currency_code);
+           }
+        }
+
       } catch (error) {
         console.error("Failed to load transaction for editing:", error);
         Alert.alert("Error", "Could not load transaction data.");
@@ -144,9 +154,9 @@ export default function EditTransaction() {
           
           {/* Amount Field */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Amount ({currency === "EUR" ? "€" : currency})</Text>
+            <Text style={styles.label}>Amount ({currency})</Text>
             <View style={styles.amountContainer}>
-              <Text style={styles.currencySymbol}>{currency === "EUR" ? "€" : currency}</Text>
+              <Text style={styles.currencySymbol}>{currency}</Text>
               <TextInput
                 style={styles.amountInput}
                 value={amount}

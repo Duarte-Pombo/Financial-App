@@ -20,7 +20,7 @@ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
       password_hash TEXT NOT NULL,
       avatar_url    TEXT,
       timezone      TEXT NOT NULL DEFAULT 'GMT',
-      currency_code TEXT NOT NULL DEFAULT 'EUR',
+      currency_code TEXT NOT NULL DEFAULT '€',
       created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
       updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
     );

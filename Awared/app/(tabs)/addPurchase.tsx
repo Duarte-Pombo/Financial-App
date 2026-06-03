@@ -49,6 +49,7 @@ export default function AddPurchase() {
   const [item, setItem] = useState("");
   const [location, setLocation] = useState("");
   const [saving, setSaving] = useState(false);
+  const [userCurrency, setUserCurrency] = useState("€");
   const [date, setDate] = useState(new Date());
   const [editingField, setEditingField] = useState<"date" | "time" | null>(null);
 
@@ -70,6 +71,23 @@ export default function AddPurchase() {
   useFocusEffect(useCallback(() => {
     setRawDigits(""); setItem(""); setLocation("");
     setSelectedEmotionIds([]); setSaving(false); setDate(new Date()); setEditingField(null);
+
+    async function fetchCurrency() {
+      if (!global.userID) return;
+      try {
+        const db = await getDb();
+        const user = await db.getFirstAsync<{ currency_code: string }>(
+          "SELECT currency_code FROM users WHERE id = ?",
+          [global.userID]
+        );
+        if (user && user.currency_code) {
+          setUserCurrency(user.currency_code);
+        }
+      } catch (error) {
+        console.error("Failed to load currency:", error);
+      }
+    }
+    fetchCurrency();
   }, []));
 
   const onDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
@@ -127,10 +145,13 @@ export default function AddPurchase() {
         merchant_name: item || undefined,
         location: location || undefined,
         emotion_ids: selectedEmotionIds,
-        currency_code: "EUR", type: "cash",
+        currency_code: userCurrency,
+        type: "cash",
         transacted_at: date.toISOString(),
       });
-      router.back();
+
+      router.navigate({ pathname: "/", params: { added: "true", timestamp: Date.now()} });
+
     } catch (e) {
       console.error(e);
       Alert.alert("Error", "Could not save the purchase.");
@@ -153,7 +174,7 @@ export default function AddPurchase() {
         {/* ── Price ── */}
         <View style={s.priceWrap}>
           <View style={s.priceRow}>
-            <Text style={[s.currency, !hasAmount && { color: C.inkMute }]}>€</Text>
+            <Text style={[s.currency, !hasAmount && { color: C.inkMute }]}>{userCurrency}</Text>
             <TextInput
               style={[s.priceInput, !hasAmount && { color: C.inkMute }]}
               keyboardType="decimal-pad"

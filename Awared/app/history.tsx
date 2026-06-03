@@ -8,12 +8,21 @@ export default function History() {
   const router = useRouter();
   const [history, setHistory] = useState<any[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [userCurrency, setUserCurrency] = useState("€");
 
   const getHistory = useCallback(async () => {
     setIsLoading(true);
     try {
       const db = await getDb();
       const userID = global.userID;
+
+      const user = await db.getFirstAsync<{ currency_code: string }>(
+        `SELECT currency_code FROM users WHERE id = ?`,
+        [userID]
+      );
+      if (user && user.currency_code) {
+        setUserCurrency(user.currency_code);
+      }
       
       // Added t.type to the SELECT statement
       const transactions = await db.getAllAsync(
@@ -74,7 +83,7 @@ export default function History() {
         </View>
         
         <Text style={[styles.transactionAmount, isRefunded && styles.strikethroughAmount]}>
-          {item.amount} {item.currency_code === "EUR" ? "€" : item.currency_code}
+          {item.amount} {userCurrency}
         </Text>
       </Pressable>
     );

@@ -11,6 +11,7 @@ export default function TransactionDetails() {
   const [transaction, setTransaction] = useState<any>(null);
   const [emotions, setEmotions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [userCurrency, setUserCurrency] = useState("€");
 
   useEffect(() => {
     async function fetchDetails() {
@@ -34,6 +35,17 @@ export default function TransactionDetails() {
           );
           setEmotions(emos);
         }
+
+        if (global.userID) {
+          const user = await db.getFirstAsync<{ currency_code: string }>(
+            `SELECT currency_code FROM users WHERE id = ?`,
+            [global.userID]
+          );
+          if (user && user.currency_code) {
+            setUserCurrency(user.currency_code);
+          }
+        }
+
       } catch (error) {
         console.error("Failed to load transaction details:", error);
       } finally {
@@ -165,7 +177,7 @@ export default function TransactionDetails() {
           {transaction.merchant_name || "Unknown Item"}
         </Text>
         <Text style={[styles.heroAmount, isRefunded && styles.strikethrough]}>
-          {transaction.amount} <Text style={styles.currencySymbol}>{transaction.currency_code === "EUR" ? "€" : transaction.currency_code}</Text>
+          {transaction.amount} <Text style={styles.currencySymbol}>{userCurrency}</Text>
         </Text>
       </View>
 

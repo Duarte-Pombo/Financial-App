@@ -153,7 +153,7 @@ export async function seed_06_edge_cases(): Promise<void> {
       }
       await db.runAsync(
         `INSERT INTO transactions (id, user_id, category_id, emotion_log_id, amount, currency_code, merchant_name, note, type, transacted_at, created_at)
-         VALUES (?, ?, ?, ?, ?, 'EUR', ?, ?, 'cash', ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, '€', ?, ?, 'cash', ?, ?)`,
         [txId, USER_ID, categoryId ?? null, emotionId ? logId : null, tx.amount, tx.merchant, tx.note ?? null, ts, ts]
       );
     }
