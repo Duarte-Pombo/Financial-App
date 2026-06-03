@@ -43,6 +43,14 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        },
+      ],
+      [
+        "expo-navigation-bar",
+        {
+          "enforceContrast": true,
+          "hidden": true,
+          "style": "light"
         }
       ],
       "expo-sqlite",
