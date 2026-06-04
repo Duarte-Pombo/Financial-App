@@ -1168,13 +1168,13 @@ export default function Insights() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fdf3ff" },
   scrollContent: {
-    paddingHorizontal: 20, paddingTop: 60, paddingBottom: 140,
+    paddingHorizontal: 20, paddingTop: 56, paddingBottom: 140,
     maxWidth: 480, alignSelf: "center", width: "100%",
   },
 
   // Header
   header: { marginBottom: 20 },
-  headerTitle: { fontSize: 28, fontWeight: "700", color: "#1a1a1a", letterSpacing: -0.5 },
+  headerTitle: { fontFamily: "PlayfairDisplay_700Bold_Italic", fontSize: 28, color: "#1F1B16", letterSpacing: -0.3 },
   headerSub: { fontSize: 13, color: "#888", marginTop: 2 },
 
   // Stats

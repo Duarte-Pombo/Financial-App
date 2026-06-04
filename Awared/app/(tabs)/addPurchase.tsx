@@ -1,6 +1,6 @@
 import {
   View, TextInput, Pressable, KeyboardAvoidingView,
-  Platform, Alert,
+  Platform, Alert, Modal,
   Keyboard, Text, StyleSheet,
 } from "react-native";
 import { useState, useCallback, useEffect } from "react";
@@ -12,6 +12,7 @@ import React from "react";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import Svg, { Path, Circle } from "react-native-svg";
 import { EmotionGlyph, emotionColor } from "../../components/EmotionGlyph";
+import LocationPickerMap, { LatLng } from "../../components/LocationPickerMap";
 
 type Emotion = {
   id: number;
@@ -22,6 +23,9 @@ type Emotion = {
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+// Default map center — Porto, Portugal.
+const PORTO = { latitude: 41.1496, longitude: -8.6109 };
 
 const C = {
   bg: "#FAF6EF",
@@ -54,6 +58,9 @@ export default function AddPurchase() {
 
   const [emotions, setEmotions] = useState<Emotion[]>([]);
   const [selectedEmotionIds, setSelectedEmotionIds] = useState<number[]>([]);
+
+  const [showMap, setShowMap] = useState(false);
+  const [mapCenter, setMapCenter] = useState<LatLng>(PORTO);
 
   useEffect(() => {
     getDb()
@@ -116,6 +123,20 @@ export default function AddPurchase() {
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       setLocation(await reverseGeocode(loc.coords.latitude, loc.coords.longitude));
     } catch { Alert.alert("Error", "Could not get location."); }
+    finally { setDetectingLocation(false); }
+  }
+
+  function openMap() {
+    Keyboard.dismiss();
+    setMapCenter(PORTO); // always open centered on Porto
+    setShowMap(true);
+  }
+
+  async function handleConfirmMapLocation() {
+    setShowMap(false);
+    setDetectingLocation(true);
+    try { setLocation(await reverseGeocode(mapCenter.latitude, mapCenter.longitude)); }
+    catch { Alert.alert("Error", "Could not resolve address."); }
     finally { setDetectingLocation(false); }
   }
 
@@ -259,6 +280,16 @@ export default function AddPurchase() {
           <View>
             <View style={s.whereHeader}>
               <Text style={[s.label, { marginBottom: 0 }]}>where?</Text>
+              <Pressable onPress={openMap} hitSlop={8} style={s.mapLink}>
+                <Svg width={13} height={13} viewBox="0 0 24 24">
+                  <Path
+                    d="M9 4 L3 6 V20 L9 18 L15 20 L21 18 V4 L15 6 L9 4 Z"
+                    fill="none" stroke={C.inkSoft} strokeWidth={1.6} strokeLinejoin="round"
+                  />
+                  <Path d="M9 4 V18 M15 6 V20" fill="none" stroke={C.inkSoft} strokeWidth={1.6} />
+                </Svg>
+                <Text style={s.mapLinkText}>pick on map</Text>
+              </Pressable>
             </View>
             <Pressable
               onPress={handleAutoDetectLocation}
@@ -297,6 +328,36 @@ export default function AddPurchase() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      {/* ── Map Modal (Leaflet + OpenStreetMap, no API key) ── */}
+      <Modal visible={showMap} animationType="slide" presentationStyle="pageSheet"
+        onRequestClose={() => setShowMap(false)}>
+        <View style={s.mapRoot}>
+          <View style={s.mapHeader}>
+            <Text style={s.mapHeaderTitle}>pin location</Text>
+            <Pressable onPress={() => setShowMap(false)} hitSlop={8} style={s.mapCloseBtn}>
+              <Svg width={22} height={22} viewBox="0 0 24 24">
+                <Path d="M6 6 L18 18 M18 6 L6 18" stroke={C.ink} strokeWidth={1.8} strokeLinecap="round" />
+              </Svg>
+            </Pressable>
+          </View>
+
+          {showMap && (
+            <LocationPickerMap
+              key={`${mapCenter.latitude.toFixed(4)},${mapCenter.longitude.toFixed(4)}`}
+              initial={mapCenter}
+              onRegionChange={setMapCenter}
+              style={{ flex: 1 }}
+            />
+          )}
+
+          <View style={s.mapConfirmWrap}>
+            <Pressable style={s.mapConfirmBtn} onPress={handleConfirmMapLocation}>
+              <Text style={s.ctaText}>confirm location</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -306,13 +367,13 @@ const s = StyleSheet.create({
 
   // Header
   header: {
-    paddingTop: Platform.OS === "ios" ? 52 : 38,
-    paddingBottom: 10,
+    paddingTop: 56,
+    paddingBottom: 6,
     paddingHorizontal: 24,
     alignItems: "flex-start",
   },
   headerTitle: {
-    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
     fontSize: 28,
     color: C.ink,
     letterSpacing: -0.3,
@@ -425,6 +486,50 @@ const s = StyleSheet.create({
     fontFamily: "PlayfairDisplay_400Regular",
     fontSize: 14,
     flex: 1,
+  },
+  mapLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  mapLinkText: {
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontSize: 13,
+    color: C.inkSoft,
+  },
+
+  // Map modal
+  mapRoot: { flex: 1, backgroundColor: C.bg },
+  mapHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: Platform.OS === "ios" ? 18 : 38,
+    paddingBottom: 12,
+    paddingHorizontal: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: C.rule,
+  },
+  mapHeaderTitle: {
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontSize: 22,
+    color: C.ink,
+    letterSpacing: -0.3,
+  },
+  mapCloseBtn: { padding: 2 },
+  mapConfirmWrap: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === "ios" ? 28 : 16,
+    backgroundColor: C.bg,
+    borderTopWidth: 1,
+    borderTopColor: C.rule,
+  },
+  mapConfirmBtn: {
+    backgroundColor: C.blackBtn,
+    paddingVertical: 16,
+    borderRadius: 4,
+    alignItems: "center",
   },
 
   // CTA

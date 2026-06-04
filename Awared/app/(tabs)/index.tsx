@@ -5,8 +5,6 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
-  ScrollView,
-  Platform,
   Animated,
 } from "react-native";
 import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
@@ -298,10 +296,7 @@ export default function Index() {
         </Pressable>
       </View>
 
-      <ScrollView
-        contentContainerStyle={s.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={s.scrollContent}>
         <View style={s.hero}>
           <Text style={s.kicker}>PAST WEEK</Text>
 
@@ -480,7 +475,7 @@ export default function Index() {
 
           </View>
         </View>
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -492,15 +487,15 @@ const s = StyleSheet.create({
   },
 
   header: {
-    paddingTop: Platform.OS === "ios" ? 52 : 38,
-    paddingBottom: 10,
+    paddingTop: 56,
+    paddingBottom: 6,
     paddingHorizontal: 24,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   greeting: {
-    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
     fontSize: 28,
     color: C.ink,
     letterSpacing: -0.3,
@@ -631,6 +626,7 @@ const s = StyleSheet.create({
   recentWrap: {
     paddingHorizontal: 24,
     paddingTop: 14,
+    marginTop: -19,
   },
   recentHeader: {
     flexDirection: "row",

@@ -13,6 +13,8 @@ import {
   TabNavigationState,
 } from "@react-navigation/native";
 
+const APP_BG = "#FAF6EF";
+
 const { Navigator } = createMaterialTopTabNavigator();
 
 const MaterialTopTabs = withLayoutContext<
@@ -99,6 +101,8 @@ export default function TabsLayout() {
     <MaterialTopTabs
       tabBarPosition="bottom"
       tabBar={(props) => <CustomTabBar {...props} />}
+      style={{ backgroundColor: APP_BG }}
+      sceneContainerStyle={{ backgroundColor: APP_BG }}
       screenOptions={{
         swipeEnabled: true,
         animationEnabled: true,
@@ -172,16 +176,16 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   iconWrap: {
-    width: 44,
-    height: 28,
+    width: 40,
+    height: 40,
+    alignSelf: "center",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 9999,
+    borderRadius: 20,
+    overflow: "hidden",
   },
   iconWrapActive: {
     backgroundColor: "rgba(249, 168, 187, 0.22)",
-    paddingHorizontal: 12,
-    width: "auto",
   },
   label: {
     fontSize: 10,

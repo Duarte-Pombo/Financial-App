@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useId } from "react";
 import {
-  View, Text, Pressable, ScrollView, StyleSheet, Dimensions, Platform,
+  View, Text, Pressable, ScrollView, StyleSheet, Dimensions,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import Svg, { Circle, G, Defs, RadialGradient, Stop } from "react-native-svg";
@@ -772,13 +772,13 @@ const st = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
 
   header: {
-    paddingTop: Platform.OS === "ios" ? 52 : 38,
-    paddingBottom: 10,
+    paddingTop: 56,
+    paddingBottom: 6,
     paddingHorizontal: 24,
     alignItems: "flex-start",
   },
   title: {
-    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
     fontSize: 28, color: C.ink, letterSpacing: -0.3,
   },
 
