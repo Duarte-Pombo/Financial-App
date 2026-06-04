@@ -100,10 +100,30 @@ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
       updated_at     TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
     );
 
+    CREATE TABLE IF NOT EXISTS user_achievements (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id        INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+      achievement_id TEXT    NOT NULL,
+      unlocked_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      UNIQUE (user_id, achievement_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_goals (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id         INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+      achievement_id  TEXT    NOT NULL,
+      target_value    REAL    NOT NULL DEFAULT 0,
+      started_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      completed_at    TEXT,
+      is_active       INTEGER NOT NULL DEFAULT 1,
+      UNIQUE (user_id, achievement_id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_transactions_user_id       ON transactions (user_id);
     CREATE INDEX IF NOT EXISTS idx_transactions_transacted_at ON transactions (transacted_at DESC);
     CREATE INDEX IF NOT EXISTS idx_emotion_logs_user_id       ON emotion_logs (user_id);
     CREATE INDEX IF NOT EXISTS idx_emotion_logs_logged_at     ON emotion_logs (logged_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_user_achievements_user_id  ON user_achievements (user_id);
   `);
 
   return _db;
