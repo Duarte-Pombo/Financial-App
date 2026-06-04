@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Insights</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F5F1EA;
+    --panel: #FAF6EF;
+    --ink: #1F1B16;
+    --ink-soft: #5E574E;
+    --ink-mute: #9C9489;
+    --rule: rgba(31,27,22,0.10);
+    --rule-soft: rgba(31,27,22,0.06);
+    --purple: #9B82C9;
+    --purple-deep: #7E64B3;
+    --purple-soft: rgba(155,130,201,0.14);
+    --black-btn: #15110D;
+    --paper-edge: #E0CDA8;
+  }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #E8E2D6;
+    -webkit-font-smoothing: antialiased;
+    color: var(--ink);
+    overflow: hidden;
+  }
+  body {
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+  }
+  .italic-display {
+    font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+  }
+  .serif {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+  .mono {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  .label {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic; font-weight: 500;
+    color: var(--ink-soft); font-size: 14px;
+  }
+  .eyebrow {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 10.5px; letter-spacing: 1.8px;
+    color: var(--ink-mute); font-weight: 500;
+    text-transform: uppercase;
+  }
+  button { font-family: inherit; }
+  .no-scroll, .no-scroll * { scrollbar-width: none; }
+  .no-scroll *::-webkit-scrollbar { display: none; }
+  @keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position:  200% 0; }
+  }
+  @keyframes pulse-purple {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(155,130,201,0.0); }
+    50%      { box-shadow: 0 0 0 6px rgba(155,130,201,0.18); }
+  }
+  @keyframes float-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes draw {
+    from { stroke-dashoffset: var(--len, 1000); }
+    to   { stroke-dashoffset: 0; }
+  }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="emotions.jsx"></script>
+  <script type="text/babel" src="footer.jsx"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="insights-viz.jsx"></script>
+  <script type="text/babel" src="insights-paywall.jsx"></script>
+  <script type="text/babel" src="insights.jsx"></script>
+</body>
+</html>

@@ -91,8 +91,6 @@ export default function Index() {
   const [isLoading, setIsLoading] = useState(true);
 
   const [userCurrency, setUserCurrency] = useState<string>("€");
-  const [monthlySpent, setMonthlySpent] = useState<number>(0);
-  const [budgetGoal, setBudgetGoal] = useState<number | null>(null);
 
   const [filter, setFilter] = useState<string | null>(null);
 
@@ -197,33 +195,6 @@ export default function Index() {
       );
 
       setMonthTopEmotion(topRows[0]?.name ?? null);
-
-      const now = new Date();
-      const currentYm = `${now.getFullYear()}-${String(
-        now.getMonth() + 1
-      ).padStart(2, "0")}`;
-
-      const monthRow = await db.getFirstAsync<{ total: number }>(
-        `SELECT COALESCE(SUM(amount), 0) as total
-         FROM transactions
-         WHERE user_id = ?
-           AND strftime('%Y-%m', transacted_at) = ?
-           AND type != 'refunded'`,
-        [userID, currentYm]
-      );
-      setMonthlySpent(monthRow?.total ?? 0);
-
-      await db.runAsync(
-        `CREATE TABLE IF NOT EXISTS user_settings (
-          user_id TEXT PRIMARY KEY,
-          monthly_budget REAL
-        )`
-      );
-      const settings = await db.getFirstAsync<{ monthly_budget: number }>(
-        `SELECT monthly_budget FROM user_settings WHERE user_id = ?`,
-        [userID]
-      );
-      setBudgetGoal(settings?.monthly_budget || null);
     } catch (err) {
       console.error("home load error:", err);
     } finally {
@@ -281,12 +252,6 @@ export default function Index() {
   }
 
   const visibleRecent = recent.slice(0, 5);
-
-  const progressPercentage =
-    budgetGoal && budgetGoal > 0
-      ? Math.min((monthlySpent / budgetGoal) * 100, 100)
-      : 0;
-  const isOverBudget = !!budgetGoal && monthlySpent > budgetGoal;
 
   const EmoWord = ({ emo }: { emo: string }) => {
     const active = filter === emo;
@@ -395,42 +360,6 @@ export default function Index() {
             </View>
           </View>
         </View>
-
-        <Pressable
-          style={({ pressed }) => [s.budgetWrap, pressed && { opacity: 0.7 }]}
-          onPress={() => router.push("/budget")}
-        >
-          <View style={s.budgetHeader}>
-            <Text style={s.kicker}>THIS MONTH</Text>
-            <Text style={s.budgetEdit}>
-              {budgetGoal ? "edit goal" : "set goal"}
-            </Text>
-          </View>
-
-          <Text style={s.budgetAmount}>
-            {userCurrency}{monthlySpent.toFixed(2)}
-          </Text>
-
-          {budgetGoal ? (
-            <View style={s.progressContainer}>
-              <View style={s.progressBarBackground}>
-                <View
-                  style={[
-                    s.progressBarFill,
-                    { width: `${progressPercentage}%` },
-                    isOverBudget && { backgroundColor: "#C25B5B" },
-                  ]}
-                />
-              </View>
-              <Text style={s.progressText}>
-                {isOverBudget ? "over budget by " : "out of "}
-                {userCurrency}{budgetGoal.toFixed(2)} this month
-              </Text>
-            </View>
-          ) : (
-            <Text style={s.budgetHint}>tap to set a monthly budget goal</Text>
-          )}
-        </Pressable>
 
         <View style={s.emoOfMonth}>
           <Text style={s.kicker}>EMOTION OF THE MONTH</Text>
@@ -615,56 +544,6 @@ const s = StyleSheet.create({
     fontFamily: "Manrope_600SemiBold",
   },
 
-  budgetWrap: {
-    paddingHorizontal: 24,
-    paddingTop: 22,
-    paddingBottom: 4,
-  },
-  budgetHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  budgetEdit: {
-    fontFamily: "Manrope_600SemiBold",
-    fontSize: 11,
-    letterSpacing: 1,
-    color: C.purple,
-    marginBottom: 10,
-  },
-  budgetAmount: {
-    fontFamily: "LibreCaslonText_700Bold",
-    fontSize: 36,
-    color: C.ink,
-    letterSpacing: -0.6,
-    marginBottom: 12,
-  },
-  budgetHint: {
-    fontFamily: "PlayfairDisplay_400Regular_Italic",
-    fontSize: 14,
-    color: C.inkSoft,
-  },
-  progressContainer: {
-    width: "100%",
-  },
-  progressBarBackground: {
-    width: "100%",
-    height: 8,
-    backgroundColor: "rgba(0,0,0,0.08)",
-    borderRadius: 4,
-    overflow: "hidden",
-    marginBottom: 8,
-  },
-  progressBarFill: {
-    height: "100%",
-    backgroundColor: C.purple,
-    borderRadius: 4,
-  },
-  progressText: {
-    fontFamily: "Manrope_400Regular",
-    fontSize: 13,
-    color: C.inkSoft,
-  },
 
   hero: {
     paddingHorizontal: 24,

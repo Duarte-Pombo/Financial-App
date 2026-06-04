@@ -1,6 +1,6 @@
 import {
   View, TextInput, Pressable, KeyboardAvoidingView,
-  Platform, Alert, Modal, TouchableWithoutFeedback,
+  Platform, Alert,
   Keyboard, Text, StyleSheet,
 } from "react-native";
 import { useState, useCallback, useEffect } from "react";
@@ -10,7 +10,6 @@ import { insertTransaction } from "../../database/transactions";
 import * as Location from "expo-location";
 import React from "react";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
-import MapView, { Region } from "react-native-maps";
 import Svg, { Path, Circle } from "react-native-svg";
 import { EmotionGlyph, emotionColor } from "../../components/EmotionGlyph";
 
@@ -55,11 +54,6 @@ export default function AddPurchase() {
 
   const [emotions, setEmotions] = useState<Emotion[]>([]);
   const [selectedEmotionIds, setSelectedEmotionIds] = useState<number[]>([]);
-
-  const [showMap, setShowMap] = useState(false);
-  const [mapRegion, setMapRegion] = useState<Region>({
-    latitude: 41.178, longitude: -8.598, latitudeDelta: 0.005, longitudeDelta: 0.005,
-  });
 
   useEffect(() => {
     getDb()
@@ -124,13 +118,6 @@ export default function AddPurchase() {
     } catch { Alert.alert("Error", "Could not get location."); }
     finally { setDetectingLocation(false); }
   }
-
-  const handleConfirmMapLocation = async () => {
-    setDetectingLocation(true); setShowMap(false);
-    try { setLocation(await reverseGeocode(mapRegion.latitude, mapRegion.longitude)); }
-    catch { Alert.alert("Error", "Could not resolve address."); }
-    finally { setDetectingLocation(false); }
-  };
 
   const handleDone = async () => {
     const amount = parseFloat(rawDigits.replace(",", "."));
@@ -272,18 +259,6 @@ export default function AddPurchase() {
           <View>
             <View style={s.whereHeader}>
               <Text style={[s.label, { marginBottom: 0 }]}>where?</Text>
-              <Pressable
-                style={[s.pillSm, s.pillIdle]}
-                onPress={() => { Keyboard.dismiss(); setShowMap(true); }}
-              >
-                <Svg width={14} height={12} viewBox="0 0 24 20">
-                  <Path
-                    d="M2 4 L8 2 L16 4 L22 2 L22 16 L16 18 L8 16 L2 18 Z M8 2 L8 16 M16 4 L16 18"
-                    fill="none" stroke={C.ink} strokeWidth={1.6} strokeLinejoin="round"
-                  />
-                </Svg>
-                <Text style={s.pillTextIdle}>map</Text>
-              </Pressable>
             </View>
             <Pressable
               onPress={handleAutoDetectLocation}
@@ -322,54 +297,6 @@ export default function AddPurchase() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
-
-      {/* ── Map bottom sheet ── */}
-      <Modal
-        visible={showMap}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowMap(false)}
-      >
-        <View style={s.mapOverlay}>
-          <TouchableWithoutFeedback onPress={() => setShowMap(false)}>
-            <View style={StyleSheet.absoluteFillObject} />
-          </TouchableWithoutFeedback>
-          <View style={s.mapSheet}>
-            <View style={s.mapDragHandle} />
-            <View style={s.mapHeaderRow}>
-              <Text style={s.mapTitle}>Pick a place</Text>
-              <Pressable onPress={() => setShowMap(false)} hitSlop={8}>
-                <Svg width={18} height={18} viewBox="0 0 24 24">
-                  <Path d="M6 6 L18 18 M18 6 L6 18" stroke={C.ink} strokeWidth={1.8} strokeLinecap="round" />
-                </Svg>
-              </Pressable>
-            </View>
-            <View style={s.mapWrap}>
-              <MapView
-                style={{ flex: 1 }}
-                initialRegion={mapRegion}
-                onRegionChangeComplete={setMapRegion}
-                showsUserLocation
-              />
-              <View style={s.mapPin} pointerEvents="none">
-                <Svg width={28} height={36} viewBox="0 0 28 36">
-                  <Path
-                    d="M14 1 C7 1 2 6 2 13 C2 22 14 35 14 35 C14 35 26 22 26 13 C26 6 21 1 14 1 Z"
-                    fill={C.purple} stroke={C.ink} strokeWidth={1.4}
-                  />
-                  <Circle cx={14} cy={13} r={4.5} fill={C.bg} />
-                </Svg>
-              </View>
-              <View style={s.mapHint} pointerEvents="none">
-                <Text style={s.mapHintText}>drag the map to position the pin</Text>
-              </View>
-            </View>
-            <Pressable style={s.mapConfirmBtn} onPress={handleConfirmMapLocation}>
-              <Text style={s.mapConfirmText}>use this place</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -466,15 +393,6 @@ const s = StyleSheet.create({
     borderRadius: 9999,
     borderWidth: 1,
   },
-  pillSm: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 9999,
-    borderWidth: 1,
-  },
   pillIdle: { borderColor: "rgba(31,27,22,0.22)", backgroundColor: "transparent" },
   pillActive: { borderColor: C.ink, backgroundColor: C.ink },
   pillTextIdle: {
@@ -531,79 +449,4 @@ const s = StyleSheet.create({
     textTransform: "uppercase",
   },
 
-  // Map sheet
-  mapOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(31,27,22,0.35)",
-    justifyContent: "flex-end",
-  },
-  mapSheet: {
-    backgroundColor: C.bg,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 18,
-    paddingTop: 14,
-    paddingBottom: 24,
-    maxHeight: "90%",
-  },
-  mapDragHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(0,0,0,0.18)",
-    alignSelf: "center",
-    marginBottom: 12,
-  },
-  mapHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  mapTitle: {
-    fontFamily: "PlayfairDisplay_400Regular",
-    fontSize: 20,
-    color: C.ink,
-  },
-  mapWrap: {
-    height: 440,
-    borderRadius: 12,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.08)",
-  },
-  mapPin: {
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    transform: [{ translateX: -14 }, { translateY: -32 }],
-  },
-  mapHint: {
-    position: "absolute",
-    top: 8,
-    left: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 9999,
-    backgroundColor: "rgba(255,252,246,0.85)",
-  },
-  mapHintText: {
-    fontFamily: "PlayfairDisplay_400Regular_Italic",
-    fontSize: 10.5,
-    color: C.inkSoft,
-  },
-  mapConfirmBtn: {
-    backgroundColor: C.blackBtn,
-    paddingVertical: 14,
-    marginTop: 14,
-    borderRadius: 4,
-    alignItems: "center",
-  },
-  mapConfirmText: {
-    fontFamily: "Manrope_600SemiBold",
-    fontSize: 12,
-    color: "#FAF6EF",
-    letterSpacing: 2,
-    textTransform: "uppercase",
-  },
 });
