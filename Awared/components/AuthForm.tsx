@@ -92,19 +92,25 @@ export function PrimaryButton({
   busy,
 }: PrimaryButtonProps) {
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled || busy}
-      style={({ pressed }) => [
-        styles.primaryBtn,
-        {
-          backgroundColor: disabled ? AUTH_C.blackBtnDim : AUTH_C.blackBtn,
-          opacity: disabled ? 0.4 : pressed ? 0.85 : 1,
-        },
-      ]}
-    >
-      <Text style={styles.primaryBtnText}>{busy ? "..." : label}</Text>
-    </Pressable>
+    <View style={[styles.primaryBtn,
+    {
+      backgroundColor: AUTH_C.blackBtn, borderRadius: 999,
+      width: "50%", alignSelf: "center"
+    }]} >
+      <Pressable
+        onPress={onPress}
+        disabled={disabled || busy}
+        style={({ pressed }) => [
+          styles.primaryBtn,
+          {
+            backgroundColor: disabled ? AUTH_C.blackBtnDim : AUTH_C.blackBtn,
+            opacity: disabled ? 0.4 : pressed ? 0.85 : 1,
+          },
+        ]}
+      >
+        <Text style={styles.primaryBtnText}>{busy ? "..." : label}</Text>
+      </Pressable>
+    </View >
   );
 }
 
@@ -244,8 +250,8 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   primaryBtnText: {
-    fontFamily: "Manrope_600SemiBold",
-    fontSize: 14,
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    fontSize: 12,
     letterSpacing: 2.5,
     color: "#FAF6EF",
   },
