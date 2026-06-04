@@ -6,8 +6,9 @@ import {
   Alert,
   Image,
   Platform,
+  ScrollView,
 } from "react-native";
-import Svg, { Path, Circle } from "react-native-svg";
+import Svg, { Path, Circle, Rect } from "react-native-svg";
 import { Text } from "@/components/Text";
 import {
   EmotionGlyph,
@@ -19,7 +20,15 @@ import { useNavigation } from "@react-navigation/native";
 import { getDb } from "@/database/db";
 import { router, useFocusEffect } from "expo-router";
 
-// ─── Editorial paper palette (matches Home / Insights design system) ──────────
+// 🚨 UPDATE THIS IMPORT TO MATCH YOUR ACTUAL PROJECT PATH
+import { 
+  runAchievementEngine, 
+  loadAchievements, 
+  AchievementWithStatus, 
+  ACHIEVEMENT_DEFS 
+} from "@/database/achievementEngine"; 
+
+// ─── Editorial paper palette ──────────────────────────────────────────────────
 const C = {
   bg: "#F5F1EA",
   panel: "#FAF6EF",
@@ -52,7 +61,7 @@ type ProfileStats = {
   memberSince: string | null;
 };
 
-// ─── Count-up easing (mirrors the design's Home/Profile animation) ────────────
+// ─── Count-up easing ──────────────────────────────────────────────────────────
 function useCountUp(target: number, ms = 850): number {
   const [v, setV] = useState(0);
   useEffect(() => {
@@ -122,18 +131,12 @@ async function saveAvatarUri(userId: string | number, uri: string) {
   await db.runAsync("UPDATE users SET avatar_url = ? WHERE id = ?", [uri, userId]);
 }
 
-// ─── Line-art icons (thin editorial strokes, matching the design) ─────────────
+// ─── Line-art Icons ───────────────────────────────────────────────────────────
 function GearIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Circle cx={12} cy={12} r={3.2} stroke={C.inkSoft} strokeWidth={1.5} />
-      <Path
-        d="M12 2.6 L12 5 M12 19 L12 21.4 M21.4 12 L19 12 M5 12 L2.6 12 M18.6 5.4 L17 7 M7 17 L5.4 18.6 M18.6 18.6 L17 17 M7 7 L5.4 5.4"
-        stroke={C.inkSoft}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M12 2.6 L12 5 M12 19 L12 21.4 M21.4 12 L19 12 M5 12 L2.6 12 M18.6 5.4 L17 7 M7 17 L5.4 18.6 M18.6 18.6 L17 17 M7 7 L5.4 5.4" stroke={C.inkSoft} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -141,42 +144,8 @@ function GearIcon() {
 function CameraIcon() {
   return (
     <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 8 L7 8 L9 5.5 L15 5.5 L17 8 L20 8 L20 18 L4 18 Z"
-        stroke="#fff"
-        strokeWidth={1.8}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M4 8 L7 8 L9 5.5 L15 5.5 L17 8 L20 8 L20 18 L4 18 Z" stroke="#fff" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
       <Circle cx={12} cy={12.5} r={3.1} stroke="#fff" strokeWidth={1.8} />
-    </Svg>
-  );
-}
-
-function TrophyIcon() {
-  return (
-    <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M7 4 L17 4 L17 9 A5 5 0 0 1 7 9 Z"
-        stroke={C.purple}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M7 5 L4 5 L4 7 A3 3 0 0 0 7 10 M17 5 L20 5 L20 7 A3 3 0 0 1 17 10"
-        stroke={C.purple}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M12 14 L12 17 M9 20 L15 20 M10 17 L14 17"
-        stroke={C.purple}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
     </Svg>
   );
 }
@@ -184,13 +153,7 @@ function TrophyIcon() {
 function SwapIcon({ color }: { color: string }) {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 8 L17 8 M14 5 L17 8 L14 11 M20 16 L7 16 M10 13 L7 16 L10 19"
-        stroke={color}
-        strokeWidth={1.7}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M4 8 L17 8 M14 5 L17 8 L14 11 M20 16 L7 16 M10 13 L7 16 L10 19" stroke={color} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -198,13 +161,7 @@ function SwapIcon({ color }: { color: string }) {
 function LogoutIcon({ color }: { color: string }) {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M14 4 L6 4 L6 20 L14 20 M10 12 L20 12 M16 8 L20 12 L16 16"
-        stroke={color}
-        strokeWidth={1.7}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M14 4 L6 4 L6 20 L14 20 M10 12 L20 12 M16 8 L20 12 L16 16" stroke={color} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -212,18 +169,29 @@ function LogoutIcon({ color }: { color: string }) {
 function ChevronIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M9 6 L15 12 L9 18"
-        stroke={C.inkMute}
-        strokeWidth={1.8}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M9 6 L15 12 L9 18" stroke={C.inkMute} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-// ─── Account action row ───────────────────────────────────────────────────────
+function CheckIcon() {
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+      <Path d="M20 6L9 17l-5-5" stroke={C.purpleDeep} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+      <Path d="M7 11V7a5 5 0 0110 0v4" stroke={C.inkMute} strokeWidth={1.8} strokeLinecap="round" />
+      <Rect x="4" y="11" width="16" height="10" rx="2" stroke={C.inkMute} strokeWidth={1.8} />
+    </Svg>
+  );
+}
+
+// ─── Helper Components ────────────────────────────────────────────────────────
 function ActionRow({
   icon,
   label,
@@ -259,14 +227,65 @@ function ActionRow({
   );
 }
 
+function AchievementCard({ item, last }: { item: AchievementWithStatus; last: boolean }) {
+  // Gracefully handle undefined target/progress depending on your type definition
+  const target = (item as any).target ?? 1;
+  const progress = (item as any).progress ?? 0;
+  const progressPercent = Math.min(100, Math.round((progress / target) * 100)) || 0;
+
+  return (
+    <View style={[styles.achieveCard, !last && styles.achieveDivider]}>
+      <View
+        style={[
+          styles.achieveIconBox,
+          item.unlocked ? styles.achieveIconUnlocked : styles.achieveIconLocked,
+        ]}
+      >
+        {item.unlocked ? <CheckIcon /> : <LockIcon />}
+      </View>
+      
+      <View style={styles.achieveBody}>
+        <Text style={[styles.achieveTitle, !item.unlocked && { color: C.inkSoft }]}>
+          {item.title}
+        </Text>
+        <Text style={styles.achieveDesc}>{item.description}</Text>
+
+        {!item.unlocked && target > 1 && (
+          <View style={styles.progressBarWrap}>
+            <View style={styles.progressBarBg}>
+              <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+            </View>
+            <Text style={styles.progressText}>{progress} / {target}</Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function Profile() {
   const navigation = useNavigation();
   const [stats, setStats] = useState<ProfileStats | null>(null);
+  const [achievements, setAchievements] = useState<AchievementWithStatus[]>([]);
+  const [achievementsExpanded, setAchievementsExpanded] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
+    // Load top stats
     const data = await loadProfileStats(global.userID);
     setStats(data);
-  };
+
+    // Run engine (unlocks newly earned), then load display state
+    await runAchievementEngine(global.userID);
+    const all = await loadAchievements(global.userID);
+    
+    // Sort: unlocked first, then locked
+    const sorted = [
+      ...all.filter((a) => a.unlocked),
+      ...all.filter((a) => !a.unlocked),
+    ];
+    setAchievements(sorted);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -326,8 +345,16 @@ export default function Profile() {
     : C.purple;
   const animatedCount = Math.round(useCountUp(stats?.totalPurchases ?? 0));
 
+  const unlockedCount = achievements.filter((a) => a.unlocked).length;
+  const totalCount = ACHIEVEMENT_DEFS?.length ?? achievements.length;
+  const visibleAchievements = achievementsExpanded ? achievements : achievements.slice(0, 4);
+
   return (
-    <View style={[styles.container, styles.content]}>
+    <ScrollView 
+      style={styles.container} 
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
       {/* ── Header ── */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>profile</Text>
@@ -414,18 +441,35 @@ export default function Profile() {
         </View>
       </View>
 
-      {/* ── Achievements (coming soon) ── */}
-      <View style={styles.card}>
-        <View style={styles.cardLabelRow}>
+      {/* ── Achievements ── */}
+      <View style={[styles.card, { paddingHorizontal: 0, paddingBottom: 0 }]}>
+        <View style={[styles.cardLabelRow, { paddingHorizontal: 18 }]}>
           <Text style={styles.eyebrow}>ACHIEVEMENTS</Text>
-          <View style={styles.comingSoonBadge}>
-            <Text style={styles.comingSoonText}>coming soon</Text>
-          </View>
+          <Text style={styles.achieveCountText}>
+            {unlockedCount} / {totalCount} UNLOCKED
+          </Text>
         </View>
-        <View style={styles.achievementsPlaceholder}>
-          <TrophyIcon />
-          <Text style={styles.placeholderText}>your milestones are on their way</Text>
+
+        <View style={styles.achieveList}>
+          {visibleAchievements.map((item, i) => (
+            <AchievementCard 
+              key={item.id} 
+              item={item} 
+              last={i === visibleAchievements.length - 1 && achievementsExpanded} 
+            />
+          ))}
         </View>
+
+        {achievements.length > 4 && (
+          <Pressable
+            style={styles.expandButton}
+            onPress={() => setAchievementsExpanded(!achievementsExpanded)}
+          >
+            <Text style={styles.expandButtonText}>
+              {achievementsExpanded ? "Show less" : `Show all ${totalCount} milestones`}
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       {/* ── Account actions ── */}
@@ -445,7 +489,7 @@ export default function Profile() {
       </View>
 
       <View style={{ height: 104 }} />
-    </View>
+    </ScrollView>
   );
 }
 
@@ -481,12 +525,7 @@ const styles = StyleSheet.create({
   // Identity
   identity: { alignItems: "center", paddingTop: 14, paddingBottom: 6 },
   avatarWrap: { position: "relative", width: 112, height: 112 },
-  avatar: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
-    borderWidth: 1.5,
-  },
+  avatar: { width: 112, height: 112, borderRadius: 56, borderWidth: 1.5 },
   avatarPlaceholder: {
     width: 112,
     height: 112,
@@ -554,21 +593,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  comingSoonBadge: {
-    backgroundColor: "rgba(126,100,179,0.10)",
-    borderWidth: 1,
-    borderColor: "rgba(126,100,179,0.28)",
-    borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    marginBottom: 12,
-  },
-  comingSoonText: {
+  achieveCountText: {
     fontFamily: FONT.mono,
-    fontSize: 9,
-    letterSpacing: 0.6,
+    fontSize: 10,
+    letterSpacing: 0.8,
     color: C.purpleDeep,
-    textTransform: "uppercase",
+    marginBottom: 12,
   },
 
   // Stats
@@ -612,17 +642,82 @@ const styles = StyleSheet.create({
   },
 
   // Achievements
-  achievementsPlaceholder: {
+  achieveList: { paddingTop: 4 },
+  achieveCard: {
+    flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingTop: 14,
-    paddingBottom: 4,
+    gap: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
   },
-  placeholderText: {
-    fontFamily: FONT.displayItalic,
-    fontSize: 16,
+  achieveDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: C.ruleSoft,
+  },
+  achieveIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  achieveIconUnlocked: {
+    backgroundColor: "rgba(126,100,179,0.12)",
+  },
+  achieveIconLocked: {
+    backgroundColor: C.bg,
+    borderWidth: 1,
+    borderColor: C.rule,
+  },
+  achieveBody: { flex: 1, gap: 3 },
+  achieveTitle: {
+    fontFamily: FONT.sansSemi,
+    fontSize: 14.5,
+    color: C.ink,
+  },
+  achieveDesc: {
+    fontFamily: FONT.sans,
+    fontSize: 12.5,
+    color: C.inkMute,
+    lineHeight: 17,
+  },
+  progressBarWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 6,
+  },
+  progressBarBg: {
+    flex: 1,
+    height: 4,
+    backgroundColor: C.rule,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: C.purple,
+    borderRadius: 2,
+  },
+  progressText: {
+    fontFamily: FONT.mono,
+    fontSize: 10,
+    color: C.inkMute,
+  },
+  expandButton: {
+    paddingVertical: 16,
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: C.rule,
+    backgroundColor: "rgba(126,100,179,0.03)",
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+  },
+  expandButtonText: {
+    fontFamily: FONT.sansSemi,
+    fontSize: 13,
     color: C.purpleDeep,
-    textAlign: "center",
+    letterSpacing: 0.2,
   },
 
   // Account actions
