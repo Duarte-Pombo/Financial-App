@@ -3,6 +3,22 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, TextI
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getDb } from "@/database/db";
+import { EmotionGlyph, emotionColor, hasEmotionGlyph } from "@/components/EmotionGlyph";
+
+// ── Editorial paper palette (matches Log Expense redesign) ──
+const C = {
+  bg: "#F5F1EA",
+  panel: "#FAF6EF",
+  ink: "#1F1B16",
+  inkSoft: "#5E574E",
+  inkMute: "#9C9489",
+  rule: "rgba(31,27,22,0.10)",
+  ruleSoft: "rgba(31,27,22,0.06)",
+  purple: "#9B82C9",
+  purpleDeep: "#7E64B3",
+  blackBtn: "#15110D",
+  green: "#5F7A4F",
+};
 
 export default function EditTransaction() {
   const { id } = useLocalSearchParams();
@@ -27,7 +43,7 @@ export default function EditTransaction() {
     async function fetchTransactionData() {
       try {
         const db = await getDb();
-        
+
         // 1. Fetch all available emotions for the picker
         const emotions = await db.getAllAsync(`SELECT * FROM emotions`);
         setAvailableEmotions(emotions);
@@ -86,11 +102,11 @@ export default function EditTransaction() {
     setIsSaving(true);
     try {
       const db = await getDb();
-      
+
       // 1. Update the main transaction details
       await db.runAsync(
-        `UPDATE transactions 
-         SET amount = ?, merchant_name = ?, location = ?, note = ? 
+        `UPDATE transactions
+         SET amount = ?, merchant_name = ?, location = ?, note = ?
          WHERE id = ?`,
         [parsedAmount, merchant, location, note, id]
       );
@@ -128,134 +144,141 @@ export default function EditTransaction() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#9b72cf" />
+        <ActivityIndicator size="large" color={C.purpleDeep} />
       </View>
     );
   }
 
+  const hasAmount = !!amount && parseFloat(amount.replace(',', '.')) > 0;
+
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
+    <KeyboardAvoidingView
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.iconButton} disabled={isSaving}>
-            <Ionicons name="close" size={24} color="#1a1a1a" />
-          </Pressable>
-          <Text style={styles.headerTitle}>Edit Expense</Text>
-          <View style={{ width: 40 }} />
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.chromeButton} disabled={isSaving}>
+          <Ionicons name="close" size={20} color={C.inkSoft} />
+        </Pressable>
+        <Text style={styles.headerTitle}>edit expense</Text>
+        <View style={{ width: 38 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+
+        {/* Amount Field */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>amount</Text>
+          <View style={styles.amountContainer}>
+            <Text style={styles.currencySymbol}>{currency}</Text>
+            <TextInput
+              style={[styles.amountInput, !hasAmount && styles.amountInputEmpty]}
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="numeric"
+              placeholder="0.00"
+              placeholderTextColor={C.inkMute}
+            />
+          </View>
+          <View style={styles.amountUnderline} />
         </View>
 
-        {/* Form */}
-        <View style={styles.card}>
-          
-          {/* Amount Field */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Amount ({currency})</Text>
-            <View style={styles.amountContainer}>
-              <Text style={styles.currencySymbol}>{currency}</Text>
-              <TextInput
-                style={styles.amountInput}
-                value={amount}
-                onChangeText={setAmount}
-                keyboardType="numeric"
-                placeholder="0.00"
-                placeholderTextColor="#ccc"
-              />
-            </View>
-          </View>
+        {/* Merchant Field */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>merchant / item</Text>
+          <TextInput
+            style={styles.textInput}
+            value={merchant}
+            onChangeText={setMerchant}
+            placeholder="e.g. Nespresso Bar"
+            placeholderTextColor={C.inkMute}
+          />
+          <View style={styles.underline} />
+        </View>
 
-          {/* Merchant Field */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Merchant / Item</Text>
-            <TextInput
-              style={styles.textInput}
-              value={merchant}
-              onChangeText={setMerchant}
-              placeholder="Where did you spend?"
-              placeholderTextColor="#aaa"
-            />
-          </View>
+        {/* Location Field */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>location</Text>
+          <TextInput
+            style={styles.textInput}
+            value={location}
+            onChangeText={setLocation}
+            placeholder="city, store branch, etc."
+            placeholderTextColor={C.inkMute}
+          />
+          <View style={styles.underline} />
+        </View>
 
-          {/* Location Field */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Location</Text>
-            <TextInput
-              style={styles.textInput}
-              value={location}
-              onChangeText={setLocation}
-              placeholder="City, Store branch, etc."
-              placeholderTextColor="#aaa"
-            />
-          </View>
-
-          {/* Emotion Picker */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>How did this make you feel?</Text>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
-              contentContainerStyle={styles.emotionScroll}
-            >
-              {availableEmotions.map((emo) => {
-                const isSelected = selectedEmotionId === emo.id;
-                return (
-                  <Pressable
-                    key={emo.id}
-                    style={[
-                      styles.emotionPill,
-                      isSelected && styles.emotionPillSelected,
-                      isSelected && { backgroundColor: emo.color_hex || "#e0c8f8" }
-                    ]}
-                    onPress={() => setSelectedEmotionId(emo.id)}
-                  >
+        {/* Emotion Picker */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>how did this make you feel?</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.emotionScroll}
+          >
+            {availableEmotions.map((emo) => {
+              const isSelected = selectedEmotionId === emo.id;
+              const lower = (emo.name || "").toLowerCase();
+              const color = emotionColor(lower, emo.color_hex || C.purple);
+              const showGlyph = hasEmotionGlyph(lower);
+              return (
+                <Pressable
+                  key={emo.id}
+                  style={[
+                    styles.emotionPill,
+                    { borderColor: isSelected ? color : "rgba(31,27,22,0.18)" },
+                    isSelected && { backgroundColor: color + "1F" },
+                  ]}
+                  onPress={() => setSelectedEmotionId(emo.id)}
+                >
+                  {showGlyph ? (
+                    <EmotionGlyph emotion={lower} color={isSelected ? color : "#7A7268"} size={17} />
+                  ) : (
                     <Text style={styles.emotionEmoji}>{emo.emoji}</Text>
-                    <Text style={[styles.emotionName, isSelected && styles.emotionNameSelected]}>
-                      {emo.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-
-          {/* Notes Field */}
-          <View style={[styles.inputGroup, { borderBottomWidth: 0 }]}>
-            <Text style={styles.label}>Notes</Text>
-            <TextInput
-              style={[styles.textInput, styles.textArea]}
-              value={note}
-              onChangeText={setNote}
-              placeholder="Add any extra details here..."
-              placeholderTextColor="#aaa"
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-          </View>
-
+                  )}
+                  <Text style={[styles.emotionName, { color: isSelected ? color : C.inkSoft }]}>
+                    {emo.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         </View>
 
-        {/* Save Button */}
-        <Pressable 
-          style={[styles.saveButton, isSaving && { opacity: 0.7 }]} 
+        {/* Notes Field */}
+        <View style={[styles.inputGroup, { borderBottomWidth: 0 }]}>
+          <Text style={styles.label}>notes</Text>
+          <TextInput
+            style={styles.textArea}
+            value={note}
+            onChangeText={setNote}
+            placeholder="add any extra details here…"
+            placeholderTextColor={C.inkMute}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+          />
+        </View>
+
+      </ScrollView>
+
+      {/* Save Button */}
+      <View style={styles.saveWrap}>
+        <Pressable
+          style={[styles.saveButton, isSaving && { opacity: 0.7 }]}
           onPress={handleSave}
           disabled={isSaving}
         >
           {isSaving ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color="#FAF6EF" />
           ) : (
-            <>
-              <Ionicons name="checkmark" size={20} color="#fff" />
-              <Text style={styles.saveButtonText}>Save Changes</Text>
-            </>
+            <Text style={styles.saveButtonText}>save changes</Text>
           )}
         </Pressable>
+      </View>
 
-      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -263,149 +286,151 @@ export default function EditTransaction() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fdf3ff",
+    backgroundColor: C.bg,
   },
   centered: {
     justifyContent: "center",
     alignItems: "center",
   },
   scrollContent: {
-    padding: 20,
-    paddingTop: 60,
-    paddingBottom: 40,
+    paddingHorizontal: 24,
+    paddingTop: 6,
+    paddingBottom: 24,
   },
-  
+
   // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 30,
+    paddingTop: 56,
+    paddingBottom: 8,
+    paddingHorizontal: 24,
   },
-  iconButton: {
-    padding: 8,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 5, elevation: 2,
+  chromeButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: C.rule,
+    backgroundColor: C.panel,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 18,
-    fontFamily: "RobotoSerif_700Bold",
-    color: "#1a1a1a",
+    fontSize: 23,
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    color: C.ink,
+    letterSpacing: -0.3,
   },
 
-  // Form Card
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 30,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 3,
-  },
+  // Form
   inputGroup: {
-    marginBottom: 20,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    marginTop: 22,
   },
   label: {
-    fontSize: 13,
-    fontFamily: "RobotoSerif_500Medium",
-    color: "#888",
-    marginBottom: 12,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+    fontSize: 14,
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    color: C.inkSoft,
+    marginBottom: 8,
   },
 
   // Amount specific
   amountContainer: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "baseline",
   },
   currencySymbol: {
-    fontSize: 32,
-    color: "#1a1a1a",
-    fontFamily: "RobotoSerif_700Bold",
-    marginRight: 8,
+    fontSize: 30,
+    color: C.ink,
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    marginRight: 6,
   },
   amountInput: {
     flex: 1,
-    fontSize: 40,
-    color: "#9b72cf",
-    fontFamily: "RobotoSerif_700Bold",
-    padding: 0, 
+    fontSize: 46,
+    color: C.purpleDeep,
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    padding: 0,
+  },
+  amountInputEmpty: {
+    color: C.inkMute,
+  },
+  amountUnderline: {
+    height: 1.5,
+    backgroundColor: C.ink,
+    marginTop: 8,
   },
 
   // Text Inputs
   textInput: {
-    fontSize: 16,
-    fontFamily: "RobotoSerif_400Regular",
-    color: "#333",
-    backgroundColor: "#fdf3ff",
-    padding: 14,
-    borderRadius: 12,
+    fontSize: 15,
+    fontFamily: "Manrope_400Regular",
+    color: C.ink,
+    paddingVertical: 4,
+    paddingBottom: 8,
+  },
+  underline: {
+    height: 1,
+    backgroundColor: C.rule,
   },
   textArea: {
-    minHeight: 100,
+    minHeight: 88,
+    borderWidth: 1,
+    borderColor: C.rule,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: "Manrope_400Regular",
+    color: C.ink,
   },
 
   // --- Emotion Styles ---
   emotionScroll: {
-    gap: 12,
-    paddingRight: 20,
+    gap: 8,
+    paddingBottom: 4,
+    paddingRight: 12,
   },
   emotionPill: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fdf3ff",
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 24,
+    gap: 7,
+    paddingVertical: 7,
+    paddingLeft: 9,
+    paddingRight: 13,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: "#f0f0f0",
-  },
-  emotionPillSelected: {
-    borderColor: "transparent",
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 2,
   },
   emotionEmoji: {
-    fontSize: 20,
-    marginRight: 8,
+    fontSize: 17,
   },
   emotionName: {
     fontSize: 14,
-    fontFamily: "RobotoSerif_500Medium",
-    color: "#666",
-  },
-  emotionNameSelected: {
-    color: "#1a1a1a",
-    fontFamily: "RobotoSerif_700Bold",
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    textTransform: "capitalize",
   },
 
   // Save Button
+  saveWrap: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === "ios" ? 28 : 16,
+    backgroundColor: C.bg,
+  },
   saveButton: {
-    flexDirection: "row",
-    backgroundColor: "#9b72cf",
+    backgroundColor: C.blackBtn,
     paddingVertical: 16,
-    borderRadius: 16,
+    borderRadius: 4,
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    shadowColor: "#9b72cf",
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
   },
   saveButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontFamily: "RobotoSerif_700Bold",
+    color: "#FAF6EF",
+    fontSize: 13,
+    fontFamily: "Manrope_600SemiBold",
+    letterSpacing: 2,
+    textTransform: "uppercase",
   },
 });

@@ -329,31 +329,25 @@ export default function AddPurchase() {
         </View>
       </KeyboardAvoidingView>
 
-      {/* ── Map Modal (Leaflet + OpenStreetMap, no API key) ── */}
+      {/* ── Map Modal (native Apple Maps on iOS, Leaflet/OSM on Android) ── */}
       <Modal visible={showMap} animationType="slide" presentationStyle="pageSheet"
         onRequestClose={() => setShowMap(false)}>
         <View style={s.mapRoot}>
-          <View style={s.mapHeader}>
-            <Text style={s.mapHeaderTitle}>pin location</Text>
-            <Pressable onPress={() => setShowMap(false)} hitSlop={8} style={s.mapCloseBtn}>
-              <Svg width={22} height={22} viewBox="0 0 24 24">
-                <Path d="M6 6 L18 18 M18 6 L6 18" stroke={C.ink} strokeWidth={1.8} strokeLinecap="round" />
-              </Svg>
-            </Pressable>
-          </View>
-
           {showMap && (
             <LocationPickerMap
-              key={`${mapCenter.latitude.toFixed(4)},${mapCenter.longitude.toFixed(4)}`}
               initial={mapCenter}
               onRegionChange={setMapCenter}
               style={{ flex: 1 }}
             />
           )}
 
-          <View style={s.mapConfirmWrap}>
+          {/* Controls float over the full-screen map. */}
+          <View style={s.mapOverlayControls}>
             <Pressable style={s.mapConfirmBtn} onPress={handleConfirmMapLocation}>
               <Text style={s.ctaText}>confirm location</Text>
+            </Pressable>
+            <Pressable style={s.mapCancelBtn} onPress={() => setShowMap(false)}>
+              <Text style={s.mapCancelBtnText}>cancel</Text>
             </Pressable>
           </View>
         </View>
@@ -498,38 +492,35 @@ const s = StyleSheet.create({
     color: C.inkSoft,
   },
 
-  // Map modal
+  // Map modal — controls float over the full-screen map
   mapRoot: { flex: 1, backgroundColor: C.bg },
-  mapHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingTop: Platform.OS === "ios" ? 18 : 38,
-    paddingBottom: 12,
-    paddingHorizontal: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: C.rule,
-  },
-  mapHeaderTitle: {
-    fontFamily: "PlayfairDisplay_400Regular_Italic",
-    fontSize: 22,
-    color: C.ink,
-    letterSpacing: -0.3,
-  },
-  mapCloseBtn: { padding: 2 },
-  mapConfirmWrap: {
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === "ios" ? 28 : 16,
-    backgroundColor: C.bg,
-    borderTopWidth: 1,
-    borderTopColor: C.rule,
+  mapOverlayControls: {
+    position: "absolute",
+    bottom: Platform.OS === "ios" ? 44 : 28,
+    left: 20,
+    right: 20,
+    gap: 10,
   },
   mapConfirmBtn: {
     backgroundColor: C.blackBtn,
-    paddingVertical: 16,
-    borderRadius: 4,
+    paddingVertical: 18,
+    borderRadius: 16,
     alignItems: "center",
+  },
+  mapCancelBtn: {
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 13,
+    borderRadius: 14,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: C.rule,
+  },
+  mapCancelBtnText: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 13,
+    color: C.inkSoft,
+    letterSpacing: 1,
+    textTransform: "uppercase",
   },
 
   // CTA

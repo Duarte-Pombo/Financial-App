@@ -160,41 +160,46 @@ export default function Settings() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      
-      <Pressable style={styles.backButton} onPress={() => router.back()}>
-        <Ionicons name="arrow-back" size={24} color="#1a1a1a" />
-      </Pressable>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-      <Text style={styles.pageTitle}>Settings</Text>
+      {/* ── Header ── */}
+      <View style={styles.header}>
+        <Pressable style={styles.chromeButton} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={20} color={C.inkSoft} />
+        </Pressable>
+        <Text style={styles.pageTitle}>settings</Text>
+      </View>
 
       {/* ── Preferences (Currency) ── */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Preferences</Text>
-        <Text style={styles.inputLabel}>Currency Symbol</Text>
-        
+        <Text style={styles.inputLabel}>currency symbol</Text>
+
         <View style={styles.currencyRow}>
           {/* Quick Select Buttons */}
-          {["€", "$", "£", "¥"].map((sym) => (
-            <Pressable 
-              key={sym} 
-              style={[styles.currencyBtn, currency === sym && styles.currencyBtnActive]}
-              onPress={() => handleCurrencyChange(sym)}
-            >
-              <Text style={[styles.currencyBtnText, currency === sym && styles.currencyBtnTextActive]}>
-                {sym}
-              </Text>
-            </Pressable>
-          ))}
+          {["€", "$", "£", "¥"].map((sym) => {
+            const active = currency === sym;
+            return (
+              <Pressable
+                key={sym}
+                style={[styles.currencyBtn, active && styles.currencyBtnActive]}
+                onPress={() => handleCurrencyChange(sym)}
+              >
+                <Text style={[styles.currencyBtnText, active && styles.currencyBtnTextActive]}>
+                  {sym}
+                </Text>
+              </Pressable>
+            );
+          })}
           {/* Custom Input for other symbols */}
-          <TextInput 
-            style={styles.currencyInput} 
-            value={currency} 
-            onChangeText={setCurrency} 
+          <TextInput
+            style={styles.currencyInput}
+            value={currency}
+            onChangeText={setCurrency}
             onBlur={() => handleCurrencyChange(currency)} // Auto-save on blur
             maxLength={3}
             placeholder="Other"
-            placeholderTextColor="#ccc"
+            placeholderTextColor={C.inkMute}
           />
         </View>
       </View>
@@ -202,22 +207,24 @@ export default function Settings() {
       {/* ── Edit Profile Info ── */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Account Details</Text>
-        
-        <Text style={styles.inputLabel}>Email</Text>
-        <TextInput 
-          style={styles.input} 
-          value={email} 
-          onChangeText={setEmail} 
-          autoCapitalize="none" 
+
+        <Text style={styles.inputLabel}>email</Text>
+        <TextInput
+          style={styles.input}
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
           keyboardType="email-address"
+          placeholderTextColor={C.inkMute}
         />
 
-        <Text style={styles.inputLabel}>Username</Text>
-        <TextInput 
-          style={styles.input} 
-          value={username} 
-          onChangeText={setUsername} 
+        <Text style={styles.inputLabel}>username</Text>
+        <TextInput
+          style={styles.input}
+          value={username}
+          onChangeText={setUsername}
           autoCapitalize="none"
+          placeholderTextColor={C.inkMute}
         />
 
         <Pressable style={styles.saveButton} onPress={handleUpdateProfile}>
@@ -228,13 +235,28 @@ export default function Settings() {
       {/* ── Change Password ── */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Security</Text>
-        {/* ... (Keep your existing password fields unchanged) ... */}
-        <Text style={styles.inputLabel}>Current Password</Text>
-        <TextInput style={styles.input} secureTextEntry={!showPassword} value={currentPassword} onChangeText={setCurrentPassword} />
-        <Text style={styles.inputLabel}>New Password</Text>
+
+        <Text style={styles.inputLabel}>current password</Text>
+        <TextInput
+          style={styles.input}
+          secureTextEntry={!showPassword}
+          value={currentPassword}
+          onChangeText={setCurrentPassword}
+          placeholder="••••••••"
+          placeholderTextColor={C.inkMute}
+        />
+
+        <Text style={styles.inputLabel}>new password</Text>
         <View style={styles.passwordContainer}>
-          <TextInput style={styles.passwordInput} secureTextEntry={!showPassword} value={newPassword} onChangeText={setNewPassword} />
-          <Pressable onPress={() => setShowPassword(!showPassword)}>
+          <TextInput
+            style={styles.passwordInput}
+            secureTextEntry={!showPassword}
+            value={newPassword}
+            onChangeText={setNewPassword}
+            placeholder="••••••••"
+            placeholderTextColor={C.inkMute}
+          />
+          <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
             <Text style={styles.toggleText}>{showPassword ? "Hide" : "Show"}</Text>
           </Pressable>
         </View>
@@ -244,14 +266,14 @@ export default function Settings() {
       </View>
 
       {/* ── Danger Zone ── */}
-      <View style={[styles.card, { borderColor: "#fdecea", borderWidth: 1 }]}>
-        <Text style={[styles.cardTitle, { color: "#e53935" }]}>Danger Zone</Text>
+      <View style={styles.card}>
+        <Text style={[styles.cardTitle, { color: C.danger }]}>Danger Zone</Text>
         <Pressable style={styles.actionRow} onPress={handleDeleteAccount}>
-          <View style={[styles.actionIcon, { backgroundColor: "#fdecea" }]}>
-            <Ionicons name="trash-outline" size={20} color="#e53935" />
+          <View style={styles.actionIcon}>
+            <Ionicons name="trash-outline" size={17} color={C.danger} />
           </View>
-          <Text style={[styles.actionLabel, { color: "#e53935" }]}>Delete Account</Text>
-          <Ionicons name="chevron-forward" size={18} color="#ccc" />
+          <Text style={styles.actionLabel}>Delete Account</Text>
+          <Ionicons name="chevron-forward" size={16} color={C.inkMute} />
         </Pressable>
       </View>
 
@@ -260,66 +282,194 @@ export default function Settings() {
   );
 }
 
-const styles = StyleSheet.create({
-  // ... (Keep your existing styles) ...
-  container: { flex: 1, backgroundColor: "#fdf3ff" },
-  content: { padding: 20, paddingTop: 60 },
-  backButton: { width: 40, height: 40, backgroundColor: "#fff", borderRadius: 20, alignItems: "center", justifyContent: "center", marginBottom: 20, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 5, elevation: 2, },
-  pageTitle: { fontSize: 28, fontFamily: "RobotoSerif_700Bold", color: "#1a1a1a", marginBottom: 24, },
-  card: { backgroundColor: "#fff", borderRadius: 20, padding: 18, marginBottom: 16, shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 10, elevation: 3, },
-  cardTitle: { fontSize: 16, fontFamily: "RobotoSerif_600SemiBold", color: "#444", marginBottom: 16 },
-  inputLabel: { fontSize: 13, color: "#666", marginBottom: 6, marginLeft: 4, fontFamily: "RobotoSerif_500Medium" },
-  input: { height: 48, width: "100%", marginBottom: 16, borderWidth: 1, borderColor: "#e0e0e0", borderRadius: 12, padding: 12, backgroundColor: "#fafafa" },
-  passwordContainer: { flexDirection: "row", alignItems: "center", width: "100%", marginBottom: 16, borderWidth: 1, borderColor: "#e0e0e0", borderRadius: 12, backgroundColor: "#fafafa", paddingRight: 15 },
-  passwordInput: { flex: 1, height: 48, padding: 12 },
-  toggleText: { color: "#9b72cf", fontWeight: "bold" },
-  saveButton: { height: 44, width: "100%", backgroundColor: "#e0c8f8", borderRadius: 12, justifyContent: "center", alignItems: "center", marginTop: 4 },
-  saveButtonText: { color: "#6b21a8", fontFamily: "RobotoSerif_600SemiBold", fontSize: 15 },
-  actionRow: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 4 },
-  actionIcon: { width: 38, height: 38, borderRadius: 11, alignItems: "center", justifyContent: "center" },
-  actionLabel: { flex: 1, fontSize: 15, fontFamily: "RobotoSerif_500Medium", color: "#333" },
+// ── Editorial paper palette (matches Log Expense redesign) ──
+const C = {
+  bg: "#F5F1EA",
+  panel: "#FAF6EF",
+  ink: "#1F1B16",
+  inkSoft: "#5E574E",
+  inkMute: "#9C9489",
+  rule: "rgba(31,27,22,0.10)",
+  fieldBg: "rgba(31,27,22,0.02)",
+  purpleDeep: "#7E64B3",
+  purpleSoft: "rgba(155,130,201,0.14)",
+  danger: "#C24A3A",
+};
 
-  // ✅ New styles for the currency row
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.bg },
+  content: { paddingHorizontal: 20, paddingTop: 56, paddingBottom: 24 },
+
+  // Header
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 16,
+  },
+  chromeButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: C.rule,
+    backgroundColor: C.panel,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pageTitle: {
+    fontSize: 26,
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    color: C.ink,
+    letterSpacing: -0.3,
+  },
+
+  // Cards
+  card: {
+    backgroundColor: C.panel,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: C.rule,
+    paddingHorizontal: 16,
+    paddingTop: 13,
+    paddingBottom: 14,
+    marginBottom: 11,
+  },
+  cardTitle: {
+    fontSize: 17,
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    color: C.ink,
+    letterSpacing: -0.2,
+    marginBottom: 12,
+  },
+  inputLabel: {
+    fontSize: 14,
+    color: C.inkSoft,
+    marginBottom: 4,
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+  },
+
+  // Inputs
+  input: {
+    width: "100%",
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: C.rule,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    backgroundColor: C.fieldBg,
+    fontSize: 15,
+    fontFamily: "Manrope_400Regular",
+    color: C.ink,
+  },
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: C.rule,
+    borderRadius: 12,
+    backgroundColor: C.fieldBg,
+    paddingRight: 12,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    fontSize: 15,
+    fontFamily: "Manrope_400Regular",
+    color: C.ink,
+  },
+  toggleText: {
+    color: C.purpleDeep,
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 13,
+  },
+
+  // Soft button
+  saveButton: {
+    width: "100%",
+    paddingVertical: 11,
+    backgroundColor: C.purpleSoft,
+    borderWidth: 1,
+    borderColor: "rgba(126,100,179,0.26)",
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  saveButtonText: {
+    color: C.purpleDeep,
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    fontSize: 15.5,
+  },
+
+  // Danger zone row
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingVertical: 2,
+  },
+  actionIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(194,74,58,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(194,74,58,0.22)",
+  },
+  actionLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: "Manrope_600SemiBold",
+    color: C.danger,
+  },
+
+  // Currency row
   currencyRow: {
     flexDirection: "row",
     gap: 8,
-    marginBottom: 8,
-    alignItems: "center"
+    alignItems: "center",
   },
   currencyBtn: {
-    width: 48,
-    height: 48,
+    flex: 1,
+    height: 44,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
-    backgroundColor: "#fafafa",
+    borderColor: C.rule,
+    backgroundColor: C.fieldBg,
     alignItems: "center",
     justifyContent: "center",
   },
   currencyBtnActive: {
-    backgroundColor: "#e0c8f8",
-    borderColor: "#9b72cf",
+    backgroundColor: C.purpleSoft,
+    borderColor: "rgba(126,100,179,0.5)",
   },
   currencyBtnText: {
-    fontSize: 18,
-    color: "#666",
-    fontFamily: "RobotoSerif_500Medium",
+    fontSize: 19,
+    color: C.inkSoft,
+    fontFamily: "PlayfairDisplay_400Regular",
   },
   currencyBtnTextActive: {
-    color: "#6b21a8",
-    fontFamily: "RobotoSerif_700Bold",
+    color: C.purpleDeep,
+    fontFamily: "PlayfairDisplay_700Bold",
   },
   currencyInput: {
     flex: 1,
-    height: 48,
+    height: 44,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: C.rule,
     borderRadius: 12,
-    padding: 12,
-    backgroundColor: "#fafafa",
+    paddingHorizontal: 8,
+    backgroundColor: C.fieldBg,
     textAlign: "center",
-    fontSize: 18,
-    fontFamily: "RobotoSerif_500Medium",
-    color: "#333"
-  }
+    fontSize: 17,
+    fontFamily: "PlayfairDisplay_400Regular",
+    color: C.ink,
+  },
 });

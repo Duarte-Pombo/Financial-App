@@ -1,5 +1,16 @@
 import React, { useMemo, useRef } from "react";
+import { Platform, View } from "react-native";
 import { WebView } from "react-native-webview";
+import Svg, { Path, Circle } from "react-native-svg";
+
+// Native map (Apple Maps) is only loaded on iOS, where react-native-maps works
+// in Expo Go without any API key. On Android we keep the keyless Leaflet/OSM
+// WebView so the build doesn't need a Google Maps key.
+let MapView: any = null;
+if (Platform.OS === "ios") {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  MapView = require("react-native-maps").default;
+}
 
 export type LatLng = { latitude: number; longitude: number };
 
@@ -12,15 +23,69 @@ type Props = {
 };
 
 /**
- * Free, no-API-key map using OpenStreetMap raster tiles rendered with Leaflet
- * inside a WebView. Mirrors the old `react-native-maps` behaviour: the user
- * drags the map under a fixed center pin; the center coordinate is what gets
- * reverse-geocoded on confirm.
+ * Location picker map. The user drags the map under a fixed center pin; the
+ * center coordinate is what gets reverse-geocoded on confirm.
  *
- * Tile usage follows the OSM tile policy — fine for low volume / prototype.
- * For production scale, swap the tile URL for a hosted/keyed provider.
+ * - iOS  → native `react-native-maps` (Apple Maps), no API key needed.
+ * - else → OpenStreetMap raster tiles via Leaflet in a WebView (no API key).
  */
 export default function LocationPickerMap({ initial, onRegionChange, style }: Props) {
+  if (Platform.OS === "ios" && MapView) {
+    return (
+      <View style={[{ overflow: "hidden" }, style]}>
+        <MapView
+          style={{ flex: 1 }}
+          initialRegion={{
+            latitude: initial.latitude,
+            longitude: initial.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          }}
+          onRegionChangeComplete={(r: LatLng) =>
+            onRegionChange?.({ latitude: r.latitude, longitude: r.longitude })
+          }
+          showsUserLocation
+          showsMyLocationButton={false}
+        />
+        {/* Fixed center pin overlaid on the map — its tip points to the center. */}
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <View style={{ transform: [{ translateY: -16 }] }}>
+            <Svg width={32} height={32} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M12 2 C7 2 4 6 4 10 C4 16 12 22 12 22 C12 22 20 16 20 10 C20 6 17 2 12 2 Z"
+                fill="#ff4444"
+                stroke="#ffffff"
+                strokeWidth={1.5}
+              />
+              <Circle cx={12} cy={10} r={3} fill="#ffffff" />
+            </Svg>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  return <LeafletMap initial={initial} onRegionChange={onRegionChange} style={style} />;
+}
+
+/**
+ * Free, no-API-key map using OpenStreetMap raster tiles rendered with Leaflet
+ * inside a WebView. Tile usage follows the OSM tile policy — fine for low
+ * volume / prototype. For production scale, swap the tile URL for a hosted
+ * provider.
+ */
+function LeafletMap({ initial, onRegionChange, style }: Props) {
   const webRef = useRef<WebView>(null);
 
   // Build the HTML once from the initial coords; later moves come from the user.
