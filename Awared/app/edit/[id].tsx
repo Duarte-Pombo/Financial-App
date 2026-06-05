@@ -2,7 +2,9 @@ import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, TextInput, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { getDb } from "@/database/db";
+import { getTransactionById, updateTransaction, updateTransactionEmotion } from "@/database/transactions";
+import { getEmotions } from "@/database/emotions";
+import { getUserProfile } from "@/database/users";
 import { EmotionGlyph, emotionColor, hasEmotionGlyph } from "@/components/EmotionGlyph";
 
 // ── Editorial paper palette (matches Log Expense redesign) ──
@@ -37,50 +39,39 @@ export default function EditTransaction() {
   // Emotion States
   const [availableEmotions, setAvailableEmotions] = useState<any[]>([]);
   const [selectedEmotionId, setSelectedEmotionId] = useState<number | null>(null);
-  const [emotionLogId, setEmotionLogId] = useState<number | null>(null);
 
   useEffect(() => {
     async function fetchTransactionData() {
       try {
-        const db = await getDb();
-
-        // 1. Fetch all available emotions for the picker
-        const emotions = await db.getAllAsync(`SELECT * FROM emotions`);
+        // 1. Fetch all available emotions for the picker (API)
+        const emotions = await getEmotions();
         setAvailableEmotions(emotions);
 
-        // 2. Fetch the transaction details
-        const tx = await db.getFirstAsync<any>(
-          `SELECT * FROM transactions WHERE id = ?`,
-          [id]
-        );
+        // 2. Fetch the transaction details (API)
+        const tx = await getTransactionById(id as string);
 
         if (tx) {
           setAmount(tx.amount ? tx.amount.toString() : "");
           setMerchant(tx.merchant_name || "");
           setLocation(tx.location || "");
           setNote(tx.note || "");
-          setEmotionLogId(tx.emotion_log_id);
 
-          // 3. If the transaction has an emotion log, fetch its current emotion
-          if (tx.emotion_log_id) {
-            const log = await db.getFirstAsync<any>(
-              `SELECT emotion_id FROM emotion_logs WHERE id = ?`,
-              [tx.emotion_log_id]
+          // 3. Pre-select current emotion from joined data
+          if (tx.emotion_name) {
+            const matchedEmo = emotions.find((e: any) =>
+              e.name.toLowerCase() === tx.emotion_name?.toLowerCase()
             );
-            if (log) setSelectedEmotionId(log.emotion_id);
+            if (matchedEmo) setSelectedEmotionId(matchedEmo.id);
           }
         }
 
+        // 4. Fetch user currency (API)
         if (global.userID) {
-           const user = await db.getFirstAsync<{ currency_code: string }>(
-             `SELECT currency_code FROM users WHERE id = ?`,
-             [global.userID]
-           );
-           if (user && user.currency_code) {
-             setCurrency(user.currency_code);
-           }
+          const user = await getUserProfile(global.userID);
+          if (user && user.currency_code) {
+            setCurrency(user.currency_code);
+          }
         }
-
       } catch (error) {
         console.error("Failed to load transaction for editing:", error);
         Alert.alert("Error", "Could not load transaction data.");
@@ -101,35 +92,17 @@ export default function EditTransaction() {
 
     setIsSaving(true);
     try {
-      const db = await getDb();
+      // 1. Update the main transaction details (API)
+      await updateTransaction(id as string, {
+        amount: parsedAmount,
+        merchant_name: merchant,
+        location,
+        note,
+      });
 
-      // 1. Update the main transaction details
-      await db.runAsync(
-        `UPDATE transactions
-         SET amount = ?, merchant_name = ?, location = ?, note = ?
-         WHERE id = ?`,
-        [parsedAmount, merchant, location, note, id]
-      );
-
-      // 2. Update the emotion log if an emotion is selected
+      // 2. Update the emotion if changed (API)
       if (selectedEmotionId) {
-        if (emotionLogId) {
-          // Update existing log
-          await db.runAsync(
-            `UPDATE emotion_logs SET emotion_id = ? WHERE id = ?`,
-            [selectedEmotionId, emotionLogId]
-          );
-        } else {
-          // Edge case: if it didn't have an emotion log before, create one and link it
-          const result = await db.runAsync(
-            `INSERT INTO emotion_logs (emotion_id) VALUES (?)`,
-            [selectedEmotionId]
-          );
-          await db.runAsync(
-            `UPDATE transactions SET emotion_log_id = ? WHERE id = ?`,
-            [result.lastInsertRowId, id]
-          );
-        }
+        await updateTransactionEmotion(id as string, selectedEmotionId);
       }
 
       router.back();

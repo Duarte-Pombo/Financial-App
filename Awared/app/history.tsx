@@ -2,7 +2,8 @@ import React, { useState, useCallback } from "react";
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, FlatList } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { getDb } from "@/database/db";
+import { getTransactions } from "@/database/transactions";
+import { getUserProfile } from "@/database/users";
 
 export default function History() {
   const router = useRouter();
@@ -13,27 +14,34 @@ export default function History() {
   const getHistory = useCallback(async () => {
     setIsLoading(true);
     try {
-      const db = await getDb();
       const userID = global.userID;
+      if (!userID) {
+        setIsLoading(false);
+        return;
+      }
 
-      const user = await db.getFirstAsync<{ currency_code: string }>(
-        `SELECT currency_code FROM users WHERE id = ?`,
-        [userID]
-      );
+      // Fetch user currency + transactions in parallel
+      const [user, transactions] = await Promise.all([
+        getUserProfile(userID),
+        getTransactions(userID),
+      ]);
+
       if (user && user.currency_code) {
         setUserCurrency(user.currency_code);
       }
-      
-      // Added t.type to the SELECT statement
-      const transactions = await db.getAllAsync(
-        `SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.transacted_at, t.type, e.emoji 
-         FROM transactions as t
-         JOIN emotion_logs l ON t.emotion_log_id = l.id
-         JOIN emotions e on l.emotion_id = e.id
-         WHERE t.user_id = ? ORDER BY t.transacted_at DESC`,
-        [userID]
-      );
-      setHistory(transactions);
+
+      // Map API response to the shape the list expects
+      const mapped = transactions.map((t) => ({
+        id: t.id,
+        amount: t.amount,
+        merchant_name: t.merchant_name,
+        currency_code: t.currency_code,
+        transacted_at: t.transacted_at,
+        type: t.type,
+        emoji: t.emotion_emoji,
+      }));
+
+      setHistory(mapped);
     } catch (error) {
       console.error("Failed to fetch history:", error);
     } finally {
@@ -52,9 +60,9 @@ export default function History() {
     const isRefunded = item.type === "refunded";
 
     return (
-      <Pressable 
+      <Pressable
         style={({ pressed }) => [
-          styles.transactionRow, 
+          styles.transactionRow,
           isLastItem && { borderBottomWidth: 0 },
           pressed && { opacity: 0.6 }
         ]}
@@ -63,7 +71,7 @@ export default function History() {
         <View style={[styles.emojiCircle, isRefunded && { backgroundColor: "#f0f0f0" }]}>
           <Text style={[styles.emojiSize, isRefunded && { opacity: 0.5 }]}>{item.emoji}</Text>
         </View>
-        
+
         <View style={styles.transactionDetails}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text style={[styles.merchantName, isRefunded && styles.strikethrough]}>
@@ -76,12 +84,12 @@ export default function History() {
             )}
           </View>
           <Text style={styles.transactionDate}>
-            {new Date(item.transacted_at).toLocaleDateString([], { 
-              year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+            {new Date(item.transacted_at).toLocaleDateString([], {
+              year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
             })}
           </Text>
         </View>
-        
+
         <Text style={[styles.transactionAmount, isRefunded && styles.strikethroughAmount]}>
           {item.amount} {userCurrency}
         </Text>
@@ -130,15 +138,15 @@ export default function History() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
+  container: {
+    flex: 1,
     backgroundColor: "#fdf3ff",
   },
   centered: {
     justifyContent: "center",
     alignItems: "center",
   },
-  
+
   // Header
   header: {
     flexDirection: "row",
@@ -162,26 +170,26 @@ const styles = StyleSheet.create({
 
   // Card & List Styles
   card: {
-    flex: 1, 
+    flex: 1,
     backgroundColor: "#fff",
     borderRadius: 20,
     padding: 16,
     marginBottom: 40,
-    shadowColor: "#000", 
-    shadowOpacity: 0.06, 
-    shadowRadius: 10, 
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
     elevation: 3,
   },
-  emptyState: { 
-    alignItems: "center", 
+  emptyState: {
+    alignItems: "center",
     justifyContent: "center",
     flex: 1,
-    paddingVertical: 30 
+    paddingVertical: 30
   },
-  emptyStateText: { 
-    color: "#888", 
-    fontFamily: "RobotoSerif_400Regular", 
-    fontSize: 15 
+  emptyStateText: {
+    color: "#888",
+    fontFamily: "RobotoSerif_400Regular",
+    fontSize: 15
   },
 
   // Transaction Rows
@@ -200,7 +208,7 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   emojiSize: { fontSize: 22 },
-  
+
   transactionDetails: { flex: 1, justifyContent: "center" },
   merchantName: { fontSize: 16, fontFamily: "RobotoSerif_600SemiBold", color: "#333", marginBottom: 4 },
   transactionDate: { fontSize: 12, fontFamily: "RobotoSerif_400Regular", color: "#888" },

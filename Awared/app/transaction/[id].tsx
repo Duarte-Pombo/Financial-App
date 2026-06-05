@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { getDb } from "@/database/db";
+import { getTransactionById, deleteTransaction, updateTransaction } from "@/database/transactions";
+import { getUserProfile } from "@/database/users";
 import { EmotionGlyph, emotionColor, hasEmotionGlyph } from "@/components/EmotionGlyph";
 
 // ── Editorial paper palette (matches Log Expense redesign) ──
@@ -43,36 +44,26 @@ export default function TransactionDetails() {
   useEffect(() => {
     async function fetchDetails() {
       try {
-        const db = await getDb();
-
-        // 1. Get the main transaction details
-        const tx = await db.getFirstAsync(
-          `SELECT * FROM transactions WHERE id = ?`,
-          [id]
-        );
+        // 1. Get the main transaction details (API, with joined emotion/category data)
+        const tx = await getTransactionById(id as string);
         setTransaction(tx);
 
-        // 2. Get the associated emotions
-        if (tx && tx.emotion_log_id) {
-          const emos = await db.getAllAsync(
-            `SELECT e.* FROM emotions e
-             JOIN emotion_logs l ON e.id = l.emotion_id
-             WHERE l.id = ?`,
-            [tx.emotion_log_id]
-          );
-          setEmotions(emos);
+        // 2. Build emotions array from joined fields
+        if (tx && tx.emotion_name) {
+          setEmotions([{
+            name: tx.emotion_name,
+            emoji: tx.emotion_emoji,
+            color_hex: tx.emotion_color,
+          }]);
         }
 
+        // 3. Get user currency
         if (global.userID) {
-          const user = await db.getFirstAsync<{ currency_code: string }>(
-            `SELECT currency_code FROM users WHERE id = ?`,
-            [global.userID]
-          );
+          const user = await getUserProfile(global.userID);
           if (user && user.currency_code) {
             setUserCurrency(user.currency_code);
           }
         }
-
       } catch (error) {
         console.error("Failed to load transaction details:", error);
       } finally {
@@ -95,9 +86,8 @@ export default function TransactionDetails() {
           style: "destructive",
           onPress: async () => {
             try {
-              const db = await getDb();
-              await db.runAsync(`DELETE FROM transactions WHERE id = ?`, [id]);
-              router.back(); // Go back to Home/History after deleting
+              await deleteTransaction(id as string);
+              router.back();
             } catch (e) {
               Alert.alert("Error", "Could not delete transaction.");
             }
@@ -113,7 +103,6 @@ export default function TransactionDetails() {
     const diffTime = Math.abs(now.getTime() - txDate.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    // 2. Check the 30-day constraint before doing anything
     if (diffDays > 30) {
       Alert.alert(
         "Refund Unavailable",
@@ -131,9 +120,7 @@ export default function TransactionDetails() {
           text: "Confirm",
           onPress: async () => {
             try {
-              const db = await getDb();
-              // Updating the type to 'refunded' (or you could add an is_refunded boolean to your schema)
-              await db.runAsync(`UPDATE transactions SET type = 'refunded' WHERE id = ?`, [id]);
+              await updateTransaction(id as string, { type: "refunded" });
               setTransaction({ ...transaction, type: 'refunded' });
               Alert.alert("Success", "Expense has been marked as refunded.");
             } catch (e) {
@@ -167,13 +154,11 @@ export default function TransactionDetails() {
   const txDate = new Date(transaction.transacted_at);
   const isRefunded = transaction.type === "refunded";
 
-  // Check if less than 60 days have passed (BR05)
   const now = new Date();
   const diffTime = Math.abs(now.getTime() - txDate.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   const canRefund = diffDays <= 60 && !isRefunded;
 
-  // Hero price — split integer / decimal so the cents sit in a softer ink
   const [intPart, decPart] = String(transaction.amount).split(".");
 
   const dateTimeLabel = `${txDate.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })} at ${txDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
@@ -274,14 +259,13 @@ export default function TransactionDetails() {
 
       {/* --- Action Buttons --- */}
       <View style={styles.actionsContainer}>
-        {/* Only show Refund button if applicable */}
         {canRefund ? (
           <Pressable style={styles.actionButton} onPress={handleRefund}>
             <Ionicons name="arrow-undo-outline" size={18} color={C.ink} />
             <Text style={styles.actionButtonText}>Mark as Refunded</Text>
           </Pressable>
         ) : !isRefunded && (
-           <Text style={styles.expiredText}>Past 30-day refund window</Text>
+          <Text style={styles.expiredText}>Past 30-day refund window</Text>
         )}
 
         <Pressable style={[styles.actionButton, styles.deleteButton]} onPress={handleDelete}>

@@ -4,7 +4,7 @@ import { Text } from "@/components/Text";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { router } from "expo-router";
-import { getDb } from "@/database/db";
+import { getUserProfile, updateUserProfile, changeUserPassword, deleteUserAccount } from "@/database/users";
 
 export default function Settings() {
   const navigation = useNavigation();
@@ -23,16 +23,11 @@ export default function Settings() {
   useEffect(() => {
     async function loadUserData() {
       try {
-        const db = await getDb();
-        // ✅ Now fetching currency_code as well
-        const user = await db.getFirstAsync<{ email: string; username: string; currency_code: string }>(
-          "SELECT email, username, currency_code FROM users WHERE id = ?",
-          [global.userID]
-        );
+        const user = await getUserProfile(global.userID);
         if (user) {
           setEmail(user.email);
           setUsername(user.username);
-          setCurrency(user.currency_code || "€"); // Fallback to € just in case
+          setCurrency(user.currency_code || "€");
         }
       } catch (error) {
         console.error("Failed to load user data:", error);
@@ -48,16 +43,15 @@ export default function Settings() {
     }
 
     try {
-      const db = await getDb();
-      // ✅ Now saving the currency code to the database
-      await db.runAsync(
-        "UPDATE users SET email = ?, username = ?, currency_code = ? WHERE id = ?",
-        [email.trim(), username.trim(), currency.trim(), global.userID]
-      );
+      await updateUserProfile(global.userID, {
+        email: email.trim(),
+        username: username.trim(),
+        currency_code: currency.trim(),
+      });
       Alert.alert("Success", "Your profile has been updated!");
     } catch (error: any) {
       console.error(error);
-      if (error.message?.includes("UNIQUE constraint failed")) {
+      if (error.message?.includes("409") || error.message?.includes("already taken")) {
         Alert.alert("Error", "That email or username is already taken by another account.");
       } else {
         Alert.alert("Error", "Failed to update profile.");
@@ -66,14 +60,9 @@ export default function Settings() {
   }
 
   async function handleCurrencyChange(newSymbol: string) {
-    setCurrency(newSymbol); // Update UI instantly
-    
+    setCurrency(newSymbol);
     try {
-      const db = await getDb();
-      await db.runAsync(
-        "UPDATE users SET currency_code = ? WHERE id = ?",
-        [newSymbol.trim(), global.userID]
-      );
+      await updateUserProfile(global.userID, { currency_code: newSymbol.trim() });
     } catch (error) {
       console.error("Failed to auto-save currency:", error);
     }
@@ -91,7 +80,6 @@ export default function Settings() {
   };
 
   async function handleUpdatePassword() {
-    // ... (Keep your existing password logic unchanged)
     if (!currentPassword || !newPassword) {
       Alert.alert("Error", "Please fill in both the current and new password.");
       return;
@@ -104,37 +92,22 @@ export default function Settings() {
     }
 
     try {
-      const db = await getDb();
-      const hashOld = btoa(currentPassword);
-      
-      const user = await db.getFirstAsync(
-        "SELECT id FROM users WHERE id = ? AND password_hash = ?",
-        [global.userID, hashOld]
-      );
-
-      if (!user) {
-        Alert.alert("Error", "Your current password is incorrect.");
-        return;
-      }
-
-      const hashNew = btoa(newPassword);
-      await db.runAsync(
-        "UPDATE users SET password_hash = ? WHERE id = ?",
-        [hashNew, global.userID]
-      );
-
+      await changeUserPassword(global.userID, currentPassword, newPassword);
       Alert.alert("Success", "Your password has been changed securely!");
       setCurrentPassword("");
       setNewPassword("");
       setShowPassword(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to update password:", error);
-      Alert.alert("Error", "Something went wrong while updating your password.");
+      if (error.message?.includes("401") || error.message?.includes("incorrect")) {
+        Alert.alert("Error", "Your current password is incorrect.");
+      } else {
+        Alert.alert("Error", "Something went wrong while updating your password.");
+      }
     }
   }
 
   async function handleDeleteAccount() {
-    // ... (Keep your existing delete logic unchanged)
     Alert.alert(
       "Delete Account",
       "Are you absolutely sure? This will permanently delete your account and all associated data. This action cannot be undone.",
@@ -145,8 +118,7 @@ export default function Settings() {
           style: "destructive",
           onPress: async () => {
             try {
-              const db = await getDb();
-              await db.runAsync("DELETE FROM users WHERE id = ?", [global.userID]);
+              await deleteUserAccount(global.userID);
               global.userID = undefined;
               navigation.getParent()?.reset({ index: 0, routes: [{ name: "index" }] });
             } catch (error) {
@@ -176,7 +148,6 @@ export default function Settings() {
         <Text style={styles.inputLabel}>currency symbol</Text>
 
         <View style={styles.currencyRow}>
-          {/* Quick Select Buttons */}
           {["€", "$", "£", "¥"].map((sym) => {
             const active = currency === sym;
             return (
@@ -191,12 +162,11 @@ export default function Settings() {
               </Pressable>
             );
           })}
-          {/* Custom Input for other symbols */}
           <TextInput
             style={styles.currencyInput}
             value={currency}
             onChangeText={setCurrency}
-            onBlur={() => handleCurrencyChange(currency)} // Auto-save on blur
+            onBlur={() => handleCurrencyChange(currency)}
             maxLength={3}
             placeholder="Other"
             placeholderTextColor={C.inkMute}

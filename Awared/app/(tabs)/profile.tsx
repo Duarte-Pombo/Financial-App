@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -17,16 +17,9 @@ import {
 } from "@/components/EmotionGlyph";
 import * as ImagePicker from "expo-image-picker";
 import { useNavigation } from "@react-navigation/native";
-import { getDb } from "@/database/db";
+import { getUserStats, updateUserAvatar } from "@/database/users";
+import { runAchievementEngine, loadAchievements, AchievementWithStatus } from "@/database/achievements";
 import { router, useFocusEffect } from "expo-router";
-
-// 🚨 UPDATE THIS IMPORT TO MATCH YOUR ACTUAL PROJECT PATH
-import { 
-  runAchievementEngine, 
-  loadAchievements, 
-  AchievementWithStatus, 
-  ACHIEVEMENT_DEFS 
-} from "@/database/achievementEngine"; 
 
 // ─── Editorial paper palette ──────────────────────────────────────────────────
 const C = {
@@ -53,7 +46,7 @@ const FONT = {
 
 type ProfileStats = {
   username: string;
-  avatarUri: string | null;
+  avatar_url: string | null;
   totalPurchases: number;
   topEmotionName: string | null;
   topEmotionEmoji: string | null;
@@ -85,50 +78,6 @@ function formatMemberSince(iso: string | null | undefined): string | null {
   if (isNaN(d.getTime())) return null;
   const mon = d.toLocaleString("en-US", { month: "short" }).toLowerCase();
   return `member since · ${mon} ${d.getFullYear()}`;
-}
-
-async function loadProfileStats(userId: string | number): Promise<ProfileStats> {
-  const db = await getDb();
-
-  const user = await db.getFirstAsync<{
-    username: string;
-    avatar_url: string | null;
-    created_at: string | null;
-  }>(
-    "SELECT username, avatar_url, created_at FROM users WHERE id = ?",
-    [userId]
-  );
-
-  const countRow = await db.getFirstAsync<{ count: number }>(
-    "SELECT COUNT(*) as count FROM transactions WHERE user_id = ?",
-    [userId]
-  );
-
-  const topEmotion = await db.getFirstAsync<{ name: string; emoji: string; color_hex: string }>(
-    `SELECT e.name, e.emoji, e.color_hex
-     FROM emotion_logs el
-     JOIN emotions e ON e.id = el.emotion_id
-     WHERE el.user_id = ?
-     GROUP BY el.emotion_id
-     ORDER BY COUNT(*) DESC
-     LIMIT 1`,
-    [userId]
-  );
-
-  return {
-    username: user?.username ?? "User",
-    avatarUri: user?.avatar_url ?? null,
-    totalPurchases: countRow?.count ?? 0,
-    topEmotionName: topEmotion?.name ?? null,
-    topEmotionEmoji: topEmotion?.emoji ?? null,
-    topEmotionColor: topEmotion?.color_hex ?? null,
-    memberSince: formatMemberSince(user?.created_at),
-  };
-}
-
-async function saveAvatarUri(userId: string | number, uri: string) {
-  const db = await getDb();
-  await db.runAsync("UPDATE users SET avatar_url = ? WHERE id = ?", [uri, userId]);
 }
 
 // ─── Line-art Icons ───────────────────────────────────────────────────────────
@@ -228,7 +177,6 @@ function ActionRow({
 }
 
 function AchievementCard({ item, last }: { item: AchievementWithStatus; last: boolean }) {
-  // Gracefully handle undefined target/progress depending on your type definition
   const target = (item as any).target ?? 1;
   const progress = (item as any).progress ?? 0;
   const progressPercent = Math.min(100, Math.round((progress / target) * 100)) || 0;
@@ -243,7 +191,7 @@ function AchievementCard({ item, last }: { item: AchievementWithStatus; last: bo
       >
         {item.unlocked ? <CheckIcon /> : <LockIcon />}
       </View>
-      
+
       <View style={styles.achieveBody}>
         <Text style={[styles.achieveTitle, !item.unlocked && { color: C.inkSoft }]}>
           {item.title}
@@ -271,20 +219,33 @@ export default function Profile() {
   const [achievementsExpanded, setAchievementsExpanded] = useState(false);
 
   const load = useCallback(async () => {
-    // Load top stats
-    const data = await loadProfileStats(global.userID);
-    setStats(data);
+    try {
+      // Load stats via API
+      const statsData = await getUserStats(global.userID);
+      if (statsData) {
+        setStats({
+          username: statsData.username,
+          avatarUri: statsData.avatar_url,
+          totalPurchases: statsData.totalPurchases,
+          topEmotionName: statsData.topEmotionName,
+          topEmotionEmoji: statsData.topEmotionEmoji,
+          topEmotionColor: statsData.topEmotionColor,
+          memberSince: formatMemberSince(statsData.created_at),
+        });
+      }
 
-    // Run engine (unlocks newly earned), then load display state
-    await runAchievementEngine(global.userID);
-    const all = await loadAchievements(global.userID);
-    
-    // Sort: unlocked first, then locked
-    const sorted = [
-      ...all.filter((a) => a.unlocked),
-      ...all.filter((a) => !a.unlocked),
-    ];
-    setAchievements(sorted);
+      // Run achievement engine + load via API
+      const { achievements: all } = await runAchievementEngine(global.userID);
+
+      // Sort: unlocked first, then locked
+      const sorted = [
+        ...all.filter((a) => a.unlocked),
+        ...all.filter((a) => !a.unlocked),
+      ];
+      setAchievements(sorted);
+    } catch (err) {
+      console.error("Profile load error:", err);
+    }
   }, []);
 
   useFocusEffect(
@@ -307,8 +268,13 @@ export default function Profile() {
     });
     if (!result.canceled && result.assets[0]) {
       const uri = result.assets[0].uri;
-      await saveAvatarUri(global.userID, uri);
-      setStats((prev) => prev ? { ...prev, avatarUri: uri } : prev);
+      try {
+        await updateUserAvatar(global.userID, uri);
+        setStats((prev) => prev ? { ...prev, avatarUri: uri } : prev);
+      } catch (err) {
+        console.error("Failed to save avatar:", err);
+        Alert.alert("Error", "Could not save profile picture.");
+      }
     }
   }
 
@@ -346,12 +312,12 @@ export default function Profile() {
   const animatedCount = Math.round(useCountUp(stats?.totalPurchases ?? 0));
 
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
-  const totalCount = ACHIEVEMENT_DEFS?.length ?? achievements.length;
+  const totalCount = achievements.length;
   const visibleAchievements = achievementsExpanded ? achievements : achievements.slice(0, 4);
 
   return (
-    <ScrollView 
-      style={styles.container} 
+    <ScrollView
+      style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
@@ -452,10 +418,10 @@ export default function Profile() {
 
         <View style={styles.achieveList}>
           {visibleAchievements.map((item, i) => (
-            <AchievementCard 
-              key={item.id} 
-              item={item} 
-              last={i === visibleAchievements.length - 1 && achievementsExpanded} 
+            <AchievementCard
+              key={item.id}
+              item={item}
+              last={i === visibleAchievements.length - 1 && achievementsExpanded}
             />
           ))}
         </View>

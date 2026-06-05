@@ -5,8 +5,9 @@ import {
 } from "react-native";
 import { useState, useCallback, useEffect } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
-import { getDb } from "../../database/db";
 import { insertTransaction } from "../../database/transactions";
+import { getEmotions } from "../../database/emotions";
+import { getUserProfile } from "../../database/users";
 import * as Location from "expo-location";
 import React from "react";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
@@ -62,25 +63,24 @@ export default function AddPurchase() {
   const [showMap, setShowMap] = useState(false);
   const [mapCenter, setMapCenter] = useState<LatLng>(PORTO);
 
+  // ── Load emotions from API ─────────────────────────────────────────────────
   useEffect(() => {
-    getDb()
-      .then(db => db.getAllAsync<Emotion>("SELECT id, name, emoji, color_hex FROM emotions ORDER BY id ASC;"))
+    getEmotions()
       .then(setEmotions)
-      .catch(console.error);
+      .catch((err) => {
+        console.error("Failed to load emotions:", err);
+      });
   }, []);
 
   useFocusEffect(useCallback(() => {
     setRawDigits(""); setItem(""); setLocation("");
     setSelectedEmotionIds([]); setSaving(false); setDate(new Date()); setEditingField(null);
 
+    // ── Load user currency from API ──────────────────────────────────────────
     async function fetchCurrency() {
       if (!global.userID) return;
       try {
-        const db = await getDb();
-        const user = await db.getFirstAsync<{ currency_code: string }>(
-          "SELECT currency_code FROM users WHERE id = ?",
-          [global.userID]
-        );
+        const user = await getUserProfile(global.userID);
         if (user && user.currency_code) {
           setUserCurrency(user.currency_code);
         }
@@ -158,7 +158,7 @@ export default function AddPurchase() {
         transacted_at: date.toISOString(),
       });
 
-      router.navigate({ pathname: "/", params: { added: "true", timestamp: Date.now()} });
+      router.navigate({ pathname: "/", params: { added: "true", timestamp: Date.now() } });
 
     } catch (e) {
       console.error(e);
@@ -230,8 +230,10 @@ export default function AddPurchase() {
                   >
                     <View style={[
                       s.emotionCircle,
-                      { borderColor: ringColor, backgroundColor: isSel ? color + "22" : "transparent",
-                        borderWidth: isSel ? 1.5 : 1.2 },
+                      {
+                        borderColor: ringColor, backgroundColor: isSel ? color + "22" : "transparent",
+                        borderWidth: isSel ? 1.5 : 1.2
+                      },
                     ]}>
                       <EmotionGlyph emotion={lower} color={isSel ? color : "#7A7268"} size={22} />
                     </View>

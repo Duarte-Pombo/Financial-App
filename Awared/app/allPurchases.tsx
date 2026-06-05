@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import Svg, { Path } from "react-native-svg";
-import { getDb } from "@/database/db";
+import { getTransactions } from "@/database/transactions";
 import { emotionColor } from "../components/EmotionGlyph";
 
 const C = {
@@ -87,22 +87,27 @@ export default function AllPurchases() {
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const db = await getDb();
       const userID = global.userID;
+      if (!userID) {
+        setIsLoading(false);
+        return;
+      }
 
-      const rows = await db.getAllAsync<Tx>(
-        `SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.transacted_at, t.type,
-                e.name as emotion_name, sc.name as category_name
-         FROM transactions t
-         LEFT JOIN emotion_logs l ON l.id = t.emotion_log_id
-         LEFT JOIN emotions e ON e.id = l.emotion_id
-         LEFT JOIN spending_categories sc ON sc.id = t.category_id
-         WHERE t.user_id = ?
-         ORDER BY t.transacted_at DESC`,
-        [userID]
-      );
+      const transactions = await getTransactions(userID);
 
-      setTxs(rows);
+      // Map to the Tx shape the list expects
+      const mapped: Tx[] = transactions.map((t) => ({
+        id: t.id,
+        amount: t.amount,
+        merchant_name: t.merchant_name,
+        currency_code: t.currency_code,
+        transacted_at: t.transacted_at,
+        type: t.type,
+        emotion_name: t.emotion_name,
+        category_name: t.category_name,
+      }));
+
+      setTxs(mapped);
     } catch (err) {
       console.error("allPurchases load error:", err);
     } finally {
@@ -273,7 +278,7 @@ const s = StyleSheet.create({
 
   header: {
     paddingTop: Platform.OS === "ios" ? 70 : 38,
-  
+
     paddingBottom: 10,
     paddingHorizontal: 24,
     flexDirection: "row",
