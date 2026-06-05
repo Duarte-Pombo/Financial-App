@@ -34,3 +34,14 @@ app.get("/api/health", (_req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Awared server on :${PORT}`));
 
+// ── DEBUG: request/response logger ───────────────────────────────────────────
+app.use((req, res, next) => {
+	const start = Date.now();
+	console.log(`[SERVER] ${req.method} ${req.url} | origin: ${req.headers.origin || "none"} | user-agent: ${req.headers["user-agent"]?.slice(0, 40)}`);
+
+	res.on("finish", () => {
+		const duration = Date.now() - start;
+		console.log(`[SERVER] ${req.method} ${req.url} → ${res.statusCode} in ${duration}ms`);
+	});
+	next();
+});
