@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   StyleSheet,
@@ -12,7 +12,6 @@ import {
 import { router } from "expo-router";
 import { getDb } from "@/database/db";
 import {
-  AUTH_C,
   Field,
   PrimaryButton,
   OrDivider,
@@ -20,8 +19,12 @@ import {
   SwitchMode,
   Headline,
 } from "@/components/AuthForm";
+import { useTheme } from "@/context/ThemeContext";
+import { ThemeColors } from "@/theme/theme";
 
 export default function Login() {
+  const { colors: C } = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -131,10 +134,10 @@ export default function Login() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: ThemeColors) => StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: AUTH_C.bg,
+    backgroundColor: C.bg,
   },
   scrollContent: {
     flexGrow: 1,
@@ -152,9 +155,9 @@ const styles = StyleSheet.create({
   forgotText: {
     fontFamily: "PlayfairDisplay_400Regular_Italic",
     fontSize: 13,
-    color: AUTH_C.inkSoft,
+    color: C.inkSoft,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(31,27,22,0.25)",
+    borderBottomColor: C.rule,
     paddingBottom: 1,
   },
 });

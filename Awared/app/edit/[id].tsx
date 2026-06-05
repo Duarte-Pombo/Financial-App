@@ -1,28 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, TextInput, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getDb } from "@/database/db";
 import { EmotionGlyph, emotionColor, hasEmotionGlyph } from "@/components/EmotionGlyph";
-
-// ── Editorial paper palette (matches Log Expense redesign) ──
-const C = {
-  bg: "#F5F1EA",
-  panel: "#FAF6EF",
-  ink: "#1F1B16",
-  inkSoft: "#5E574E",
-  inkMute: "#9C9489",
-  rule: "rgba(31,27,22,0.10)",
-  ruleSoft: "rgba(31,27,22,0.06)",
-  purple: "#9B82C9",
-  purpleDeep: "#7E64B3",
-  blackBtn: "#15110D",
-  green: "#5F7A4F",
-};
+import { useTheme } from "@/context/ThemeContext";
+import { ThemeColors } from "@/theme/theme";
 
 export default function EditTransaction() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { colors: C } = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -228,13 +217,13 @@ export default function EditTransaction() {
                   key={emo.id}
                   style={[
                     styles.emotionPill,
-                    { borderColor: isSelected ? color : "rgba(31,27,22,0.18)" },
+                    { borderColor: isSelected ? color : C.rule },
                     isSelected && { backgroundColor: color + "1F" },
                   ]}
                   onPress={() => setSelectedEmotionId(emo.id)}
                 >
                   {showGlyph ? (
-                    <EmotionGlyph emotion={lower} color={isSelected ? color : "#7A7268"} size={17} />
+                    <EmotionGlyph emotion={lower} color={isSelected ? color : C.inkMute} size={17} />
                   ) : (
                     <Text style={styles.emotionEmoji}>{emo.emoji}</Text>
                   )}
@@ -283,7 +272,7 @@ export default function EditTransaction() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: C.bg,

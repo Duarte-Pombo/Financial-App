@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Text,
   View,
@@ -8,19 +8,15 @@ import {
   TextInputProps,
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
+import { useTheme } from "@/context/ThemeContext";
+import { ThemeColors } from "@/theme/theme";
 
-export const AUTH_C = {
-  bg: "#FAF6EF",
-  ink: "#1F1B16",
-  inkSoft: "#7A7268",
-  inkMute: "rgba(31,27,22,0.45)",
-  rule: "rgba(0,0,0,0.08)",
-  fieldRule: "rgba(31,27,22,0.18)",
-  purple: "#9B82C9",
-  blackBtn: "#1F1B16",
-  blackBtnDim: "#3A352F",
-  ivory: "#FAF6EF",
-};
+// Shared theme-aware styles + palette for every auth control.
+export function useAuthStyles() {
+  const { colors: C } = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
+  return { C, styles };
+}
 
 type FieldProps = {
   label: string;
@@ -44,6 +40,7 @@ export function Field({
   onToggleShow,
   ...inputProps
 }: FieldProps) {
+  const { C, styles } = useAuthStyles();
   const [focus, setFocus] = useState(false);
 
   return (
@@ -53,7 +50,7 @@ export function Field({
       <View
         style={[
           styles.fieldRow,
-          { borderBottomColor: focus ? AUTH_C.purple : AUTH_C.fieldRule },
+          { borderBottomColor: focus ? C.purple : C.rule },
         ]}
       >
         <TextInput
@@ -61,7 +58,7 @@ export function Field({
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={AUTH_C.inkMute}
+          placeholderTextColor={C.inkMute}
           secureTextEntry={secureTextEntry && !showSecure}
           onFocus={() => setFocus(true)}
           onBlur={() => setFocus(false)}
@@ -91,10 +88,11 @@ export function PrimaryButton({
   disabled,
   busy,
 }: PrimaryButtonProps) {
+  const { C, styles } = useAuthStyles();
   return (
     <View style={[styles.primaryBtn,
     {
-      backgroundColor: AUTH_C.blackBtn, borderRadius: 999,
+      backgroundColor: C.blackBtn, borderRadius: 999,
       width: "50%", alignSelf: "center"
     }]} >
       <Pressable
@@ -103,7 +101,7 @@ export function PrimaryButton({
         style={({ pressed }) => [
           styles.primaryBtn,
           {
-            backgroundColor: disabled ? AUTH_C.blackBtnDim : AUTH_C.blackBtn,
+            backgroundColor: disabled ? C.inkMute : C.blackBtn,
             opacity: disabled ? 0.4 : pressed ? 0.85 : 1,
           },
         ]}
@@ -115,6 +113,7 @@ export function PrimaryButton({
 }
 
 export function OrDivider() {
+  const { styles } = useAuthStyles();
   return (
     <View style={styles.divider}>
       <View style={styles.dividerLine} />
@@ -125,11 +124,12 @@ export function OrDivider() {
 }
 
 function AppleGlyph() {
+  const { C } = useAuthStyles();
   return (
     <Svg width={14} height={16} viewBox="0 0 24 24">
       <Path
         d="M16.5 1.5c.1 1.1-.3 2.2-1 3-.7.8-1.8 1.4-2.9 1.3-.1-1.1.4-2.2 1.1-3 .7-.8 1.8-1.3 2.8-1.3zM20.3 17.6c-.6 1.3-1.3 2.6-2.4 3.7-.9.9-2 1.7-3.3 1.7-1.3 0-1.6-.8-3.1-.8-1.5 0-1.9.8-3.1.8-1.3 0-2.4-.9-3.2-1.8C2.4 17.5 1 12.6 3.6 9.5c1.3-1.6 3.2-2.5 4.9-2.5 1.3 0 2.6.9 3.4.9.8 0 2.3-1 4-.9.7 0 2.7.3 4 2.2-.1.1-2.4 1.4-2.4 4.2 0 3.3 2.9 4.4 2.9 4.4l-.1-.2z"
-        fill={AUTH_C.ink}
+        fill={C.ink}
       />
     </Svg>
   );
@@ -159,6 +159,7 @@ function GoogleGlyph() {
 }
 
 export function AltSignInRow() {
+  const { styles } = useAuthStyles();
   return (
     <View style={styles.altRow}>
       <Pressable style={styles.altBtn}>
@@ -180,6 +181,7 @@ type SwitchModeProps = {
 };
 
 export function SwitchMode({ prompt, ctaLabel, onPress }: SwitchModeProps) {
+  const { styles } = useAuthStyles();
   return (
     <View style={styles.switchWrap}>
       <Text style={styles.switchPrompt}>
@@ -199,6 +201,7 @@ type HeadlineProps = {
 };
 
 export function Headline({ kicker, line1, line2 }: HeadlineProps) {
+  const { styles } = useAuthStyles();
   return (
     <View style={styles.headline}>
       <Text style={styles.kicker}>{kicker}</Text>
@@ -208,7 +211,7 @@ export function Headline({ kicker, line1, line2 }: HeadlineProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: ThemeColors) => StyleSheet.create({
   field: {
     paddingTop: 10,
     paddingBottom: 2,
@@ -216,7 +219,7 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontFamily: "Manrope_500Medium",
     fontSize: 13,
-    color: AUTH_C.inkSoft,
+    color: C.inkSoft,
     marginBottom: 4,
   },
   fieldRow: {
@@ -232,13 +235,13 @@ const styles = StyleSheet.create({
     minWidth: 0,
     fontFamily: "Manrope_400Regular",
     fontSize: 16,
-    color: AUTH_C.ink,
+    color: C.ink,
     padding: 0,
   },
   eyeText: {
     fontFamily: "PlayfairDisplay_400Regular_Italic",
     fontSize: 13,
-    color: AUTH_C.inkSoft,
+    color: C.inkSoft,
   },
 
   primaryBtn: {
@@ -266,12 +269,12 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: AUTH_C.rule,
+    backgroundColor: C.rule,
   },
   dividerText: {
     fontFamily: "PlayfairDisplay_400Regular_Italic",
     fontSize: 12,
-    color: AUTH_C.inkMute,
+    color: C.inkMute,
   },
 
   altRow: {
@@ -283,7 +286,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: AUTH_C.rule,
+    borderColor: C.rule,
     backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
@@ -293,7 +296,7 @@ const styles = StyleSheet.create({
   altText: {
     fontFamily: "Manrope_500Medium",
     fontSize: 12.5,
-    color: AUTH_C.ink,
+    color: C.ink,
     letterSpacing: 0.2,
   },
 
@@ -305,16 +308,16 @@ const styles = StyleSheet.create({
   switchPrompt: {
     fontFamily: "PlayfairDisplay_400Regular_Italic",
     fontSize: 14,
-    color: AUTH_C.inkSoft,
+    color: C.inkSoft,
     lineHeight: 20,
     textAlign: "center",
   },
   switchCta: {
     fontFamily: "PlayfairDisplay_700Bold_Italic",
     fontSize: 14,
-    color: AUTH_C.purple,
+    color: C.purple,
     textDecorationLine: "underline",
-    textDecorationColor: AUTH_C.purple,
+    textDecorationColor: C.purple,
   },
 
   headline: {
@@ -324,13 +327,13 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope_500Medium",
     fontSize: 10.5,
     letterSpacing: 2,
-    color: AUTH_C.inkMute,
+    color: C.inkMute,
     marginBottom: 8,
   },
   title: {
     fontFamily: "PlayfairDisplay_700Bold_Italic",
     fontSize: 34,
-    color: AUTH_C.ink,
+    color: C.ink,
     lineHeight: 38,
     letterSpacing: -0.8,
     marginBottom: 2,
@@ -338,7 +341,7 @@ const styles = StyleSheet.create({
   titlePurple: {
     fontFamily: "PlayfairDisplay_700Bold_Italic",
     fontSize: 38,
-    color: AUTH_C.purple,
+    color: C.purple,
     lineHeight: 42,
     letterSpacing: -0.8,
   },
