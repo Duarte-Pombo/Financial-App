@@ -12,8 +12,8 @@ import {
   ParamListBase,
   TabNavigationState,
 } from "@react-navigation/native";
-
-const APP_BG = "#FAF6EF";
+import { useTheme } from "@/context/ThemeContext";
+import { ThemeColors } from "@/theme/theme";
 
 const { Navigator } = createMaterialTopTabNavigator();
 
@@ -36,12 +36,16 @@ const TAB_META: Record<string, { idle: IconName; active: IconName; label: string
 };
 
 function CustomTabBar({ state, navigation }: any) {
+  const { colors: C, isDark } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C, isDark), [C, isDark]);
+  const activeColor = C.purpleDeep;
+  const idleColor = C.inkMute;
   return (
     <View style={styles.barWrap} pointerEvents="box-none">
       <View style={styles.pill}>
         <BlurView
           intensity={Platform.OS === "ios" ? 60 : 80}
-          tint="light"
+          tint={isDark ? "dark" : "light"}
           style={StyleSheet.absoluteFill}
         />
         <View style={styles.glassTint} pointerEvents="none" />
@@ -75,14 +79,14 @@ function CustomTabBar({ state, navigation }: any) {
                 <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
                   <Ionicons
                     name={focused ? meta.active : meta.idle}
-                    color={focused ? "#F9A8BB" : "rgba(31,27,22,0.55)"}
+                    color={focused ? activeColor : idleColor}
                     size={meta.size ?? 22}
                   />
                 </View>
                 <Text
                   style={[
                     styles.label,
-                    { color: focused ? "#F9A8BB" : "rgba(31,27,22,0.55)" },
+                    { color: focused ? activeColor : idleColor },
                   ]}
                 >
                   {meta.label}
@@ -97,12 +101,13 @@ function CustomTabBar({ state, navigation }: any) {
 }
 
 export default function TabsLayout() {
+  const { colors: C } = useTheme();
   return (
     <MaterialTopTabs
       tabBarPosition="bottom"
       tabBar={(props) => <CustomTabBar {...props} />}
-      style={{ backgroundColor: APP_BG }}
-      sceneContainerStyle={{ backgroundColor: APP_BG }}
+      style={{ backgroundColor: C.bg }}
+      sceneContainerStyle={{ backgroundColor: C.bg }}
       screenOptions={{
         swipeEnabled: true,
         animationEnabled: true,
@@ -119,7 +124,7 @@ export default function TabsLayout() {
 const PILL_HEIGHT = 64;
 const PILL_RADIUS = PILL_HEIGHT / 2;
 
-const styles = StyleSheet.create({
+const makeStyles = (C: ThemeColors, isDark: boolean) => StyleSheet.create({
   barWrap: {
     height: Platform.OS === "ios" ? 96 : 84,
     paddingHorizontal: 18,
@@ -133,19 +138,22 @@ const styles = StyleSheet.create({
     height: PILL_HEIGHT,
     borderRadius: PILL_RADIUS,
     overflow: "hidden",
-    backgroundColor:
-      Platform.OS === "android"
+    backgroundColor: isDark
+      ? Platform.OS === "android"
+        ? "rgba(33,27,21,0.78)"
+        : "rgba(33,27,21,0.45)"
+      : Platform.OS === "android"
         ? "rgba(255,255,255,0.55)"
         : "rgba(255,255,255,0.28)",
-    shadowColor: "#1F1B16",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.12,
+    shadowOpacity: isDark ? 0.3 : 0.12,
     shadowRadius: 24,
     elevation: 18,
   },
   glassTint: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255,255,255,0.18)",
+    backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.18)",
   },
   glassHighlight: {
     position: "absolute",
@@ -155,13 +163,13 @@ const styles = StyleSheet.create({
     height: PILL_HEIGHT / 2,
     borderTopLeftRadius: PILL_RADIUS,
     borderTopRightRadius: PILL_RADIUS,
-    backgroundColor: "rgba(255,255,255,0.22)",
+    backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.22)",
   },
   glassBorder: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: PILL_RADIUS,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.55)",
+    borderColor: isDark ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.55)",
   },
   row: {
     flex: 1,
@@ -185,7 +193,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   iconWrapActive: {
-    backgroundColor: "rgba(249, 168, 187, 0.22)",
+    backgroundColor: C.purpleSoft,
   },
   label: {
     fontSize: 10,

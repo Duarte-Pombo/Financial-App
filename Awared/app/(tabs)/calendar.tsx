@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useId } from "react";
+import React, { useState, useCallback, useId, useMemo } from "react";
 import {
   View, Text, Pressable, ScrollView, StyleSheet, Dimensions,
 } from "react-native";
@@ -11,18 +11,8 @@ import {
 import {
   EmotionGlyph, EMOTION_NAMES, emotionColor,
 } from "../../components/EmotionGlyph";
-
-const C = {
-  bg: "#FAF6EF",
-  ink: "#1F1B16",
-  inkMute: "rgba(31,27,22,0.45)",
-  inkSoft: "#7A7268",
-  rule: "rgba(0,0,0,0.10)",
-  ruleSoft: "rgba(0,0,0,0.06)",
-  purple: "#9B82C9",
-  ringBg: "#E5DECC",
-  blobBg: "#ECE5D6",
-};
+import { useTheme } from "@/context/ThemeContext";
+import { ThemeColors } from "@/theme/theme";
 
 const MONTHS_LONG = ["january", "february", "march", "april", "may", "june",
   "july", "august", "september", "october", "november", "december"];
@@ -77,6 +67,7 @@ function DayRing({
   dim: boolean;
   onPress: () => void;
 }) {
+  const { colors: C } = useTheme();
   const stroke = 3.4;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
@@ -104,7 +95,7 @@ function DayRing({
           <G rotation={-90} origin={`${size / 2}, ${size / 2}`}>
             <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.ringBg} strokeWidth={stroke} />
             {dist.length === 0 && (
-              <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#D8D0BF" strokeWidth={stroke} />
+              <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.ringBg} strokeWidth={stroke} />
             )}
             {segments.map((s) => (
               <Circle
@@ -149,6 +140,7 @@ function MonthBlob({
   today: boolean;
   onPress: () => void;
 }) {
+  const { colors: C } = useTheme();
   const id = useId().replace(/:/g, "");
   const has = emotions.length > 0;
 
@@ -211,6 +203,7 @@ function DonutChart({
   thickness: number;
   children?: React.ReactNode;
 }) {
+  const { colors: C } = useTheme();
   const r = (size - thickness) / 2;
   const c = 2 * Math.PI * r;
   const total = data.reduce((s, [, v]) => s + v, 0) || 1;
@@ -254,6 +247,7 @@ function LegendItem({
   dim?: boolean;
   onPress?: () => void;
 }) {
+  const { colors: C } = useTheme();
   const color = active ? emotionColor(emo) : C.inkSoft;
   const Wrap: any = onPress ? Pressable : View;
   const glyphSize = large ? 34 : small ? 18 : 30;
@@ -276,6 +270,7 @@ function LegendItem({
 
 // ─── DayPurchases — list of purchases for selected day ──────────────────────
 function DayPurchases({ transactions }: { transactions: HeatmapTx[] }) {
+  const { colors: C } = useTheme();
   return (
     <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
       <Text style={{
@@ -333,6 +328,8 @@ function Summary({
   topEmotion: string | null;
   emotionAgg: Array<{ emotion: string; count: number; pct: number }>;
 }) {
+  const { colors: C } = useTheme();
+  const st = useMemo(() => makeStyles(C), [C]);
   return (
     <View style={{ paddingHorizontal: 24, paddingTop: 18 }}>
       <Text style={{
@@ -401,6 +398,8 @@ function Summary({
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 export default function Calendar() {
+  const { colors: C } = useTheme();
+  const st = useMemo(() => makeStyles(C), [C]);
   const today = new Date();
   const todayMonday = getMonday(today);
 
@@ -768,7 +767,7 @@ export default function Calendar() {
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
-const st = StyleSheet.create({
+const makeStyles = (C: ThemeColors) => StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
 
   header: {

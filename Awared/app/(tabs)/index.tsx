@@ -11,16 +11,8 @@ import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
 import Svg, { Circle } from "react-native-svg";
 import { getDb } from "@/database/db";
 import { EmotionGlyph, emotionColor } from "../../components/EmotionGlyph";
-
-const C = {
-  bg: "#FAF6EF",
-  ink: "#1F1B16",
-  inkMute: "rgba(31,27,22,0.45)",
-  inkSoft: "#7A7268",
-  ruleSoft: "rgba(0,0,0,0.06)",
-  purple: "#9B82C9",
-  recentRule: "#9B82C9",
-};
+import { useTheme } from "@/context/ThemeContext";
+import { ThemeColors } from "@/theme/theme";
 
 type WeekTx = {
   amount: number;
@@ -82,6 +74,8 @@ function emotionSymbol(emotion: string | null): string {
 export default function Index() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { colors: C } = useTheme();
+  const s = useMemo(() => makeStyles(C), [C]);
 
   const [weekTxs, setWeekTxs] = useState<WeekTx[]>([]);
   const [recent, setRecent] = useState<RecentTx[]>([]);
@@ -480,7 +474,7 @@ export default function Index() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: ThemeColors) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: C.bg,
@@ -529,12 +523,12 @@ const s = StyleSheet.create({
     elevation: 6,
   },
   toastCheck: {
-    color: "#fff",
+    color: C.bg,
     fontFamily: "Manrope_700Bold",
     fontSize: 16,
   },
   toastText: {
-    color: "#fff",
+    color: C.bg,
     fontSize: 15,
     fontFamily: "Manrope_600SemiBold",
   },
@@ -768,7 +762,7 @@ txEmotion: {
   refundBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
-    backgroundColor: "#E5DECC",
+    backgroundColor: C.ringBg,
   },
   refundText: {
     fontFamily: "Manrope_700Bold",

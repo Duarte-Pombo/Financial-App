@@ -1,13 +1,23 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { View, StyleSheet, ScrollView, Pressable, Alert, TextInput } from "react-native";
 import { Text } from "@/components/Text";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { router } from "expo-router";
 import { getDb } from "@/database/db";
+import { useTheme, ThemeMode } from "@/context/ThemeContext";
+import { ThemeColors } from "@/theme/theme";
+
+const APPEARANCE_OPTIONS: { mode: ThemeMode; label: string; icon: React.ComponentProps<typeof Ionicons>["name"] }[] = [
+  { mode: "light", label: "Light", icon: "sunny-outline" },
+  { mode: "dark", label: "Dark", icon: "moon-outline" },
+  { mode: "system", label: "System", icon: "phone-portrait-outline" },
+];
 
 export default function Settings() {
   const navigation = useNavigation();
+  const { colors: C, mode, setMode } = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
 
   // Profile State
   const [email, setEmail] = useState("");
@@ -170,6 +180,33 @@ export default function Settings() {
         <Text style={styles.pageTitle}>settings</Text>
       </View>
 
+      {/* ── Appearance ── */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Appearance</Text>
+        <Text style={styles.inputLabel}>theme</Text>
+        <View style={styles.segment}>
+          {APPEARANCE_OPTIONS.map((opt) => {
+            const active = mode === opt.mode;
+            return (
+              <Pressable
+                key={opt.mode}
+                style={[styles.segmentBtn, active && styles.segmentBtnActive]}
+                onPress={() => setMode(opt.mode)}
+              >
+                <Ionicons
+                  name={opt.icon}
+                  size={16}
+                  color={active ? C.purpleDeep : C.inkSoft}
+                />
+                <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
       {/* ── Preferences (Currency) ── */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Preferences</Text>
@@ -282,21 +319,7 @@ export default function Settings() {
   );
 }
 
-// ── Editorial paper palette (matches Log Expense redesign) ──
-const C = {
-  bg: "#F5F1EA",
-  panel: "#FAF6EF",
-  ink: "#1F1B16",
-  inkSoft: "#5E574E",
-  inkMute: "#9C9489",
-  rule: "rgba(31,27,22,0.10)",
-  fieldBg: "rgba(31,27,22,0.02)",
-  purpleDeep: "#7E64B3",
-  purpleSoft: "rgba(155,130,201,0.14)",
-  danger: "#C24A3A",
-};
-
-const styles = StyleSheet.create({
+const makeStyles = (C: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   content: { paddingHorizontal: 20, paddingTop: 56, paddingBottom: 24 },
 
@@ -471,5 +494,36 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontFamily: "PlayfairDisplay_400Regular",
     color: C.ink,
+  },
+
+  // Appearance segmented control
+  segment: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 2,
+  },
+  segmentBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.rule,
+    backgroundColor: C.fieldBg,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 6,
+  },
+  segmentBtnActive: {
+    backgroundColor: C.purpleSoft,
+    borderColor: "rgba(126,100,179,0.5)",
+  },
+  segmentText: {
+    fontSize: 13.5,
+    color: C.inkSoft,
+    fontFamily: "Manrope_600SemiBold",
+  },
+  segmentTextActive: {
+    color: C.purpleDeep,
   },
 });

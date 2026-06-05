@@ -34,6 +34,7 @@ import { seedDatabase } from "../database/seed";
 
 import * as Notifications from "expo-notifications";
 import { NotificationProvider } from "@/context/NotificationContext";
+import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -131,19 +132,35 @@ export default function RootLayout() {
     init();
   }, []);
 
-  if (!ready || !fontsLoaded) {
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <NotificationProvider>
+          <RootChrome ready={ready && fontsLoaded} />
+        </NotificationProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
+  );
+}
+
+// Themed chrome: lives inside ThemeProvider so the StatusBar, loading state and
+// navigator background all react to the active light/dark palette.
+function RootChrome({ ready }: { ready: boolean }) {
+  const { colors, isDark } = useTheme();
+
+  if (!ready) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fdf3ff" }}>
-        <ActivityIndicator color="#9b72cf" size="large" />
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.bg }}>
+        <StatusBar style={isDark ? "light" : "dark"} backgroundColor={colors.bg} />
+        <ActivityIndicator color={colors.purple} size="large" />
       </View>
     );
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <NotificationProvider>
-      <StatusBar style="dark" backgroundColor="#fdf3ff" />
-      <Stack>
+    <>
+      <StatusBar style={isDark ? "light" : "dark"} backgroundColor={colors.bg} />
+      <Stack screenOptions={{ contentStyle: { backgroundColor: colors.bg } }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="register" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -155,7 +172,6 @@ export default function RootLayout() {
         <Stack.Screen name="edit/[id]" options={{ headerShown: false, animation: "slide_from_right" }} />
         <Stack.Screen name="budget" options={{ headerShown: false, animation: "slide_from_right" }} />
       </Stack>
-      </NotificationProvider>
-    </GestureHandlerRootView>
+    </>
   );
 }

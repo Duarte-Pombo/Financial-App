@@ -3,7 +3,7 @@ import {
   Platform, Alert, Modal,
   Keyboard, Text, StyleSheet,
 } from "react-native";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
 import { getDb } from "../../database/db";
 import { insertTransaction } from "../../database/transactions";
@@ -13,6 +13,9 @@ import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/dat
 import Svg, { Path, Circle } from "react-native-svg";
 import { EmotionGlyph, emotionColor } from "../../components/EmotionGlyph";
 import LocationPickerMap, { LatLng } from "../../components/LocationPickerMap";
+import LocationPreviewMap from "../../components/LocationPreviewMap";
+import { useTheme } from "@/context/ThemeContext";
+import { ThemeColors } from "@/theme/theme";
 
 type Emotion = {
   id: number;
@@ -27,16 +30,6 @@ const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "
 // Default map center — Porto, Portugal.
 const PORTO = { latitude: 41.1496, longitude: -8.6109 };
 
-const C = {
-  bg: "#FAF6EF",
-  ink: "#1F1B16",
-  inkMute: "rgba(31,27,22,0.45)",
-  inkSoft: "#7A7268",
-  rule: "rgba(0,0,0,0.10)",
-  blackBtn: "#1F1B16",
-  purple: "#9B82C9",
-};
-
 function getDateLabel(d: Date) {
   return `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
@@ -46,11 +39,14 @@ function getTimeLabel(d: Date) {
 
 export default function AddPurchase() {
   const router = useRouter();
+  const { colors: C } = useTheme();
+  const s = useMemo(() => makeStyles(C), [C]);
 
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [rawDigits, setRawDigits] = useState("");
   const [item, setItem] = useState("");
   const [location, setLocation] = useState("");
+  const [coordinate, setCoordinate] = useState<LatLng | null>(null);
   const [saving, setSaving] = useState(false);
   const [userCurrency, setUserCurrency] = useState("€");
   const [date, setDate] = useState(new Date());
@@ -70,7 +66,7 @@ export default function AddPurchase() {
   }, []);
 
   useFocusEffect(useCallback(() => {
-    setRawDigits(""); setItem(""); setLocation("");
+    setRawDigits(""); setItem(""); setLocation(""); setCoordinate(null);
     setSelectedEmotionIds([]); setSaving(false); setDate(new Date()); setEditingField(null);
 
     async function fetchCurrency() {
@@ -121,6 +117,7 @@ export default function AddPurchase() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") { Alert.alert("Permission denied", "Allow location access."); return; }
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setCoordinate({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
       setLocation(await reverseGeocode(loc.coords.latitude, loc.coords.longitude));
     } catch { Alert.alert("Error", "Could not get location."); }
     finally { setDetectingLocation(false); }
@@ -134,6 +131,7 @@ export default function AddPurchase() {
 
   async function handleConfirmMapLocation() {
     setShowMap(false);
+    setCoordinate(mapCenter);
     setDetectingLocation(true);
     try { setLocation(await reverseGeocode(mapCenter.latitude, mapCenter.longitude)); }
     catch { Alert.alert("Error", "Could not resolve address."); }
@@ -221,7 +219,7 @@ export default function AddPurchase() {
                 const isSel = selectedEmotionIds.includes(em.id);
                 const lower = em.name.toLowerCase();
                 const color = emotionColor(lower);
-                const ringColor = isSel ? color : "rgba(31,27,22,0.18)";
+                const ringColor = isSel ? color : C.rule;
                 return (
                   <Pressable
                     key={em.id}
@@ -233,7 +231,7 @@ export default function AddPurchase() {
                       { borderColor: ringColor, backgroundColor: isSel ? color + "22" : "transparent",
                         borderWidth: isSel ? 1.5 : 1.2 },
                     ]}>
-                      <EmotionGlyph emotion={lower} color={isSel ? color : "#7A7268"} size={22} />
+                      <EmotionGlyph emotion={lower} color={isSel ? color : C.inkSoft} size={22} />
                     </View>
                     <Text style={[s.emotionLabel, { color: isSel ? color : C.inkSoft }]} numberOfLines={1}>
                       {lower}
@@ -312,6 +310,26 @@ export default function AddPurchase() {
               </Text>
             </Pressable>
             <View style={s.underline} />
+
+            {coordinate ? (
+              <View style={s.mapPreviewWrap}>
+                <LocationPreviewMap coordinate={coordinate} style={s.mapPreview} />
+              </View>
+            ) : (
+              <Pressable
+                onPress={openMap}
+                style={[s.mapPreviewWrap, s.mapPlaceholder]}
+              >
+                <Svg width={22} height={22} viewBox="0 0 24 24">
+                  <Path
+                    d="M12 2 C7 2 4 6 4 10 C4 16 12 22 12 22 C12 22 20 16 20 10 C20 6 17 2 12 2 Z"
+                    fill="none" stroke={C.inkMute} strokeWidth={1.6}
+                  />
+                  <Circle cx={12} cy={10} r={3} fill="none" stroke={C.inkMute} strokeWidth={1.6} />
+                </Svg>
+                <Text style={s.mapPlaceholderText}>no location yet</Text>
+              </Pressable>
+            )}
           </View>
         </View>
 
@@ -356,7 +374,7 @@ export default function AddPurchase() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: ThemeColors) => StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
 
   // Header
@@ -448,7 +466,7 @@ const s = StyleSheet.create({
     borderRadius: 9999,
     borderWidth: 1,
   },
-  pillIdle: { borderColor: "rgba(31,27,22,0.22)", backgroundColor: "transparent" },
+  pillIdle: { borderColor: C.rule, backgroundColor: "transparent" },
   pillActive: { borderColor: C.ink, backgroundColor: C.ink },
   pillTextIdle: {
     fontFamily: "PlayfairDisplay_400Regular_Italic",
@@ -458,7 +476,7 @@ const s = StyleSheet.create({
   pillTextActive: {
     fontFamily: "PlayfairDisplay_400Regular_Italic",
     fontSize: 14,
-    color: "#FAF6EF",
+    color: C.bg,
   },
   pickerWrap: { marginTop: 4 },
 
@@ -491,6 +509,27 @@ const s = StyleSheet.create({
     fontSize: 13,
     color: C.inkSoft,
   },
+  mapPreviewWrap: {
+    marginTop: 10,
+    height: 164,
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: C.rule,
+  },
+  mapPreview: { flex: 1 },
+  mapPlaceholder: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: C.fieldBg,
+    borderStyle: "dashed",
+  },
+  mapPlaceholderText: {
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontSize: 13,
+    color: C.inkMute,
+  },
 
   // Map modal — controls float over the full-screen map
   mapRoot: { flex: 1, backgroundColor: C.bg },
@@ -508,7 +547,7 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   mapCancelBtn: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.panel,
     paddingVertical: 13,
     borderRadius: 14,
     alignItems: "center",

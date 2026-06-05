@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -8,6 +8,8 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
+import { useTheme } from "@/context/ThemeContext";
+import { ThemeColors } from "@/theme/theme";
 import Svg, { Path, Circle, Rect } from "react-native-svg";
 import { Text } from "@/components/Text";
 import {
@@ -27,20 +29,6 @@ import {
   AchievementWithStatus, 
   ACHIEVEMENT_DEFS 
 } from "@/database/achievementEngine"; 
-
-// ─── Editorial paper palette ──────────────────────────────────────────────────
-const C = {
-  bg: "#F5F1EA",
-  panel: "#FAF6EF",
-  ink: "#1F1B16",
-  inkSoft: "#5E574E",
-  inkMute: "#9C9489",
-  rule: "rgba(31,27,22,0.10)",
-  ruleSoft: "rgba(31,27,22,0.06)",
-  purple: "#9B82C9",
-  purpleDeep: "#7E64B3",
-  danger: "#C24A3A",
-};
 
 const FONT = {
   displayItalic: "PlayfairDisplay_700Bold_Italic",
@@ -132,11 +120,11 @@ async function saveAvatarUri(userId: string | number, uri: string) {
 }
 
 // ─── Line-art Icons ───────────────────────────────────────────────────────────
-function GearIcon() {
+function GearIcon({ color }: { color: string }) {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx={12} cy={12} r={3.2} stroke={C.inkSoft} strokeWidth={1.5} />
-      <Path d="M12 2.6 L12 5 M12 19 L12 21.4 M21.4 12 L19 12 M5 12 L2.6 12 M18.6 5.4 L17 7 M7 17 L5.4 18.6 M18.6 18.6 L17 17 M7 7 L5.4 5.4" stroke={C.inkSoft} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx={12} cy={12} r={3.2} stroke={color} strokeWidth={1.5} />
+      <Path d="M12 2.6 L12 5 M12 19 L12 21.4 M21.4 12 L19 12 M5 12 L2.6 12 M18.6 5.4 L17 7 M7 17 L5.4 18.6 M18.6 18.6 L17 17 M7 7 L5.4 5.4" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -166,27 +154,27 @@ function LogoutIcon({ color }: { color: string }) {
   );
 }
 
-function ChevronIcon() {
+function ChevronIcon({ color }: { color: string }) {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 6 L15 12 L9 18" stroke={C.inkMute} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 6 L15 12 L9 18" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function CheckIcon() {
+function CheckIcon({ color }: { color: string }) {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M20 6L9 17l-5-5" stroke={C.purpleDeep} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function LockIcon() {
+function LockIcon({ color }: { color: string }) {
   return (
     <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Path d="M7 11V7a5 5 0 0110 0v4" stroke={C.inkMute} strokeWidth={1.8} strokeLinecap="round" />
-      <Rect x="4" y="11" width="16" height="10" rx="2" stroke={C.inkMute} strokeWidth={1.8} />
+      <Path d="M7 11V7a5 5 0 0110 0v4" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+      <Rect x="4" y="11" width="16" height="10" rx="2" stroke={color} strokeWidth={1.8} />
     </Svg>
   );
 }
@@ -198,12 +186,16 @@ function ActionRow({
   danger,
   last,
   onPress,
+  C,
+  styles,
 }: {
   icon: React.ReactNode;
   label: string;
   danger?: boolean;
   last?: boolean;
   onPress: () => void;
+  C: ThemeColors;
+  styles: ReturnType<typeof makeStyles>;
 }) {
   return (
     <Pressable
@@ -222,12 +214,12 @@ function ActionRow({
         {icon}
       </View>
       <Text style={[styles.actionLabel, danger && { color: C.danger }]}>{label}</Text>
-      <ChevronIcon />
+      <ChevronIcon color={C.inkMute} />
     </Pressable>
   );
 }
 
-function AchievementCard({ item, last }: { item: AchievementWithStatus; last: boolean }) {
+function AchievementCard({ item, last, C, styles }: { item: AchievementWithStatus; last: boolean; C: ThemeColors; styles: ReturnType<typeof makeStyles> }) {
   // Gracefully handle undefined target/progress depending on your type definition
   const target = (item as any).target ?? 1;
   const progress = (item as any).progress ?? 0;
@@ -241,7 +233,7 @@ function AchievementCard({ item, last }: { item: AchievementWithStatus; last: bo
           item.unlocked ? styles.achieveIconUnlocked : styles.achieveIconLocked,
         ]}
       >
-        {item.unlocked ? <CheckIcon /> : <LockIcon />}
+        {item.unlocked ? <CheckIcon color={C.purpleDeep} /> : <LockIcon color={C.inkMute} />}
       </View>
       
       <View style={styles.achieveBody}>
@@ -266,6 +258,8 @@ function AchievementCard({ item, last }: { item: AchievementWithStatus; last: bo
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function Profile() {
   const navigation = useNavigation();
+  const { colors: C } = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
   const [stats, setStats] = useState<ProfileStats | null>(null);
   const [achievements, setAchievements] = useState<AchievementWithStatus[]>([]);
   const [achievementsExpanded, setAchievementsExpanded] = useState(false);
@@ -363,7 +357,7 @@ export default function Profile() {
           onPress={() => router.push("/settings")}
           accessibilityLabel="settings"
         >
-          <GearIcon />
+          <GearIcon color={C.inkSoft} />
         </Pressable>
       </View>
 
@@ -452,10 +446,12 @@ export default function Profile() {
 
         <View style={styles.achieveList}>
           {visibleAchievements.map((item, i) => (
-            <AchievementCard 
-              key={item.id} 
-              item={item} 
-              last={i === visibleAchievements.length - 1 && achievementsExpanded} 
+            <AchievementCard
+              key={item.id}
+              item={item}
+              last={i === visibleAchievements.length - 1 && achievementsExpanded}
+              C={C}
+              styles={styles}
             />
           ))}
         </View>
@@ -478,6 +474,8 @@ export default function Profile() {
           icon={<SwapIcon color={C.purpleDeep} />}
           label="Switch account"
           onPress={handleSwitchAccount}
+          C={C}
+          styles={styles}
         />
         <ActionRow
           icon={<LogoutIcon color={C.danger} />}
@@ -485,6 +483,8 @@ export default function Profile() {
           danger
           last
           onPress={handleLogout}
+          C={C}
+          styles={styles}
         />
       </View>
 
@@ -493,7 +493,7 @@ export default function Profile() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   content: { paddingHorizontal: 16, paddingTop: 56, paddingBottom: 20 },
 
