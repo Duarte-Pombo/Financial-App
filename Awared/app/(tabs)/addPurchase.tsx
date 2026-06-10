@@ -16,6 +16,7 @@ import LocationPickerMap, { LatLng } from "../../components/LocationPickerMap";
 import LocationPreviewMap from "../../components/LocationPreviewMap";
 import { useTheme } from "@/context/ThemeContext";
 import { ThemeColors } from "@/theme/theme";
+import { useNotification } from "@/context/NotificationContext";
 
 type Emotion = {
   id: number;
@@ -38,6 +39,7 @@ function getTimeLabel(d: Date) {
 }
 
 export default function AddPurchase() {
+  const { notification, expoPushToken, devicePushToken, error } = useNotification();
   const router = useRouter();
   const { colors: C } = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
@@ -156,7 +158,23 @@ export default function AddPurchase() {
         transacted_at: date.toISOString(),
       });
 
-      router.navigate({ pathname: "/", params: { added: "true", timestamp: Date.now()} });
+      let db = await getDb();
+
+      const user = await db.getFirstAsync(
+        "SELECT username FROM users WHERE (id = ?)",
+        [global.userID],
+      );
+      const username = user['username']
+
+      const response = await fetch("https://lady-written-roommate-meditation.trycloudflare.com/savePurchase", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user: username, token: expoPushToken, time: Date.now() / 1000 }),
+      });
+
+      router.navigate({ pathname: "/", params: { added: "true", timestamp: Date.now() } });
 
     } catch (e) {
       console.error(e);
@@ -228,8 +246,10 @@ export default function AddPurchase() {
                   >
                     <View style={[
                       s.emotionCircle,
-                      { borderColor: ringColor, backgroundColor: isSel ? color + "22" : "transparent",
-                        borderWidth: isSel ? 1.5 : 1.2 },
+                      {
+                        borderColor: ringColor, backgroundColor: isSel ? color + "22" : "transparent",
+                        borderWidth: isSel ? 1.5 : 1.2
+                      },
                     ]}>
                       <EmotionGlyph emotion={lower} color={isSel ? color : C.inkSoft} size={22} />
                     </View>
