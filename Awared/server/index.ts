@@ -8,11 +8,39 @@ import emotionsRouter from "./routes/emotions";
 import usersRouter from "./routes/users";
 import achievementsRouter from "./routes/achievements";
 
+process.on('beforeExit', (code) => {
+	console.warn(`[TRAP] Node's event loop is EMPTY. It thinks there is no server running. (Code: ${code})`);
+});
+
+process.on('exit', (code) => {
+	console.warn(`[TRAP] Process is officially shutting down with code: ${code}`);
+});
+
+process.on('uncaughtException', (err) => {
+	console.error(`[TRAP] CRITICAL FATAL ERROR:`, err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+	console.error(`[TRAP] Unhandled Promise Rejection:`, reason);
+});
+// -------------------------------
+
 const app = express();
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
+
+app.use((req, res, next) => {
+	const start = Date.now();
+	console.log(`[SERVER] ${req.method} ${req.url} | origin: ${req.headers.origin || "none"} | user-agent: ${req.headers["user-agent"]?.slice(0, 40)}`);
+
+	res.on("finish", () => {
+		const duration = Date.now() - start;
+		console.log(`[SERVER] ${req.method} ${req.url} → ${res.statusCode} in ${duration}ms`);
+	});
+	next();
+});
 
 // Warm up the DB connection on startup
 getDb();
@@ -31,17 +59,14 @@ app.get("/api/health", (_req, res) => {
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Awared server on :${PORT}`));
+const PORT = 8080;
 
-// ── DEBUG: request/response logger ───────────────────────────────────────────
-app.use((req, res, next) => {
-	const start = Date.now();
-	console.log(`[SERVER] ${req.method} ${req.url} | origin: ${req.headers.origin || "none"} | user-agent: ${req.headers["user-agent"]?.slice(0, 40)}`);
+const server = app.listen(PORT, "0.0.0.0", () => {
+	console.log(`Awared server on http://0.0.0.0:${PORT}`);
+	console.log(`[DEBUG] Is the server actively listening right now? ${server.listening}`);
+});
 
-	res.on("finish", () => {
-		const duration = Date.now() - start;
-		console.log(`[SERVER] ${req.method} ${req.url} → ${res.statusCode} in ${duration}ms`);
-	});
-	next();
+// If the server socket closes itself, this will tell us
+server.on('close', () => {
+	console.warn("[TRAP] The Express server socket just closed itself!");
 });
