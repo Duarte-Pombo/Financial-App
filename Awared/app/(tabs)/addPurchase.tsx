@@ -166,7 +166,7 @@ export default function AddPurchase() {
       );
       const username = user['username']
 
-      const response = await fetch("https://lady-written-roommate-meditation.trycloudflare.com/savePurchase", {
+      const response = await fetch("https://hash-joseph-while-would.trycloudflare.com/savePurchase", {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

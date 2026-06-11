@@ -14,6 +14,9 @@ import requests
 from requests.exceptions import ConnectionError, HTTPError
 
 
+
+notified_users = {}
+
 def send_push_notification(token, message, extra=None):
     try:
         response = PushClient().publish(
@@ -25,13 +28,19 @@ def send_push_notification(token, message, extra=None):
 while(True):
     df = tableManager.riskDf
     for index,row in df.iterrows():
+        user = row['user']
         timediff = row['hour'] - datetime.now().hour
         if timediff <= 1 and timediff >= 0:
-            print(f"{row['user']} with token {row['token']} is near their risk hour")
-            message = f"Careful {row['user']}! It seems you usually make\
-            a lot of purchases near this hour. Please be responsible."
-            send_push_notification(row['token'], message)
+            if notified_users.get(user) == None:
+                notified_users[user] = 10;
+            elif notified_users[user] > 0:
+                notified_users[user] = notified_users[user] - 1
+            else:
+                print(f"{user} with token {row['token']} is near their risk hour")
+                message = f"Careful {row['user']}! It seems you usually make a lot of purchases around this time of the day. Please be responsible."
+                send_push_notification(row['token'], message)
+                del notified_users[user]
 
-    sleep(3)
+    sleep(1800)
 
 

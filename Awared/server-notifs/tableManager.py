@@ -28,6 +28,11 @@ def updateRiskTime():
     riskDf = g.reset_index()
 
 
+try:
+    with open("data.csv", "x") as f:
+        f.write("user,token,time\n")
+except FileExistsError:
+    print("Data file already exists")
 df = pd.read_csv('data.csv')
 riskDf = None
 updateRiskTime()
