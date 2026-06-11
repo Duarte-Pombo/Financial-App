@@ -16,6 +16,7 @@ from requests.exceptions import ConnectionError, HTTPError
 
 
 notified_users = {}
+cooldown = 10
 
 def send_push_notification(token, message, extra=None):
     try:
@@ -32,7 +33,7 @@ while(True):
         timediff = row['hour'] - datetime.now().hour
         if timediff <= 1 and timediff >= 0:
             if notified_users.get(user) == None:
-                notified_users[user] = 10;
+                notified_users[user] = cooldown;
             elif notified_users[user] > 0:
                 notified_users[user] = notified_users[user] - 1
             else:
