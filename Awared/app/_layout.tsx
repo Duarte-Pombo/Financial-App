@@ -29,6 +29,8 @@ import {
   LibreCaslonText_700Bold,
 } from "@expo-google-fonts/libre-caslon-text";
 
+import { AuthProvider } from "./context/AuthContext";
+
 import { getDb } from "../database/db";
 import { seedDatabase } from "../database/seed";
 
@@ -45,7 +47,7 @@ Notifications.setNotificationHandler({
 });
 
 
-const DEV_RESET = true; // COMMENT AFTER TESTING
+const DEV_RESET = false; // COMMENT AFTER TESTING
 
 // ┌─────┬──────────────────────────────────────────────────────────────────────┐
 // │  #  │ Persona / Purpose                                                    │
@@ -140,22 +142,24 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <NotificationProvider>
-      <StatusBar style="dark" backgroundColor="#fdf3ff" />
-      <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="register" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="monthlyHeatmap" options={{ headerShown: false, animation: "slide_from_right" }} />
-        <Stack.Screen name="settings" options={{ headerShown: false, animation: "slide_from_bottom" }} />
-        <Stack.Screen name="transaction/[id]" options={{ headerShown: false, animation: "slide_from_right" }} />
-        <Stack.Screen name="history" options={{ headerShown: false, animation: "slide_from_right" }} />
-        <Stack.Screen name="allPurchases" options={{ headerShown: false, animation: "slide_from_right" }} />
-        <Stack.Screen name="edit/[id]" options={{ headerShown: false, animation: "slide_from_right" }} />
-        <Stack.Screen name="budget" options={{ headerShown: false, animation: "slide_from_right" }} />
-      </Stack>
-      </NotificationProvider>
-    </GestureHandlerRootView>
+    <AuthProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <NotificationProvider>
+          <StatusBar style="dark" backgroundColor="#fdf3ff" />
+          <Stack>
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="register" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="monthlyHeatmap" options={{ headerShown: false, animation: "slide_from_right" }} />
+            <Stack.Screen name="settings" options={{ headerShown: false, animation: "slide_from_bottom" }} />
+            <Stack.Screen name="transaction/[id]" options={{ headerShown: false, animation: "slide_from_right" }} />
+            <Stack.Screen name="history" options={{ headerShown: false, animation: "slide_from_right" }} />
+            <Stack.Screen name="allPurchases" options={{ headerShown: false, animation: "slide_from_right" }} />
+            <Stack.Screen name="edit/[id]" options={{ headerShown: false, animation: "slide_from_right" }} />
+            <Stack.Screen name="budget" options={{ headerShown: false, animation: "slide_from_right" }} />
+          </Stack>
+        </NotificationProvider>
+      </GestureHandlerRootView>
+    </AuthProvider>
   );
 }

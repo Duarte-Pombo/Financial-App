@@ -12,21 +12,31 @@ import {
 } from "react-native";
 import { Text } from "@/components/Text";
 import { Ionicons } from "@expo/vector-icons";
-import { getMonthHeatmapData, HeatmapMonthData } from "@/database/transactions";
-import { getDb } from "@/database/db"; // Added db import
+import { apiFetch } from "@/api";
+import { useAuth } from "./context/AuthContext";
+
+type HeatmapTx = {
+  merchant_name: string;
+  amount: number;
+  category_name: string | null;
+  category_icon: string | null;
+  emotion_emoji: string | null;
+  emotion_name: string | null;
+};
+type HeatmapMonthData = Record<string, { totalAmount: number; transactions: HeatmapTx[] }>;
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
-const MONTHS_LONG  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const DAY_LABELS   = ["Mo","Tu","We","Th","Fr","Sa","Su"];
-const WEEKDAYS     = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const DAY_LABELS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 // Purple-toned intensity palette — fills cell background
 const HEAT_COLORS = ["transparent", "#ede4f7", "#c9a3f0", "#a855f7", "#8b25e0", "#6b21a8"] as const;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CELL_SIZE   = Math.floor((SCREEN_WIDTH - 64 - 24) / 7) + 4;
-const CELL_GAP    = 4;
+const CELL_SIZE = Math.floor((SCREEN_WIDTH - 64 - 24) / 7) + 4;
+const CELL_GAP = 4;
 const SHEET_MAX_H = 500;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -61,47 +71,32 @@ type Props = { year: number; month: number };
 export default function MonthlyHeatmapPanel({ year, month }: Props) {
   const today = new Date();
   const TODAY = { year: today.getFullYear(), month: today.getMonth(), day: today.getDate() };
+  const { userId, currencyCode, isLoading: authLoading } = useAuth();
 
-  const [monthData,    setMonthData]    = useState<HeatmapMonthData>({});
-  const [sheetDay,     setSheetDay]     = useState<number | null>(null);
+  const [monthData, setMonthData] = useState<HeatmapMonthData>({});
+  const [sheetDay, setSheetDay] = useState<number | null>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
-  const [userCurrency, setUserCurrency] = useState("€"); // Added currency state
+  const userCurrency = currencyCode ?? "€";
   const sheetAnim = useRef(new Animated.Value(SHEET_MAX_H)).current;
 
-  // Added currency fetch logic
-  useEffect(() => {
-    if (global.userID) {
-      (async () => {
-        try {
-          const db = await getDb();
-          const user = await db.getFirstAsync<{ currency_code: string }>(
-            `SELECT currency_code FROM users WHERE id = ?`,
-            [global.userID]
-          );
-          if (user?.currency_code) {
-            setUserCurrency(user.currency_code);
-          }
-        } catch (error) {
-          console.error("Database error while fetching currency:", error);
-        }
-      })();
-    }
-  }, []);
-
   const loadData = useCallback(async () => {
-    const data = await getMonthHeatmapData(global.userID, year, month);
+    if (!userId) return;
+    const data = await apiFetch<HeatmapMonthData>(
+      `/api/transactions/heatmap/month?user_id=${userId}&year=${year}&month=${month}`
+    );
     setMonthData(data);
-  }, [year, month]);
+  }, [year, month, userId]);
 
   useEffect(() => {
+    if (authLoading || !userId) return;
     closeSheet();
     loadData();
-  }, [loadData]);
+  }, [loadData, authLoading, userId]);
 
-  const numDays    = daysInMonth(year, month);
-  const firstWd    = firstWeekday(year, month);
-  const maxAmount  = Object.values(monthData).reduce((m, d) => Math.max(m, d.totalAmount), 0);
-  const maxCount   = Object.values(monthData).reduce((m, d) => Math.max(m, d.transactions.length), 0);
+  const numDays = daysInMonth(year, month);
+  const firstWd = firstWeekday(year, month);
+  const maxAmount = Object.values(monthData).reduce((m, d) => Math.max(m, d.totalAmount), 0);
+  const maxCount = Object.values(monthData).reduce((m, d) => Math.max(m, d.transactions.length), 0);
   const totalSpent = Object.values(monthData).reduce((s, d) => s + d.totalAmount, 0);
   const activeDays = Object.keys(monthData).length;
 
@@ -127,8 +122,8 @@ export default function MonthlyHeatmapPanel({ year, month }: Props) {
       .start(() => { setSheetVisible(false); setSheetDay(null); });
   }
 
-  const selectedKey   = sheetDay ? dateKey(year, month, sheetDay) : null;
-  const selectedData  = selectedKey ? monthData[selectedKey] : null;
+  const selectedKey = sheetDay ? dateKey(year, month, sheetDay) : null;
+  const selectedData = selectedKey ? monthData[selectedKey] : null;
   const selectedLevel = selectedData ? intensityLevel(selectedData.totalAmount, maxAmount) : 1;
   const sheetStripeColor = HEAT_COLORS[selectedLevel] === "transparent" ? "#e9d5ff" : HEAT_COLORS[selectedLevel];
 
@@ -152,14 +147,14 @@ export default function MonthlyHeatmapPanel({ year, month }: Props) {
             <View key={wi} style={styles.weekRow}>
               {cells.slice(wi * 7, wi * 7 + 7).map((day, ci) => {
                 if (day === null) return <View key={ci} style={{ width: CELL_SIZE, height: CELL_SIZE }} />;
-                const key      = dateKey(year, month, day);
-                const data     = monthData[key];
-                const amount   = data?.totalAmount ?? 0;
-                const count    = data?.transactions.length ?? 0;
-                const level    = intensityLevel(count, maxCount);
-                const bgColor  = data ? HEAT_COLORS[level] : "transparent";
+                const key = dateKey(year, month, day);
+                const data = monthData[key];
+                const amount = data?.totalAmount ?? 0;
+                const count = data?.transactions.length ?? 0;
+                const level = intensityLevel(count, maxCount);
+                const bgColor = data ? HEAT_COLORS[level] : "transparent";
                 const textDark = level >= 1;
-                const isToday  = year === TODAY.year && month === TODAY.month && day === TODAY.day;
+                const isToday = year === TODAY.year && month === TODAY.month && day === TODAY.day;
                 return (
                   <Pressable
                     key={ci}

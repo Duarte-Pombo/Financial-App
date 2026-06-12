@@ -1,3 +1,10 @@
+/**
+ * app/register.tsx
+ *
+ * Registers a new account on the server (not local SQLite).
+ * On success, stores the JWT via AuthContext and navigates to tabs.
+ */
+
 import React, { useState } from "react";
 import {
   View,
@@ -8,7 +15,8 @@ import {
   Platform,
 } from "react-native";
 import { router } from "expo-router";
-import { getDb } from "@/database/db";
+import { useAuth } from "./context/AuthContext";
+import { apiFetch } from "@/api";
 import {
   AUTH_C,
   Field,
@@ -20,6 +28,8 @@ import {
 } from "@/components/AuthForm";
 
 export default function Register() {
+  const { login } = useAuth();
+
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -27,31 +37,23 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const validatePassword = (pass: string) => {
-    const minLength = 8;
-    const hasNumber = /\d/;
-    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/;
-
-    if (pass.length < minLength)
-      return "Password must be at least 8 characters long.";
-    if (!hasNumber.test(pass))
-      return "Password must contain at least one number.";
-    if (!hasSpecialChar.test(pass))
+  function validatePassword(pass: string): string | null {
+    if (pass.length < 8) return "Password must be at least 8 characters long.";
+    if (!/\d/.test(pass)) return "Password must contain at least one number.";
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(pass))
       return "Password must contain at least one special character.";
     return null;
-  };
+  }
 
   async function registerNewUser() {
     if (!email || !username || !password) {
       Alert.alert("Error", "Please fill in all fields.");
       return;
     }
-
     if (password !== passwordConfirm) {
       Alert.alert("Error", "Passwords don't match!");
       return;
     }
-
     const passwordError = validatePassword(password);
     if (passwordError) {
       Alert.alert("Weak Password", passwordError);
@@ -60,23 +62,28 @@ export default function Register() {
 
     setBusy(true);
     try {
-      let db = await getDb();
-      let hash = btoa(password);
+      const data = await apiFetch<{
+        ok: boolean;
+        token: string;
+        userId: string;
+        username: string;
+      }>("/api/users/register", {
+        method: "POST",
+        body: JSON.stringify({
+          email: email.trim(),
+          username: username.trim(),
+          password,
+        }),
+      });
 
-      let insert = await db.runAsync(
-        "INSERT INTO users (email, username, password_hash) VALUES (?, ?, ?)",
-        [email.trim(), username.trim(), hash],
-      );
-
-      global.userID = insert.lastInsertRowId;
-
+      await login({ userId: data.userId, token: data.token, username: data.username });
       router.replace("/(tabs)");
     } catch (error: any) {
-      console.error(error);
-      if (error.message?.includes("UNIQUE constraint failed")) {
-        Alert.alert("Error", "Email or Username already exists.");
+      console.error("[register]", error);
+      if (error.message?.includes("409") || error.message?.includes("already taken")) {
+        Alert.alert("Error", "Email or username is already taken.");
       } else {
-        Alert.alert("Registration Failed", "Something went wrong.");
+        Alert.alert("Registration Failed", error.message ?? "Something went wrong.");
       }
     } finally {
       setBusy(false);
@@ -165,16 +172,7 @@ export default function Register() {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: AUTH_C.bg,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-    paddingVertical: 16,
-  },
-  form: {
-    paddingHorizontal: 28,
-  },
+  root: { flex: 1, backgroundColor: AUTH_C.bg },
+  scrollContent: { flexGrow: 1, justifyContent: "center", paddingVertical: 16 },
+  form: { paddingHorizontal: 28 },
 });

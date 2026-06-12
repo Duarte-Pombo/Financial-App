@@ -10,7 +10,8 @@ import {
   Platform,
 } from "react-native";
 import { router } from "expo-router";
-import { getDb } from "@/database/db";
+import { useAuth } from "./context/AuthContext";
+import { apiFetch } from "@/api";
 import {
   AUTH_C,
   Field,
@@ -22,6 +23,7 @@ import {
 } from "@/components/AuthForm";
 
 export default function Login() {
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -29,29 +31,32 @@ export default function Login() {
 
   async function attemptLogin() {
     if (!email || !password) {
-      Alert.alert("Error", "Please enter both email/username and password.");
+      Alert.alert("Error", "Please enter both email and password.");
       return;
     }
 
     setBusy(true);
     try {
-      let db = await getDb();
-      let hash = btoa(password);
+      const data = await apiFetch<{
+        ok: boolean;
+        token: string;
+        userId: string;
+        username: string;
+        currency_code: string;
+      }>("/api/users/login", {
+        method: "POST",
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
 
-      const user = await db.getFirstAsync<{ id: number }>(
-        "SELECT id FROM users WHERE (email = ? or username = ?) AND password_hash = ?",
-        [email.trim(), email.trim(), hash],
-      );
-
-      if (user != null) {
-        global.userID = user.id;
-        router.replace("/(tabs)");
+      await login({ userId: data.userId, token: data.token, username: data.username, currency_code: data.currency_code });
+      router.replace("/(tabs)");
+    } catch (error: any) {
+      console.error("[login]", error);
+      if (error.message?.includes("401") || error.message?.includes("Invalid")) {
+        Alert.alert("Login Failed", "Wrong credentials. Please try again.");
       } else {
-        Alert.alert("Login Failed", "Wrong Credentials. Please try again.");
+        Alert.alert("Error", "Something went wrong during login.");
       }
-    } catch (error) {
-      console.error(error);
-      Alert.alert("Error", "Something went wrong during login.");
     } finally {
       setBusy(false);
     }

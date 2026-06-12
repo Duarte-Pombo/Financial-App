@@ -4,10 +4,23 @@ import {
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import Svg, { Circle, G, Defs, RadialGradient, Stop } from "react-native-svg";
-import {
-  getWeekHeatmapData, getMonthHeatmapData,
-  WeekDayData, HeatmapMonthData, HeatmapTx,
-} from "../../database/transactions";
+import { useAuth } from "../context/AuthContext";
+import { apiFetch } from "@/api";
+
+// ─── Types (previously from database/transactions) ────────────────────────────
+export type HeatmapTx = {
+  merchant_name: string;
+  amount: number;
+  category_name: string | null;
+  category_icon: string | null;
+  emotion_emoji: string | null;
+  emotion_name: string | null;
+};
+export type WeekDayData = {
+  count: number;
+  emotions: { name: string; emoji: string; color_hex: string; count: number }[];
+};
+export type HeatmapMonthData = Record<string, { totalAmount: number; transactions: HeatmapTx[] }>;
 import {
   EmotionGlyph, EMOTION_NAMES, emotionColor,
 } from "../../components/EmotionGlyph";
@@ -403,6 +416,7 @@ function Summary({
 export default function Calendar() {
   const today = new Date();
   const todayMonday = getMonday(today);
+  const { userId, isLoading: authLoading } = useAuth();
 
   const [viewMode, setViewMode] = useState<"weekly" | "monthly">("weekly");
   const [weekStart, setWeekStart] = useState<Date>(todayMonday);
@@ -417,22 +431,30 @@ export default function Calendar() {
   const [monthData, setMonthData] = useState<HeatmapMonthData>({});
 
   const loadWeek = useCallback(async () => {
-    const days = await getWeekHeatmapData(global.userID, weekStart);
+    if (!userId) return;
+    const weekStartIso = weekStart.toISOString();
+    const days = await apiFetch<WeekDayData[]>(
+      `/api/transactions/heatmap/week?user_id=${userId}&weekStart=${encodeURIComponent(weekStartIso)}`
+    );
     setWeekDays(days);
-  }, [weekStart]);
+  }, [weekStart, userId]);
 
   const dataYear = viewMode === "monthly" ? monthYear : weekStart.getFullYear();
   const dataMonth = viewMode === "monthly" ? monthMonth : weekStart.getMonth();
 
   const loadMonth = useCallback(async () => {
-    const m = await getMonthHeatmapData(global.userID, dataYear, dataMonth);
+    if (!userId) return;
+    const m = await apiFetch<HeatmapMonthData>(
+      `/api/transactions/heatmap/month?user_id=${userId}&year=${dataYear}&month=${dataMonth}`
+    );
     setMonthData(m);
-  }, [dataYear, dataMonth]);
+  }, [dataYear, dataMonth, userId]);
 
   useFocusEffect(useCallback(() => {
+    if (authLoading || !userId) return;
     loadWeek();
     loadMonth();
-  }, [loadWeek, loadMonth]));
+  }, [loadWeek, loadMonth, authLoading, userId]));
 
   // Weekly grid helpers
   const weekDayCount = (i: number) => filter
@@ -834,7 +856,7 @@ const st = StyleSheet.create({
   monthGrid: {
     flexDirection: "row", flexWrap: "wrap",
     paddingHorizontal: MONTH_GRID_PAD, paddingBottom: 8,
-  },   
+  },
 
   monthLegend: {
     flexDirection: "row", flexWrap: "wrap",

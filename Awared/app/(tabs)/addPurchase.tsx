@@ -5,9 +5,8 @@ import {
 } from "react-native";
 import { useState, useCallback, useEffect } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
+import { getDb } from "../../database/db";
 import { insertTransaction } from "../../database/transactions";
-import { getEmotions } from "../../database/emotions";
-import { getUserProfile } from "../../database/users";
 import * as Location from "expo-location";
 import React from "react";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
@@ -63,29 +62,31 @@ export default function AddPurchase() {
   const [showMap, setShowMap] = useState(false);
   const [mapCenter, setMapCenter] = useState<LatLng>(PORTO);
 
-  // ── Load emotions from API ─────────────────────────────────────────────────
   useEffect(() => {
-    getEmotions()
+    getDb()
+      .then(db => db.getAllAsync<Emotion>("SELECT id, name, emoji, color_hex FROM emotions ORDER BY id ASC;"))
       .then(setEmotions)
-      .catch((err) => {
-        console.error("Failed to load emotions:", err);
-      });
+      .catch(console.error);
   }, []);
 
   useFocusEffect(useCallback(() => {
     setRawDigits(""); setItem(""); setLocation("");
     setSelectedEmotionIds([]); setSaving(false); setDate(new Date()); setEditingField(null);
 
-    // ── Load user currency from API ──────────────────────────────────────────
     async function fetchCurrency() {
       if (!global.userID) return;
       try {
         const user = await getUserProfile(global.userID);
-        if (user && user.currency_code) {
+        // Add a safety check: ensure 'user' exists before accessing properties
+        if (user && typeof user === 'object' && user.currency_code) {
           setUserCurrency(user.currency_code);
+        } else {
+          // Fallback if the user profile is missing or malformed
+          setUserCurrency("€");
         }
       } catch (error) {
-        console.error("Failed to load currency:", error);
+        // Silently log the error and use the default state ("€")
+        console.warn("Could not load custom currency, defaulting to €:", error);
       }
     }
     fetchCurrency();

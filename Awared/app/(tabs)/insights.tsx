@@ -12,7 +12,9 @@ import {
   Dimensions,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
-import { getDb } from "../../database/db";
+import { useAuth } from "../context/AuthContext";
+import { apiFetch } from "@/api";
+
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -70,7 +72,6 @@ type ScoredTransaction = RawTransaction & {
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-let TEMP_USER_ID: string;
 const AVG_SPEND = 20;
 const DOW_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const HOUR_LABELS = (h: number) => {
@@ -845,6 +846,7 @@ function AiInsightsSection({
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Insights() {
+  const { userId, currencyCode } = useAuth();
   const [insights, setInsights] = useState<Insight[]>([]);
   const [premiumInsights, setPremiumInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
@@ -855,46 +857,24 @@ export default function Insights() {
     topEmotion: string | null; topEmoji: string | null;
   } | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [isPremium, setIsPremium] = useState(false);
+  const [isPremium, setIsPremium] = useState(true);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const [aiInsights, setAiInsights] = useState<AiInsightsState>({ status: "idle" });
   const [lastScored, setLastScored] = useState<ScoredTransaction[]>([]);
 
   const loadInsights = useCallback(async () => {
+    if (!userId) return;   // not logged in yet, AuthContext is still loading
+
     try {
-      const db = await getDb();
-      TEMP_USER_ID = global.userID;
-
-      // ── Fetch user currency ──
-      const userRow = await db.getFirstAsync<{ currency_code: string }>(
-        "SELECT currency_code FROM users WHERE id = ?",
-        [TEMP_USER_ID]
+      // ── 1. Fetch enriched transactions from the server ──────────────────────
+      const data = await apiFetch<{ ok: boolean; transactions: RawTransaction[] }>(
+        `/api/transactions/insights?user_id=${userId}`
       );
-      const userCurrency = userRow?.currency_code ?? "€";
+
+      const rows = data.transactions ?? [];
+      const userCurrency = currencyCode ?? "€";
       setCurrency(userCurrency);
-
-      const rows = await db.getAllAsync<RawTransaction>(
-        `SELECT
-           t.id, t.amount, t.merchant_name, t.transacted_at,
-           t.category_id,
-           sc.name       AS category_name,
-           sc.icon       AS category_icon,
-           el.emotion_id,
-           e.name        AS emotion_name,
-           e.emoji       AS emotion_emoji,
-           e.polarity    AS emotion_polarity,
-           e.energy      AS emotion_energy,
-           e.category    AS emotion_category
-         FROM transactions t
-         LEFT JOIN emotion_logs el        ON el.id  = t.emotion_log_id
-         LEFT JOIN emotions e             ON e.id   = el.emotion_id
-         LEFT JOIN spending_categories sc ON sc.id  = t.category_id
-         WHERE t.user_id = ?
-           AND t.transacted_at >= datetime('now', '-30 days')
-         ORDER BY t.transacted_at DESC`,
-        [TEMP_USER_ID]
-      );
 
       if (rows.length === 0) {
         setInsights(generateInsights([], AVG_SPEND, userCurrency));
@@ -903,6 +883,7 @@ export default function Insights() {
         return;
       }
 
+      // ── 2. Score transactions (same logic as before) ────────────────────────
       const dayCountMap: Record<string, number> = {};
       for (const row of rows) {
         const day = row.transacted_at.slice(0, 10);
@@ -933,7 +914,9 @@ export default function Insights() {
         .sort((a, b) => b[1].count - a[1].count)[0];
 
       setStats({
-        totalSpend, txCount: rows.length, avgScore,
+        totalSpend,
+        txCount: rows.length,
+        avgScore,
         topEmotion: topEmotionEntry?.[0] ?? null,
         topEmoji: topEmotionEntry?.[1].emoji ?? null,
       });
@@ -941,6 +924,7 @@ export default function Insights() {
       setInsights(generateInsights(scored, avgSpend, userCurrency));
       setPremiumInsights(generatePremiumInsights(scored, avgSpend, userCurrency));
 
+      // ── 3. Trigger AI insights if premium + enough data ─────────────────────
       if (isPremium && scored.length >= 3) {
         fetchAiInsights(scored, setAiInsights);
       }
@@ -950,14 +934,7 @@ export default function Insights() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [isPremium]);
-
-  useFocusEffect(
-    useCallback(() => {
-      setLoading(true);
-      loadInsights();
-    }, [loadInsights])
-  );
+  }, [userId, currencyCode, isPremium]);
 
   const onRefresh = () => { setRefreshing(true); loadInsights(); };
 
@@ -1157,6 +1134,10 @@ export default function Insights() {
         onUpgrade={() => {
           setIsPremium(true);
           setShowUpgradeModal(false);
+          // Manually trigger the SLM here without reloading the DB!
+          if (lastScored.length >= 3) {
+            fetchAiInsights(lastScored, setAiInsights);
+          }
         }}
         currency={currency}
       />
