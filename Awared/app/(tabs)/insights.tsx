@@ -96,15 +96,35 @@ const CATEGORY_WEIGHTS: Record<string, number> = {
 /** Base URL of your Express server. Change for production. */
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
 
-// Map insight types to the same visual language as the existing Insight cards
+// ─── Design tokens (matches the rest of the app) ─────────────────────────────
+const C = {
+  bg: "#F5F1EA",
+  panel: "#FAF6EF",
+  ink: "#1F1B16",
+  inkSoft: "#5E574E",
+  inkMute: "#9C9489",
+  rule: "rgba(31,27,22,0.10)",
+  ruleSoft: "rgba(31,27,22,0.06)",
+  purple: "#9B82C9",
+  purpleDeep: "#7E64B3",
+  purpleSoft: "rgba(155,130,201,0.14)",
+  danger: "#C24A3A",
+  dangerSoft: "rgba(194,74,58,0.10)",
+  amber: "#A0742A",
+  amberSoft: "rgba(160,116,42,0.10)",
+  green: "#3A7C5E",
+  greenSoft: "rgba(58,124,94,0.10)",
+};
+
+// Map insight types to the editorial palette
 const AI_INSIGHT_STYLE: Record<
   AiInsight["type"],
   { icon: string; accentColor: string; bgColor: string }
 > = {
-  warning: { icon: "🧠", accentColor: "#dc2626", bgColor: "#fef2f2" },
-  pattern: { icon: "🔍", accentColor: "#7c3aed", bgColor: "#f5f3ff" },
-  tip: { icon: "💡", accentColor: "#b45309", bgColor: "#fff7ed" },
-  positive: { icon: "✨", accentColor: "#059669", bgColor: "#ecfdf5" },
+  warning: { icon: "🧠", accentColor: C.danger, bgColor: C.dangerSoft },
+  pattern: { icon: "🔍", accentColor: C.purpleDeep, bgColor: C.purpleSoft },
+  tip: { icon: "💡", accentColor: C.amber, bgColor: C.amberSoft },
+  positive: { icon: "✨", accentColor: C.green, bgColor: C.greenSoft },
 };
 
 // ─── Free-tier scoring helpers ────────────────────────────────────────────────
@@ -939,10 +959,10 @@ export default function Insights() {
   const onRefresh = () => { setRefreshing(true); loadInsights(); };
 
   function scoreZoneLabel(avg: number): { label: string; color: string } {
-    if (avg < 3) return { label: "Healthy pattern", color: "#059669" };
-    if (avg < 6) return { label: "Mild impulse risk", color: "#b45309" };
-    if (avg < 9) return { label: "Emotional spending", color: "#dc2626" };
-    return { label: "High-risk pattern", color: "#7f1d1d" };
+    if (avg < 3) return { label: "healthy pattern", color: C.green };
+    if (avg < 6) return { label: "mild impulse risk", color: C.amber };
+    if (avg < 9) return { label: "emotional spending", color: C.danger };
+    return { label: "high-risk pattern", color: C.danger };
   }
 
   const renderInsightCard = (insight: Insight) => {
@@ -950,33 +970,33 @@ export default function Insights() {
     return (
       <Pressable
         key={insight.id}
-        style={[styles.card, { backgroundColor: insight.bgColor, borderLeftColor: insight.accentColor }]}
+        style={[s.card, { borderLeftColor: insight.accentColor }]}
         onPress={() => setExpanded(isOpen ? null : insight.id)}
       >
-        <View style={styles.cardHeader}>
-          <View style={[styles.iconBadge, { backgroundColor: insight.accentColor + "20" }]}>
-            <Text style={styles.iconText}>{insight.icon}</Text>
+        <View style={s.cardHeader}>
+          <View style={[s.iconBadge, { backgroundColor: insight.accentColor + "18" }]}>
+            <Text style={s.iconText}>{insight.icon}</Text>
           </View>
-          <View style={styles.cardTitleBlock}>
-            <Text style={styles.cardTitle}>{insight.title}</Text>
+          <View style={s.cardTitleBlock}>
+            <Text style={s.cardTitle}>{insight.title}</Text>
             {insight.score !== undefined && (
-              <Text style={[styles.scoreBadge, { color: insight.accentColor }]}>
+              <Text style={[s.scoreBadge, { color: insight.accentColor }]}>
                 Score {insight.score}/14
               </Text>
             )}
           </View>
-          <Text style={[styles.chevron, { color: insight.accentColor }]}>
+          <Text style={[s.chevron, { color: C.inkMute }]}>
             {isOpen ? "▲" : "▼"}
           </Text>
         </View>
 
         {isOpen && (
-          <View style={styles.cardBody}>
-            <Text style={styles.cardBodyText}>{insight.body}</Text>
-            <View style={styles.actionsBlock}>
+          <View style={s.cardBody}>
+            <Text style={s.cardBodyText}>{insight.body}</Text>
+            <View style={s.actionsBlock}>
               {insight.actions.map((action, i) => (
-                <View key={i} style={[styles.actionRow, { borderLeftColor: insight.accentColor }]}>
-                  <Text style={styles.actionText}>{action}</Text>
+                <View key={i} style={[s.actionRow, { borderLeftColor: insight.accentColor }]}>
+                  <Text style={s.actionText}>{action}</Text>
                 </View>
               ))}
             </View>
@@ -987,88 +1007,92 @@ export default function Insights() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={s.root}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={s.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7c3aed" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.purpleDeep} />
         }
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Insights</Text>
-          <Text style={styles.headerSub}>Last 30 days</Text>
+        {/* ── Header ── */}
+        <View style={s.header}>
+          <Text style={s.headerKicker}>INSIGHTS</Text>
+          <Text style={s.headerTitle}>your patterns,{"\n"}laid bare.</Text>
+          <Text style={s.headerSub}>last 30 days</Text>
         </View>
 
         {loading ? (
-          <ActivityIndicator style={{ marginTop: 60 }} color="#7c3aed" size="large" />
+          <View style={s.loadingWrap}>
+            <ActivityIndicator color={C.purpleDeep} size="large" />
+            <Text style={s.loadingText}>reading your patterns…</Text>
+          </View>
         ) : (
           <>
-            {/* Stats strip */}
+            {/* ── Stats strip ── */}
             {stats && (
-              <View style={styles.statsStrip}>
-                <View style={styles.statCard}>
-                  <Text style={styles.statValue}>{currency}{stats.totalSpend.toFixed(0)}</Text>
-                  <Text style={styles.statLabel}>Total spent</Text>
+              <View style={s.statsStrip}>
+                <View style={s.statCard}>
+                  <Text style={s.statValue}>{currency}{stats.totalSpend.toFixed(0)}</Text>
+                  <Text style={s.statLabel}>total spent</Text>
                 </View>
-                <View style={styles.statCard}>
-                  <Text style={styles.statValue}>{stats.txCount}</Text>
-                  <Text style={styles.statLabel}>Purchases</Text>
+                <View style={s.statDivider} />
+                <View style={s.statCard}>
+                  <Text style={s.statValue}>{stats.txCount}</Text>
+                  <Text style={s.statLabel}>purchases</Text>
                 </View>
-                <View style={styles.statCard}>
-                  <Text style={[styles.statValue, { color: scoreZoneLabel(stats.avgScore).color }]}>
+                <View style={s.statDivider} />
+                <View style={s.statCard}>
+                  <Text style={[s.statValue, { color: scoreZoneLabel(stats.avgScore).color }]}>
                     {stats.avgScore.toFixed(1)}
                   </Text>
-                  <Text style={styles.statLabel}>Avg risk score</Text>
+                  <Text style={s.statLabel}>avg risk</Text>
                 </View>
                 {stats.topEmotion && (
-                  <View style={styles.statCard}>
-                    <Text style={styles.statValue}>{stats.topEmoji ?? "—"}</Text>
-                    <Text style={styles.statLabel}>{stats.topEmotion}</Text>
-                  </View>
+                  <>
+                    <View style={s.statDivider} />
+                    <View style={s.statCard}>
+                      <Text style={s.statValue}>{stats.topEmoji ?? "—"}</Text>
+                      <Text style={s.statLabel}>{stats.topEmotion}</Text>
+                    </View>
+                  </>
                 )}
               </View>
             )}
 
-            {/* Zone pill */}
+            {/* ── Zone pill ── */}
             {stats && (
-              <View style={[styles.zonePill, { backgroundColor: scoreZoneLabel(stats.avgScore).color + "20" }]}>
-                <View style={[styles.zoneDot, { backgroundColor: scoreZoneLabel(stats.avgScore).color }]} />
-                <Text style={[styles.zoneLabel, { color: scoreZoneLabel(stats.avgScore).color }]}>
+              <View style={[s.zonePill, { backgroundColor: scoreZoneLabel(stats.avgScore).color + "18" }]}>
+                <View style={[s.zoneDot, { backgroundColor: scoreZoneLabel(stats.avgScore).color }]} />
+                <Text style={[s.zoneLabel, { color: scoreZoneLabel(stats.avgScore).color }]}>
                   {scoreZoneLabel(stats.avgScore).label}
                 </Text>
               </View>
             )}
 
-            {/* Free insight cards */}
-            <Text style={styles.sectionTitle}>What we found</Text>
+            {/* ── Free insight cards ── */}
+            <Text style={s.sectionTitle}>what we found</Text>
             {insights.map(renderInsightCard)}
 
             {/* ── Premium section ── */}
-            <View style={styles.premiumSectionHeader}>
-              <View style={styles.premiumSectionLeft}>
-                <Text style={styles.sectionTitle}>
-                  {isPremium ? "Premium Analysis" : "Premium Analysis"}
-                </Text>
-                {!isPremium && (
-                  <View style={styles.premiumLockBadge}>
-                    <Text style={styles.premiumLockBadgeText}>🔒 Locked</Text>
-                  </View>
-                )}
-              </View>
-              {isPremium && (
-                <View style={styles.premiumActiveBadge}>
-                  <Text style={styles.premiumActiveBadgeText}>✨ Active</Text>
+            <View style={s.premiumSectionHeader}>
+              <Text style={s.sectionTitle}>
+                {isPremium ? "premium analysis" : "premium analysis"}
+              </Text>
+              {isPremium ? (
+                <View style={[s.badge, { backgroundColor: C.greenSoft }]}>
+                  <Text style={[s.badgeText, { color: C.green }]}>✨ active</Text>
+                </View>
+              ) : (
+                <View style={[s.badge, { backgroundColor: C.purpleSoft }]}>
+                  <Text style={[s.badgeText, { color: C.purpleDeep }]}>🔒 locked</Text>
                 </View>
               )}
             </View>
 
             {isPremium ? (
-              // Full premium cards
               <>
                 {premiumInsights.map(renderInsightCard)}
-
                 <AiInsightsSection
                   state={aiInsights}
                   onRetry={() => fetchAiInsights(lastScored, setAiInsights)}
@@ -1077,36 +1101,35 @@ export default function Insights() {
                 />
               </>
             ) : (
-              // Locked preview cards
               <>
                 {LOCKED_PREVIEWS.map((card, i) => (
                   <Pressable
                     key={i}
-                    style={styles.lockedCard}
+                    style={s.lockedCard}
                     onPress={() => setShowUpgradeModal(true)}
                   >
-                    <View style={styles.lockedLeft}>
-                      <View style={styles.lockedIconWrap}>
-                        <Text style={styles.lockedIcon}>{card.icon}</Text>
+                    <View style={s.lockedLeft}>
+                      <View style={s.lockedIconWrap}>
+                        <Text style={s.lockedIcon}>{card.icon}</Text>
                       </View>
-                      <View style={styles.lockedTextWrap}>
-                        <Text style={styles.lockedTitle}>{card.title}</Text>
-                        <Text style={styles.lockedSub}>{card.sub}</Text>
+                      <View style={s.lockedTextWrap}>
+                        <Text style={s.lockedTitle}>{card.title}</Text>
+                        <Text style={s.lockedSub}>{card.sub}</Text>
                       </View>
                     </View>
-                    <View style={styles.lockedCTA}>
-                      <Text style={styles.lockedCTAText}>Unlock</Text>
+                    <View style={s.lockedCTA}>
+                      <Text style={s.lockedCTAText}>Unlock</Text>
                     </View>
                   </Pressable>
                 ))}
-                <Text style={styles.premiumTeaser}>
+                <Text style={s.premiumTeaser}>
                   Vector algorithms · Pearson correlation · Merchant vulnerability maps
                 </Text>
               </>
             )}
 
-            {/* Footer */}
-            <Text style={styles.footer}>
+            {/* ── Footer ── */}
+            <Text style={s.footer}>
               Scores reflect your patterns — not judgements. Awared is here to help you
               understand the feeling, not shame the purchase.
             </Text>
@@ -1114,30 +1137,26 @@ export default function Insights() {
         )}
       </ScrollView>
 
-      {/* Sticky bottom upgrade bar */}
+      {/* ── Sticky upgrade banner ── */}
       {!isPremium && !loading && (
-        <Pressable style={styles.upgradeBanner} onPress={() => setShowUpgradeModal(true)}>
-          <View style={styles.upgradeBannerLeft}>
-            <Text style={styles.upgradeBannerTitle}>✨ Unlock Premium Insights</Text>
-            <Text style={styles.upgradeBannerSub}>Vector analysis · Behavioral clusters</Text>
+        <Pressable style={s.upgradeBanner} onPress={() => setShowUpgradeModal(true)}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.upgradeBannerTitle}>✨ Unlock Premium Insights</Text>
+            <Text style={s.upgradeBannerSub}>Vector analysis · Behavioral clusters</Text>
           </View>
-          <View style={styles.upgradeBannerBtn}>
-            <Text style={styles.upgradeBannerBtnText}>{currency}1.99 / mo</Text>
+          <View style={s.upgradeBannerBtn}>
+            <Text style={s.upgradeBannerBtnText}>{currency}1.99 / mo</Text>
           </View>
         </Pressable>
       )}
 
-      {/* Upgrade modal */}
       <UpgradeModal
         visible={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
         onUpgrade={() => {
           setIsPremium(true);
           setShowUpgradeModal(false);
-          // Manually trigger the SLM here without reloading the DB!
-          if (lastScored.length >= 3) {
-            fetchAiInsights(lastScored, setAiInsights);
-          }
+          if (lastScored.length >= 3) fetchAiInsights(lastScored, setAiInsights);
         }}
         currency={currency}
       />
@@ -1146,28 +1165,49 @@ export default function Insights() {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fdf3ff" },
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.bg },
   scrollContent: {
     paddingHorizontal: 20, paddingTop: 56, paddingBottom: 140,
-    maxWidth: 480, alignSelf: "center", width: "100%",
   },
 
   // Header
-  header: { marginBottom: 20 },
-  headerTitle: { fontFamily: "PlayfairDisplay_700Bold_Italic", fontSize: 28, color: "#1F1B16", letterSpacing: -0.3 },
-  headerSub: { fontSize: 13, color: "#888", marginTop: 2 },
-
-  // Stats
-  statsStrip: { flexDirection: "row", gap: 8, marginBottom: 12, flexWrap: "wrap" },
-  statCard: {
-    flex: 1, minWidth: 70, backgroundColor: "#fff", borderRadius: 14,
-    padding: 12, alignItems: "center",
-    shadowColor: "#c4a8e0", shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12, shadowRadius: 6, elevation: 2,
+  header: { marginBottom: 24 },
+  headerKicker: {
+    fontFamily: "Manrope_600SemiBold", fontSize: 11, color: C.inkMute,
+    letterSpacing: 1.6, marginBottom: 6,
   },
-  statValue: { fontSize: 20, fontWeight: "700", color: "#1a1a1a" },
-  statLabel: { fontSize: 10, color: "#999", marginTop: 2, textAlign: "center" },
+  headerTitle: {
+    fontFamily: "PlayfairDisplay_700Bold_Italic", fontSize: 32,
+    color: C.ink, letterSpacing: -0.4, lineHeight: 38,
+  },
+  headerSub: {
+    fontFamily: "PlayfairDisplay_400Regular_Italic", fontSize: 14,
+    color: C.inkMute, marginTop: 4,
+  },
+
+  // Loading
+  loadingWrap: { alignItems: "center", paddingTop: 60, gap: 14 },
+  loadingText: {
+    fontFamily: "PlayfairDisplay_400Regular_Italic", fontSize: 15, color: C.inkMute,
+  },
+
+  // Stats strip — single card, horizontal rule dividers
+  statsStrip: {
+    flexDirection: "row", backgroundColor: C.panel, borderRadius: 18,
+    borderWidth: 1, borderColor: C.rule,
+    paddingVertical: 14, paddingHorizontal: 8,
+    marginBottom: 12, alignItems: "center",
+  },
+  statCard: { flex: 1, alignItems: "center" },
+  statDivider: { width: 1, height: 32, backgroundColor: C.rule },
+  statValue: {
+    fontFamily: "LibreCaslonText_700Bold", fontSize: 18, color: C.ink, letterSpacing: -0.4,
+  },
+  statLabel: {
+    fontFamily: "Manrope_400Regular", fontSize: 10, color: C.inkMute,
+    marginTop: 2, textAlign: "center",
+  },
 
   // Zone pill
   zonePill: {
@@ -1176,278 +1216,244 @@ const styles = StyleSheet.create({
     marginBottom: 24, gap: 6,
   },
   zoneDot: { width: 7, height: 7, borderRadius: 4 },
-  zoneLabel: { fontSize: 12, fontWeight: "600" },
+  zoneLabel: {
+    fontFamily: "Manrope_600SemiBold", fontSize: 12,
+  },
 
   // Section title
   sectionTitle: {
-    fontSize: 14, fontWeight: "600", color: "#555",
-    textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 12,
+    fontFamily: "PlayfairDisplay_400Regular_Italic", fontSize: 14,
+    color: C.inkSoft, letterSpacing: 0.3, marginBottom: 10,
   },
 
   // Insight card
   card: {
-    borderRadius: 16, borderLeftWidth: 3, padding: 14, marginBottom: 12,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
+    backgroundColor: C.panel, borderRadius: 18, borderWidth: 1,
+    borderColor: C.rule, borderLeftWidth: 3,
+    padding: 14, marginBottom: 10,
   },
   cardHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
-  iconBadge: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  iconBadge: {
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: "center", justifyContent: "center", flexShrink: 0,
+  },
   iconText: { fontSize: 16 },
   cardTitleBlock: { flex: 1 },
-  cardTitle: { fontSize: 14, fontWeight: "600", color: "#1a1a1a", lineHeight: 19 },
-  scoreBadge: { fontSize: 11, fontWeight: "500", marginTop: 2 },
+  cardTitle: {
+    fontFamily: "Manrope_600SemiBold", fontSize: 14, color: C.ink, lineHeight: 19,
+  },
+  scoreBadge: {
+    fontFamily: "Manrope_400Regular", fontSize: 11, marginTop: 2,
+  },
   chevron: { fontSize: 10, paddingLeft: 4 },
-  cardBody: { marginTop: 12, paddingTop: 12, borderTopWidth: 0.5, borderTopColor: "#00000015" },
-  cardBodyText: { fontSize: 13, color: "#444", lineHeight: 20, marginBottom: 12 },
+  cardBody: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.ruleSoft },
+  cardBodyText: {
+    fontFamily: "Manrope_400Regular", fontSize: 13, color: C.inkSoft,
+    lineHeight: 20, marginBottom: 12,
+  },
   actionsBlock: { gap: 6 },
-  actionRow: { borderLeftWidth: 2, paddingLeft: 10, paddingVertical: 5, backgroundColor: "#00000008", borderRadius: 4 },
-  actionText: { fontSize: 12, color: "#555", lineHeight: 17 },
+  actionRow: {
+    borderLeftWidth: 2, paddingLeft: 10, paddingVertical: 5,
+    backgroundColor: C.ruleSoft, borderRadius: 4,
+  },
+  actionText: {
+    fontFamily: "Manrope_400Regular", fontSize: 12, color: C.inkSoft, lineHeight: 17,
+  },
 
   // Premium section header
   premiumSectionHeader: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    marginTop: 12, marginBottom: 0,
+    flexDirection: "row", alignItems: "center",
+    justifyContent: "space-between", marginTop: 16, marginBottom: 10,
   },
-  premiumSectionLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  premiumLockBadge: { backgroundColor: "#f3e8ff", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-  premiumLockBadgeText: { fontSize: 11, color: "#7c3aed", fontWeight: "600" },
-  premiumActiveBadge: { backgroundColor: "#ecfdf5", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-  premiumActiveBadgeText: { fontSize: 11, color: "#059669", fontWeight: "600" },
+  badge: { borderRadius: 10, paddingHorizontal: 9, paddingVertical: 3 },
+  badgeText: { fontFamily: "Manrope_600SemiBold", fontSize: 11 },
 
   // Locked cards
   lockedCard: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    backgroundColor: "#fff", borderRadius: 16, borderWidth: 1.5,
-    borderColor: "#e9d8fd", borderStyle: "dashed",
+    backgroundColor: C.panel, borderRadius: 18, borderWidth: 1,
+    borderColor: C.rule, borderStyle: "dashed",
     padding: 14, marginBottom: 10,
   },
   lockedLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
   lockedIconWrap: {
-    width: 36, height: 36, borderRadius: 18, backgroundColor: "#f3e8ff",
+    width: 36, height: 36, borderRadius: 18, backgroundColor: C.purpleSoft,
     alignItems: "center", justifyContent: "center",
   },
   lockedIcon: { fontSize: 16 },
   lockedTextWrap: { flex: 1 },
-  lockedTitle: { fontSize: 13, fontWeight: "600", color: "#6b21a8" },
-  lockedSub: { fontSize: 11, color: "#a78bfa", marginTop: 2 },
+  lockedTitle: { fontFamily: "Manrope_600SemiBold", fontSize: 13, color: C.purpleDeep },
+  lockedSub: { fontFamily: "Manrope_400Regular", fontSize: 11, color: C.inkMute, marginTop: 2 },
   lockedCTA: {
-    backgroundColor: "#7c3aed", borderRadius: 10,
+    backgroundColor: C.purpleDeep, borderRadius: 10,
     paddingHorizontal: 12, paddingVertical: 6,
   },
-  lockedCTAText: { fontSize: 12, fontWeight: "700", color: "#fff" },
+  lockedCTAText: { fontFamily: "Manrope_700Bold", fontSize: 12, color: "#fff" },
 
   premiumTeaser: {
-    fontSize: 11, color: "#a78bfa", textAlign: "center",
-    marginTop: 4, marginBottom: 16, fontStyle: "italic",
+    fontFamily: "PlayfairDisplay_400Regular_Italic", fontSize: 11,
+    color: C.inkMute, textAlign: "center", marginTop: 4, marginBottom: 16,
   },
 
   // Footer
   footer: {
-    fontSize: 11, color: "#aaa", textAlign: "center",
-    lineHeight: 16, marginTop: 16, paddingHorizontal: 10,
+    fontFamily: "PlayfairDisplay_400Regular_Italic", fontSize: 11,
+    color: C.inkMute, textAlign: "center", lineHeight: 17,
+    marginTop: 16, paddingHorizontal: 10,
   },
 
   // Sticky upgrade banner
   upgradeBanner: {
     position: "absolute", bottom: 0, left: 0, right: 0,
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    backgroundColor: "#4c1d95",
+    backgroundColor: C.purpleDeep,
     paddingHorizontal: 20, paddingTop: 14, paddingBottom: 28,
-    shadowColor: "#4c1d95", shadowOffset: { width: 0, height: -4 },
+    shadowColor: C.purpleDeep, shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.25, shadowRadius: 12, elevation: 10,
   },
-  upgradeBannerLeft: { flex: 1 },
-  upgradeBannerTitle: { fontSize: 15, fontWeight: "700", color: "#fff" },
-  upgradeBannerSub: { fontSize: 11, color: "#c4b5fd", marginTop: 2 },
+  upgradeBannerTitle: {
+    fontFamily: "PlayfairDisplay_700Bold_Italic", fontSize: 15, color: "#fff",
+  },
+  upgradeBannerSub: {
+    fontFamily: "Manrope_400Regular", fontSize: 11,
+    color: "rgba(255,255,255,0.65)", marginTop: 2,
+  },
   upgradeBannerBtn: {
     backgroundColor: "#fff", borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 8,
   },
-  upgradeBannerBtnText: { fontSize: 13, fontWeight: "700", color: "#4c1d95" },
+  upgradeBannerBtnText: {
+    fontFamily: "Manrope_700Bold", fontSize: 13, color: C.purpleDeep,
+  },
 });
 
 // ─── Modal styles ─────────────────────────────────────────────────────────────
 const ms = StyleSheet.create({
-  overlay: {
-    flex: 1, justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.45)",
-  },
+  overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.45)" },
   backdrop: { ...StyleSheet.absoluteFillObject },
   sheet: {
-    backgroundColor: "#fff", borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    backgroundColor: C.panel, borderTopLeftRadius: 28, borderTopRightRadius: 28,
     paddingHorizontal: 24, paddingTop: 12, paddingBottom: 40,
     maxHeight: SCREEN_HEIGHT * 0.88,
   },
   handle: {
-    width: 36, height: 4, borderRadius: 2, backgroundColor: "#e0e0e0",
+    width: 36, height: 4, borderRadius: 2, backgroundColor: C.rule,
     alignSelf: "center", marginBottom: 20,
   },
-
   badge: {
-    alignSelf: "center", backgroundColor: "#f3e8ff",
-    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5,
-    marginBottom: 16,
+    alignSelf: "center", backgroundColor: C.purpleSoft,
+    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5, marginBottom: 16,
   },
-  badgeText: { fontSize: 12, fontWeight: "700", color: "#7c3aed", letterSpacing: 1 },
-
+  badgeText: {
+    fontFamily: "Manrope_700Bold", fontSize: 12, color: C.purpleDeep, letterSpacing: 1,
+  },
   headline: {
-    fontSize: 22, fontWeight: "800", color: "#1a1a1a",
-    textAlign: "center", lineHeight: 30, marginBottom: 8,
+    fontFamily: "PlayfairDisplay_700Bold_Italic", fontSize: 24, color: C.ink,
+    textAlign: "center", lineHeight: 32, marginBottom: 8,
   },
   sub: {
-    fontSize: 13, color: "#666", textAlign: "center", lineHeight: 19, marginBottom: 20,
+    fontFamily: "Manrope_400Regular", fontSize: 13, color: C.inkSoft,
+    textAlign: "center", lineHeight: 19, marginBottom: 20,
   },
-
-  // Feature comparison table
-  table: { borderRadius: 14, overflow: "hidden", marginBottom: 20, borderWidth: 1, borderColor: "#f0e6ff" },
-  tableHeader: { flexDirection: "row", backgroundColor: "#f9f5ff", paddingVertical: 8 },
-  tableColHead: { fontSize: 12, fontWeight: "700", color: "#6b21a8", textAlign: "center" },
-  tablePremiumHead: { color: "#7c3aed" },
+  table: {
+    borderRadius: 14, overflow: "hidden", marginBottom: 20,
+    borderWidth: 1, borderColor: C.rule,
+  },
+  tableHeader: { flexDirection: "row", backgroundColor: C.purpleSoft, paddingVertical: 8 },
+  tableColHead: {
+    fontFamily: "Manrope_700Bold", fontSize: 12, color: C.purpleDeep, textAlign: "center",
+  },
+  tablePremiumHead: { color: C.purpleDeep },
   tableRow: { flexDirection: "row", paddingVertical: 9, paddingHorizontal: 4 },
-  tableRowAlt: { backgroundColor: "#fdf8ff" },
-  tableCol: { flex: 1, fontSize: 12, color: "#555", textAlign: "center", paddingHorizontal: 6 },
-  tableColFree: { color: "#999" },
-  tableColPremium: { color: "#7c3aed", fontWeight: "600" },
-
+  tableRowAlt: { backgroundColor: C.bg },
+  tableCol: {
+    flex: 1, fontFamily: "Manrope_400Regular", fontSize: 12,
+    color: C.inkSoft, textAlign: "center", paddingHorizontal: 6,
+  },
+  tableColFree: { color: C.inkMute },
+  tableColPremium: { color: C.purpleDeep, fontFamily: "Manrope_600SemiBold" },
   cta: {
-    backgroundColor: "#7c3aed", borderRadius: 16,
+    backgroundColor: C.purpleDeep, borderRadius: 16,
     paddingVertical: 16, alignItems: "center", marginBottom: 12,
-    shadowColor: "#7c3aed", shadowOffset: { width: 0, height: 4 },
+    shadowColor: C.purpleDeep, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
   },
-  ctaText: { fontSize: 16, fontWeight: "800", color: "#fff", letterSpacing: 0.2 },
-
+  ctaText: {
+    fontFamily: "PlayfairDisplay_700Bold_Italic", fontSize: 17, color: "#fff", letterSpacing: 0.2,
+  },
   dismissBtn: { alignItems: "center", paddingVertical: 10, marginBottom: 4 },
-  dismissText: { fontSize: 14, color: "#aaa" },
-
-  legal: { fontSize: 10, color: "#ccc", textAlign: "center" },
+  dismissText: { fontFamily: "Manrope_400Regular", fontSize: 14, color: C.inkMute },
+  legal: {
+    fontFamily: "Manrope_400Regular", fontSize: 10, color: C.inkMute, textAlign: "center",
+  },
 });
 
 // ─── AI Section Styles ────────────────────────────────────────────────────────
 const aiStyles = StyleSheet.create({
   sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
-    marginTop: 8,
+    flexDirection: "row", alignItems: "center",
+    justifyContent: "space-between", marginBottom: 10, marginTop: 8,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#555",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
+    fontFamily: "PlayfairDisplay_400Regular_Italic", fontSize: 14,
+    color: C.inkSoft, letterSpacing: 0.3,
   },
   latencyBadge: {
-    fontSize: 11,
-    color: "#a78bfa",
-    fontStyle: "italic",
+    fontFamily: "Manrope_400Regular", fontSize: 11, color: C.inkMute, fontStyle: "italic",
   },
-
-  // Loading state
   loadingCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: "#f5f3ff",
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
+    flexDirection: "row", alignItems: "center", gap: 12,
+    backgroundColor: C.purpleSoft, borderRadius: 18,
+    borderWidth: 1, borderColor: C.rule,
+    padding: 16, marginBottom: 10,
   },
   loadingText: {
-    fontSize: 13,
-    color: "#7c3aed",
-    flex: 1,
+    fontFamily: "PlayfairDisplay_400Regular_Italic", fontSize: 13,
+    color: C.purpleDeep, flex: 1,
   },
-
-  // Error state
   errorCard: {
-    backgroundColor: "#fef2f2",
-    borderRadius: 14,
-    borderLeftWidth: 3,
-    borderLeftColor: "#dc2626",
-    padding: 14,
-    marginBottom: 12,
-    gap: 10,
+    backgroundColor: C.dangerSoft, borderRadius: 18, borderWidth: 1,
+    borderColor: C.rule, borderLeftWidth: 3, borderLeftColor: C.danger,
+    padding: 14, marginBottom: 10, gap: 10,
   },
   errorText: {
-    fontSize: 13,
-    color: "#991b1b",
-    lineHeight: 19,
+    fontFamily: "Manrope_400Regular", fontSize: 13, color: C.danger, lineHeight: 19,
   },
   retryBtn: {
-    alignSelf: "flex-start",
-    backgroundColor: "#dc2626",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    alignSelf: "flex-start", backgroundColor: C.danger,
+    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6,
   },
-  retryText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#fff",
-  },
-
-  // Insight cards (mirrors existing card styles)
+  retryText: { fontFamily: "Manrope_700Bold", fontSize: 12, color: "#fff" },
   card: {
-    borderRadius: 16,
-    borderLeftWidth: 3,
-    padding: 14,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
+    backgroundColor: C.panel, borderRadius: 18, borderWidth: 1,
+    borderColor: C.rule, borderLeftWidth: 3,
+    padding: 14, marginBottom: 10,
   },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
+  cardHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
   iconBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: "center", justifyContent: "center", flexShrink: 0,
   },
   iconText: { fontSize: 16 },
   cardTitleBlock: { flex: 1 },
   cardTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1a1a1a",
-    lineHeight: 19,
+    fontFamily: "Manrope_600SemiBold", fontSize: 14, color: C.ink, lineHeight: 19,
   },
   aiBadge: {
-    fontSize: 10,
-    fontWeight: "500",
-    marginTop: 2,
-    letterSpacing: 0.3,
+    fontFamily: "Manrope_400Regular", fontSize: 10, marginTop: 2, letterSpacing: 0.3,
   },
   chevron: { fontSize: 10, paddingLeft: 4 },
-  cardBody: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 0.5,
-    borderTopColor: "#00000015",
-  },
+  cardBody: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.ruleSoft },
   cardBodyText: {
-    fontSize: 13,
-    color: "#444",
-    lineHeight: 20,
-    marginBottom: 12,
+    fontFamily: "Manrope_400Regular", fontSize: 13, color: C.inkSoft,
+    lineHeight: 20, marginBottom: 12,
   },
   actionsBlock: { gap: 6 },
   actionRow: {
-    borderLeftWidth: 2,
-    paddingLeft: 10,
-    paddingVertical: 5,
-    backgroundColor: "#00000008",
-    borderRadius: 4,
+    borderLeftWidth: 2, paddingLeft: 10, paddingVertical: 5,
+    backgroundColor: C.ruleSoft, borderRadius: 4,
   },
-  actionText: { fontSize: 12, color: "#555", lineHeight: 17 },
+  actionText: {
+    fontFamily: "Manrope_400Regular", fontSize: 12, color: C.inkSoft, lineHeight: 17,
+  },
 });
