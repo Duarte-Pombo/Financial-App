@@ -9,7 +9,8 @@ import {
 } from "react-native";
 import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
 import Svg, { Circle } from "react-native-svg";
-import { getDb } from "@/database/db";
+import { apiFetch } from "@/api";
+import { useAuth } from "../context/AuthContext";
 import { EmotionGlyph, emotionColor } from "../../components/EmotionGlyph";
 
 const C = {
@@ -119,91 +120,35 @@ export default function Index() {
     }
   }, [params.added, params.timestamp]);
 
+  const { userId, currencyCode, isLoading: authLoading } = useAuth();
+
   const load = useCallback(async () => {
+    if (!userId) return;
     setIsLoading(true);
-
     try {
-      const db = await getDb();
-      const userID = global.userID;
+      setUserCurrency(currencyCode ?? "€");
 
-      const user = await db.getFirstAsync<{ currency_code: string }>(
-        `SELECT currency_code FROM users WHERE id = ?`,
-        [userID]
-      );
-      if (user && user.currency_code) {
-        setUserCurrency(user.currency_code);
-      }
+      const data = await apiFetch<{
+        weekTxs: WeekTx[];
+        recent: RecentTx[];
+        monthTopEmotion: string | null;
+      }>(`/api/transactions/home?user_id=${userId}`);
 
-      const latest = await db.getFirstAsync<{ md: string | null }>(
-        `SELECT MAX(transacted_at) as md FROM transactions
-         WHERE user_id = ? AND type != 'refunded'`,
-        [userID]
-      );
-
-      const anchor = latest?.md ? new Date(latest.md) : new Date();
-
-      const sevenAgo = new Date(anchor);
-      sevenAgo.setDate(anchor.getDate() - 7);
-
-      const wk = await db.getAllAsync<WeekTx>(
-        `SELECT t.amount, e.name as emotion_name
-         FROM transactions t
-         LEFT JOIN emotion_logs l ON l.id = t.emotion_log_id
-         LEFT JOIN emotions e ON e.id = l.emotion_id
-         WHERE t.user_id = ?
-           AND t.transacted_at >= ?
-           AND t.transacted_at <= ?
-           AND t.type != 'refunded'`,
-        [userID, sevenAgo.toISOString(), anchor.toISOString()]
-      );
-
-      setWeekTxs(wk);
-
-      const rc = await db.getAllAsync<RecentTx>(
-        `SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.transacted_at, t.type,
-                e.name as emotion_name, sc.name as category_name
-         FROM transactions t
-         LEFT JOIN emotion_logs l ON l.id = t.emotion_log_id
-         LEFT JOIN emotions e ON e.id = l.emotion_id
-         LEFT JOIN spending_categories sc ON sc.id = t.category_id
-         WHERE t.user_id = ?
-         ORDER BY t.transacted_at DESC
-         LIMIT 12`,
-        [userID]
-      );
-
-      setRecent(rc);
-
-      const ym = `${anchor.getFullYear()}-${String(
-        anchor.getMonth() + 1
-      ).padStart(2, "0")}`;
-
-      const topRows = await db.getAllAsync<{ name: string; c: number }>(
-        `SELECT e.name as name, COUNT(*) as c
-         FROM transactions t
-         LEFT JOIN emotion_logs l ON l.id = t.emotion_log_id
-         LEFT JOIN emotions e ON e.id = l.emotion_id
-         WHERE t.user_id = ?
-           AND strftime('%Y-%m', t.transacted_at) = ?
-           AND e.name IS NOT NULL
-         GROUP BY e.name
-         ORDER BY c DESC
-         LIMIT 1`,
-        [userID, ym]
-      );
-
-      setMonthTopEmotion(topRows[0]?.name ?? null);
+      setWeekTxs(data.weekTxs ?? []);
+      setRecent(data.recent ?? []);
+      setMonthTopEmotion(data.monthTopEmotion ?? null);
     } catch (err) {
       console.error("home load error:", err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [userId, currencyCode]);
 
   useFocusEffect(
     useCallback(() => {
+      if (authLoading || !userId) return;
       load();
-    }, [load])
+    }, [load, authLoading, userId])
   );
 
   const headline = useMemo(() => {
@@ -425,11 +370,11 @@ export default function Index() {
                     key={tx.id}
                     onPress={() => router.push(`/transaction/${tx.id}`)}
                     style={({ pressed }) => [
-                    s.recentItem,
-                    !isLast && s.recentItemBorder,
-                    dim && s.recentItemDim,
-                    pressed && s.recentItemPressed,
-                  ]}
+                      s.recentItem,
+                      !isLast && s.recentItemBorder,
+                      dim && s.recentItemDim,
+                      pressed && s.recentItemPressed,
+                    ]}
 
                   >
                     <View style={s.recentLine}>
@@ -653,72 +598,72 @@ const s = StyleSheet.create({
   },
 
 
-recentItem: {
-  minHeight: 82,
-  paddingTop: 12,
-  paddingBottom: 14,
-},
+  recentItem: {
+    minHeight: 82,
+    paddingTop: 12,
+    paddingBottom: 14,
+  },
 
 
-recentItemBorder: {
-  borderBottomWidth: 1,
-  borderBottomColor: C.ruleSoft,
-},
+  recentItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: C.ruleSoft,
+  },
 
-recentItemDim: {
-  opacity: 0.32,
-},
+  recentItemDim: {
+    opacity: 0.32,
+  },
 
-recentItemPressed: {
-  backgroundColor: "rgba(0,0,0,0.04)",
-},
-
-
+  recentItemPressed: {
+    backgroundColor: "rgba(0,0,0,0.04)",
+  },
 
 
-recentLine: {
-  width: "100%",
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  minHeight: 50,
-},
 
 
-recentLeft: {
-  flex: 1,
-  minWidth: 0,
-  flexDirection: "row",
-  alignItems: "center",
-},
+  recentLine: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 50,
+  },
 
-recentBar: {
-  width: 4,
-  height: 42,
-  borderRadius: 2,
-  marginRight: 12,
-  flexShrink: 0,
-},
 
-recentTextBlock: {
-  flex: 1,
-  minWidth: 0,
-  paddingRight: 10,
-},
+  recentLeft: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+  },
 
-recentEmotionBox: {
-  width: 104,
-  flexShrink: 0,
-  alignItems: "flex-end",
-  justifyContent: "center",
-},
+  recentBar: {
+    width: 4,
+    height: 42,
+    borderRadius: 2,
+    marginRight: 12,
+    flexShrink: 0,
+  },
 
-txEmotion: {
-  fontFamily: "PlayfairDisplay_700Bold_Italic",
-  fontSize: 16,
-  lineHeight: 20,
-  textAlign: "right",
-},
+  recentTextBlock: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 10,
+  },
+
+  recentEmotionBox: {
+    width: 104,
+    flexShrink: 0,
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+
+  txEmotion: {
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    fontSize: 16,
+    lineHeight: 20,
+    textAlign: "right",
+  },
 
   txRow: {
     minHeight: 66,

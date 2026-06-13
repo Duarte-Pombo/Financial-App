@@ -5,8 +5,8 @@ import {
 } from "react-native";
 import { useState, useCallback, useEffect } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
-import { getDb } from "../../database/db";
-import { insertTransaction } from "../../database/transactions";
+import { apiFetch } from "@/api";
+import { useAuth } from "../context/AuthContext";
 import * as Location from "expo-location";
 import React from "react";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
@@ -46,13 +46,14 @@ function getTimeLabel(d: Date) {
 
 export default function AddPurchase() {
   const router = useRouter();
+  const { userId, currencyCode, isLoading: authLoading } = useAuth();
 
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [rawDigits, setRawDigits] = useState("");
   const [item, setItem] = useState("");
   const [location, setLocation] = useState("");
   const [saving, setSaving] = useState(false);
-  const [userCurrency, setUserCurrency] = useState("€");
+  const [userCurrency, setUserCurrency] = useState(currencyCode ?? "€");
   const [date, setDate] = useState(new Date());
   const [editingField, setEditingField] = useState<"date" | "time" | null>(null);
 
@@ -63,8 +64,8 @@ export default function AddPurchase() {
   const [mapCenter, setMapCenter] = useState<LatLng>(PORTO);
 
   useEffect(() => {
-    getDb()
-      .then(db => db.getAllAsync<Emotion>("SELECT id, name, emoji, color_hex FROM emotions ORDER BY id ASC;"))
+    // Load emotions from server
+    apiFetch<Emotion[]>("/api/emotions")
       .then(setEmotions)
       .catch(console.error);
   }, []);
@@ -72,25 +73,8 @@ export default function AddPurchase() {
   useFocusEffect(useCallback(() => {
     setRawDigits(""); setItem(""); setLocation("");
     setSelectedEmotionIds([]); setSaving(false); setDate(new Date()); setEditingField(null);
-
-    async function fetchCurrency() {
-      if (!global.userID) return;
-      try {
-        const user = await getUserProfile(global.userID);
-        // Add a safety check: ensure 'user' exists before accessing properties
-        if (user && typeof user === 'object' && user.currency_code) {
-          setUserCurrency(user.currency_code);
-        } else {
-          // Fallback if the user profile is missing or malformed
-          setUserCurrency("€");
-        }
-      } catch (error) {
-        // Silently log the error and use the default state ("€")
-        console.warn("Could not load custom currency, defaulting to €:", error);
-      }
-    }
-    fetchCurrency();
-  }, []));
+    setUserCurrency(currencyCode ?? "€");
+  }, [currencyCode]));
 
   const onDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === "android") setEditingField(null);
@@ -146,21 +130,23 @@ export default function AddPurchase() {
     if (!rawDigits || isNaN(amount) || amount <= 0) {
       Alert.alert("Missing amount", "Please enter how much you spent."); return;
     }
-    if (!global.userID) { Alert.alert("Error", "User not logged in."); return; }
+    if (!userId) { Alert.alert("Error", "User not logged in."); return; }
     setSaving(true);
     try {
-      await insertTransaction({
-        user_id: global.userID, amount,
-        merchant_name: item || undefined,
-        location: location || undefined,
-        emotion_ids: selectedEmotionIds,
-        currency_code: userCurrency,
-        type: "cash",
-        transacted_at: date.toISOString(),
+      await apiFetch("/api/transactions", {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: userId,
+          amount,
+          merchant_name: item || undefined,
+          location: location || undefined,
+          emotion_ids: selectedEmotionIds,
+          currency_code: userCurrency,
+          type: "cash",
+          transacted_at: date.toISOString(),
+        }),
       });
-
       router.navigate({ pathname: "/", params: { added: "true", timestamp: Date.now() } });
-
     } catch (e) {
       console.error(e);
       Alert.alert("Error", "Could not save the purchase.");

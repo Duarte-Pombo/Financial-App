@@ -5,8 +5,6 @@ let _db: SQLite.SQLiteDatabase | null = null;
 export async function getDb(): Promise<SQLite.SQLiteDatabase> {
   if (_db) return _db;
 
-  //TODO: remove this line once database is fully tested, this deletes the entire database before creating it again
-  SQLite.deleteDatabaseAsync("awared.db");
   _db = await SQLite.openDatabaseAsync("awared.db");
 
   await _db.execAsync("PRAGMA journal_mode = WAL;");

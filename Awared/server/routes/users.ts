@@ -1,37 +1,115 @@
-
 /**
  * routes/users.ts
  *
+ * POST   /api/users/register         → create account
+ * POST   /api/users/login            → authenticate, return JWT
  * GET    /api/users/:id              → user profile
- * GET    /api/users/:id/stats        → profile stats (purchases count, top emotion, member since)
+ * GET    /api/users/:id/stats        → profile stats
  * PATCH  /api/users/:id              → update profile fields
  * PATCH  /api/users/:id/password     → change password
  * DELETE /api/users/:id              → delete account + all data
  */
 
 import { Router } from "express";
+import { createHash, randomUUID } from "crypto";
+import jwt from "jsonwebtoken";
 import { getDb } from "../db";
 
 const router = Router();
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function hashPassword(plain: string): string {
+	return createHash("sha256").update(plain).digest("hex");
+}
+
+function signToken(userId: string): string {
+	const secret = process.env.JWT_SECRET;
+	if (!secret) throw new Error("JWT_SECRET is not set in environment");
+	return jwt.sign({ sub: userId }, secret, { expiresIn: "90d" });
+}
+
+// ─── POST /api/users/register ─────────────────────────────────────────────────
+
+router.post("/register", (req, res) => {
+	const db = getDb();
+	const { email, username, password } = req.body;
+
+	if (!email || !username || !password) {
+		res.status(400).json({ error: "email, username, and password are required" });
+		return;
+	}
+
+	try {
+		const id = randomUUID();
+		const hash = hashPassword(password);
+		const now = new Date().toISOString();
+
+		db.prepare(
+			`INSERT INTO users (id, email, username, password_hash, timezone, currency_code, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'UTC', 'EUR', ?, ?)`
+		).run(id, email.trim().toLowerCase(), username.trim(), hash, now, now);
+
+		const token = signToken(id);
+		res.status(201).json({ ok: true, token, userId: id, username: username.trim() });
+	} catch (err: any) {
+		if (err.message?.includes("UNIQUE constraint failed")) {
+			res.status(409).json({ error: "Email or username is already taken." });
+			return;
+		}
+		console.error("[users] register error:", err);
+		res.status(500).json({ error: "Registration failed" });
+	}
+});
+
+// ─── POST /api/users/login ────────────────────────────────────────────────────
+
+router.post("/login", (req, res) => {
+	const db = getDb();
+	const { email, password } = req.body;
+
+	if (!email || !password) {
+		res.status(400).json({ error: "email and password are required" });
+		return;
+	}
+
+	try {
+		const hash = hashPassword(password);
+		const user = db
+			.prepare(
+				"SELECT id, username, currency_code FROM users WHERE email = ? AND password_hash = ?"
+			)
+			.get(email.trim().toLowerCase(), hash) as
+			| { id: string; username: string; currency_code: string }
+			| undefined;
+
+		if (!user) {
+			res.status(401).json({ error: "Invalid email or password." });
+			return;
+		}
+
+		const token = signToken(user.id);
+		res.json({ ok: true, token, userId: user.id, username: user.username, currency_code: user.currency_code });
+	} catch (err) {
+		console.error("[users] login error:", err);
+		res.status(500).json({ error: "Login failed" });
+	}
+});
 
 // ─── GET /api/users/:id ───────────────────────────────────────────────────────
 
 router.get("/:id", (req, res) => {
 	const db = getDb();
 	try {
-		let row = db
-			.prepare("SELECT id, email, username, timezone, currency_code, avatar_url, created_at FROM users WHERE id = ?")
+		const row = db
+			.prepare(
+				"SELECT id, email, username, timezone, currency_code, avatar_url, created_at FROM users WHERE id = ?"
+			)
 			.get(req.params.id);
 
 		if (!row) {
-			db.prepare(
-				`INSERT OR IGNORE INTO users (id, email, username, password_hash, timezone, currency_code)
-         VALUES (?, ?, ?, ?, ?, ?)`
-			).run(req.params.id, "local@app.com", "local_user", "no-auth", "UTC", "EUR");
-
-			row = db
-				.prepare("SELECT id, email, username, timezone, currency_code, avatar_url, created_at FROM users WHERE id = ?")
-				.get(req.params.id);
+			res.status(404).json({ error: "User not found" });
+			return;
 		}
 
 		res.json(row);
@@ -129,19 +207,17 @@ router.patch("/:id/password", (req, res) => {
 	}
 
 	try {
-		const hashOld = Buffer.from(current_password).toString("base64");
-
 		const user = db
 			.prepare("SELECT id FROM users WHERE id = ? AND password_hash = ?")
-			.get(req.params.id, hashOld);
+			.get(req.params.id, hashPassword(current_password));
 
 		if (!user) {
 			res.status(401).json({ error: "Current password is incorrect" });
 			return;
 		}
 
-		const hashNew = Buffer.from(new_password).toString("base64");
-		db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hashNew, req.params.id);
+		db.prepare("UPDATE users SET password_hash = ? WHERE id = ?")
+			.run(hashPassword(new_password), req.params.id);
 
 		res.json({ ok: true });
 	} catch (err) {

@@ -2,35 +2,23 @@ import React, { useState, useCallback } from "react";
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, FlatList } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { getTransactions } from "@/database/transactions";
-import { getUserProfile } from "@/database/users";
+import { apiFetch } from "@/api";
+import { useAuth } from "./context/AuthContext";
 
 export default function History() {
   const router = useRouter();
+  const { userId, currencyCode, isLoading: authLoading } = useAuth();
   const [history, setHistory] = useState<any[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [userCurrency, setUserCurrency] = useState("€");
+  const userCurrency = currencyCode ?? "€";
 
   const getHistory = useCallback(async () => {
+    if (!userId) return;
     setIsLoading(true);
     try {
-      const userID = global.userID;
-      if (!userID) {
-        setIsLoading(false);
-        return;
-      }
-
-      // Fetch user currency + transactions in parallel
-      const [user, transactions] = await Promise.all([
-        getUserProfile(userID),
-        getTransactions(userID),
-      ]);
-
-      if (user && user.currency_code) {
-        setUserCurrency(user.currency_code);
-      }
-
-      // Map API response to the shape the list expects
+      const transactions = await apiFetch<any[]>(
+        `/api/transactions?user_id=${userId}&limit=200`
+      );
       const mapped = transactions.map((t) => ({
         id: t.id,
         amount: t.amount,
@@ -40,19 +28,19 @@ export default function History() {
         type: t.type,
         emoji: t.emotion_emoji,
       }));
-
       setHistory(mapped);
     } catch (error) {
       console.error("Failed to fetch history:", error);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
+      if (authLoading || !userId) return;
       getHistory();
-    }, [getHistory])
+    }, [getHistory, authLoading, userId])
   );
 
   const renderItem = ({ item, index }: { item: any; index: number }) => {

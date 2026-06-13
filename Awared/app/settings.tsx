@@ -4,55 +4,45 @@ import { Text } from "@/components/Text";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { router } from "expo-router";
-import { getUserProfile, updateUserProfile, changeUserPassword, deleteUserAccount } from "@/database/users";
+import { apiFetch } from "@/api";
+import { useAuth } from "./context/AuthContext";
 
 export default function Settings() {
   const navigation = useNavigation();
+  const { userId, isLoading: authLoading, logout } = useAuth();
 
-  // Profile State
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [currency, setCurrency] = useState("€");
-
-  // Password State
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  // Load current user data when the screen opens
   useEffect(() => {
-    async function loadUserData() {
-      try {
-        const user = await getUserProfile(global.userID);
-        if (user) {
-          setEmail(user.email);
-          setUsername(user.username);
-          setCurrency(user.currency_code || "€");
-        }
-      } catch (error) {
-        console.error("Failed to load user data:", error);
-      }
-    }
-    loadUserData();
-  }, []);
+    if (authLoading || !userId) return;
+    apiFetch<{ email: string; username: string; currency_code: string }>(
+      `/api/users/${userId}`
+    ).then((user) => {
+      setEmail(user.email);
+      setUsername(user.username);
+      setCurrency(user.currency_code || "€");
+    }).catch((err) => console.error("Failed to load user data:", err));
+  }, [userId, authLoading]);
 
   async function handleUpdateProfile() {
     if (!email || !username || !currency) {
       Alert.alert("Error", "Fields cannot be empty.");
       return;
     }
-
     try {
-      await updateUserProfile(global.userID, {
-        email: email.trim(),
-        username: username.trim(),
-        currency_code: currency.trim(),
+      await apiFetch(`/api/users/${userId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ email: email.trim(), username: username.trim(), currency_code: currency.trim() }),
       });
       Alert.alert("Success", "Your profile has been updated!");
     } catch (error: any) {
-      console.error(error);
       if (error.message?.includes("409") || error.message?.includes("already taken")) {
-        Alert.alert("Error", "That email or username is already taken by another account.");
+        Alert.alert("Error", "That email or username is already taken.");
       } else {
         Alert.alert("Error", "Failed to update profile.");
       }
@@ -62,43 +52,37 @@ export default function Settings() {
   async function handleCurrencyChange(newSymbol: string) {
     setCurrency(newSymbol);
     try {
-      await updateUserProfile(global.userID, { currency_code: newSymbol.trim() });
+      await apiFetch(`/api/users/${userId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ currency_code: newSymbol.trim() }),
+      });
     } catch (error) {
       console.error("Failed to auto-save currency:", error);
     }
   }
 
   const validatePassword = (pass: string) => {
-    const minLength = 8;
-    const hasNumber = /\d/;
-    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/;
-
-    if (pass.length < minLength) return "Password must be at least 8 characters long.";
-    if (!hasNumber.test(pass)) return "Password must contain at least one number.";
-    if (!hasSpecialChar.test(pass)) return "Password must contain at least one special character.";
+    if (pass.length < 8) return "Password must be at least 8 characters long.";
+    if (!/\d/.test(pass)) return "Password must contain at least one number.";
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(pass)) return "Password must contain at least one special character.";
     return null;
   };
 
   async function handleUpdatePassword() {
     if (!currentPassword || !newPassword) {
-      Alert.alert("Error", "Please fill in both the current and new password.");
+      Alert.alert("Error", "Please fill in both passwords.");
       return;
     }
-
     const passwordError = validatePassword(newPassword);
-    if (passwordError) {
-      Alert.alert("Weak Password", passwordError);
-      return;
-    }
-
+    if (passwordError) { Alert.alert("Weak Password", passwordError); return; }
     try {
-      await changeUserPassword(global.userID, currentPassword, newPassword);
-      Alert.alert("Success", "Your password has been changed securely!");
-      setCurrentPassword("");
-      setNewPassword("");
-      setShowPassword(false);
+      await apiFetch(`/api/users/${userId}/password`, {
+        method: "PATCH",
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+      });
+      Alert.alert("Success", "Your password has been changed!");
+      setCurrentPassword(""); setNewPassword(""); setShowPassword(false);
     } catch (error: any) {
-      console.error("Failed to update password:", error);
       if (error.message?.includes("401") || error.message?.includes("incorrect")) {
         Alert.alert("Error", "Your current password is incorrect.");
       } else {
@@ -110,7 +94,7 @@ export default function Settings() {
   async function handleDeleteAccount() {
     Alert.alert(
       "Delete Account",
-      "Are you absolutely sure? This will permanently delete your account and all associated data. This action cannot be undone.",
+      "This will permanently delete your account and all data. This cannot be undone.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -118,12 +102,11 @@ export default function Settings() {
           style: "destructive",
           onPress: async () => {
             try {
-              await deleteUserAccount(global.userID);
-              global.userID = undefined;
+              await apiFetch(`/api/users/${userId}`, { method: "DELETE" });
+              await logout();
               navigation.getParent()?.reset({ index: 0, routes: [{ name: "index" }] });
             } catch (error) {
-              console.error("Failed to delete account:", error);
-              Alert.alert("Error", "Something went wrong while trying to delete your account.");
+              Alert.alert("Error", "Something went wrong while deleting your account.");
             }
           },
         },

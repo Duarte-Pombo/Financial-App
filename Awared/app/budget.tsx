@@ -2,51 +2,25 @@ import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ActivityIndicator, Pressable, TextInput, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { getDb } from "@/database/db";
+import { apiFetch } from "@/api";
+import { useAuth } from "./context/AuthContext";
 
 export default function SetBudget() {
   const router = useRouter();
+  const { userId, currencyCode, isLoading: authLoading } = useAuth();
   const [budget, setBudget] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [userCurrency, setUserCurrency] = useState("€");
+  const userCurrency = currencyCode ?? "€";
 
   useEffect(() => {
-    async function fetchBudget() {
-      try {
-        const db = await getDb();
-        const userID = global.userID;
-        
-        const settings = await db.getFirstAsync<{ monthly_budget: number }>(
-          `SELECT monthly_budget FROM user_settings WHERE user_id = ?`,
-          [userID]
-        );
-        
-        if (settings && settings.monthly_budget) {
-          setBudget(settings.monthly_budget.toString());
-        }
-
-        const user = await db.getFirstAsync<{ currency_code: string }>(
-          `SELECT currency_code FROM users WHERE id = ?`,
-          [userID]
-        );
-        if (user && user.currency_code) {
-          setUserCurrency(user.currency_code);
-        }
-
-      } catch (error) {
-        console.error("Failed to load budget:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    fetchBudget();
-  }, []);
+    if (authLoading || !userId) return;
+    // budget screen - no server endpoint yet, just stop loading
+    setIsLoading(false);
+  }, [userId, authLoading]);
 
   const handleSave = async () => {
     let parsedBudget = 0;
-
-    // Allow empty string to mean "remove budget limit"
     if (budget.trim() !== "") {
       parsedBudget = parseFloat(budget.replace(',', '.'));
       if (isNaN(parsedBudget) || parsedBudget < 0) {
@@ -54,25 +28,8 @@ export default function SetBudget() {
         return;
       }
     }
-
-    setIsSaving(true);
-    try {
-      const db = await getDb();
-      const userID = global.userID;
-
-      // INSERT OR REPLACE safely updates the record or creates a new one if it doesn't exist
-      await db.runAsync(
-        `INSERT OR REPLACE INTO user_settings (user_id, monthly_budget) VALUES (?, ?)`,
-        [userID, parsedBudget > 0 ? parsedBudget : null] // Save as NULL if they cleared the field
-      );
-
-      router.back();
-    } catch (error) {
-      console.error("Failed to save budget:", error);
-      Alert.alert("Error", "Could not save your budget goal.");
-    } finally {
-      setIsSaving(false);
-    }
+    // Budget persistence not yet wired to server — navigates back for now
+    router.back();
   };
 
   if (isLoading) {
@@ -84,12 +41,12 @@ export default function SetBudget() {
   }
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
+    <KeyboardAvoidingView
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.content}>
-        
+
         {/* Header */}
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.iconButton} disabled={isSaving}>
@@ -123,8 +80,8 @@ export default function SetBudget() {
         </View>
 
         {/* Save Button */}
-        <Pressable 
-          style={[styles.saveButton, isSaving && { opacity: 0.7 }]} 
+        <Pressable
+          style={[styles.saveButton, isSaving && { opacity: 0.7 }]}
           onPress={handleSave}
           disabled={isSaving}
         >
@@ -147,7 +104,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fdf3ff" },
   centered: { justifyContent: "center", alignItems: "center" },
   content: { flex: 1, padding: 20, paddingTop: 60 },
-  
+
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -165,7 +122,7 @@ const styles = StyleSheet.create({
     shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 10, elevation: 3,
   },
   cardSubtitle: {
-    fontSize: 14, fontFamily: "RobotoSerif_400Regular", color: "#666", 
+    fontSize: 14, fontFamily: "RobotoSerif_400Regular", color: "#666",
     marginBottom: 24, lineHeight: 22,
   },
   inputGroup: {
@@ -182,7 +139,7 @@ const styles = StyleSheet.create({
     fontSize: 32, color: "#1a1a1a", fontFamily: "RobotoSerif_700Bold", marginRight: 8,
   },
   amountInput: {
-    flex: 1, fontSize: 40, color: "#9b72cf", fontFamily: "RobotoSerif_700Bold", padding: 0, 
+    flex: 1, fontSize: 40, color: "#9b72cf", fontFamily: "RobotoSerif_700Bold", padding: 0,
   },
 
   saveButton: {

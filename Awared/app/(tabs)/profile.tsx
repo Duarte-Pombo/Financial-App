@@ -17,8 +17,9 @@ import {
 } from "@/components/EmotionGlyph";
 import * as ImagePicker from "expo-image-picker";
 import { useNavigation } from "@react-navigation/native";
-import { getUserStats, updateUserAvatar } from "@/database/users";
-import { runAchievementEngine, loadAchievements, AchievementWithStatus } from "@/database/achievements";
+import { apiFetch } from "@/api";
+import { useAuth } from "../context/AuthContext";
+import { runAchievementEngine, AchievementWithStatus } from "@/database/achievements";
 import { router, useFocusEffect } from "expo-router";
 
 // ─── Editorial paper palette ──────────────────────────────────────────────────
@@ -214,30 +215,31 @@ function AchievementCard({ item, last }: { item: AchievementWithStatus; last: bo
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function Profile() {
   const navigation = useNavigation();
+  const { userId, isLoading: authLoading, logout } = useAuth();
   const [stats, setStats] = useState<ProfileStats | null>(null);
   const [achievements, setAchievements] = useState<AchievementWithStatus[]>([]);
   const [achievementsExpanded, setAchievementsExpanded] = useState(false);
 
   const load = useCallback(async () => {
+    if (!userId) return;
     try {
-      // Load stats via API
-      const statsData = await getUserStats(global.userID);
-      if (statsData) {
-        setStats({
-          username: statsData.username,
-          avatarUri: statsData.avatar_url,
-          totalPurchases: statsData.totalPurchases,
-          topEmotionName: statsData.topEmotionName,
-          topEmotionEmoji: statsData.topEmotionEmoji,
-          topEmotionColor: statsData.topEmotionColor,
-          memberSince: formatMemberSince(statsData.created_at),
-        });
-      }
+      const statsData = await apiFetch<{
+        username: string; avatar_url: string | null; created_at: string | null;
+        totalPurchases: number; topEmotionName: string | null;
+        topEmotionEmoji: string | null; topEmotionColor: string | null;
+      }>(`/api/users/${userId}/stats`);
 
-      // Run achievement engine + load via API
-      const { achievements: all } = await runAchievementEngine(global.userID);
+      setStats({
+        username: statsData.username,
+        avatarUri: statsData.avatar_url,
+        totalPurchases: statsData.totalPurchases,
+        topEmotionName: statsData.topEmotionName,
+        topEmotionEmoji: statsData.topEmotionEmoji,
+        topEmotionColor: statsData.topEmotionColor,
+        memberSince: formatMemberSince(statsData.created_at),
+      });
 
-      // Sort: unlocked first, then locked
+      const { achievements: all } = await runAchievementEngine(userId);
       const sorted = [
         ...all.filter((a) => a.unlocked),
         ...all.filter((a) => !a.unlocked),
@@ -246,12 +248,13 @@ export default function Profile() {
     } catch (err) {
       console.error("Profile load error:", err);
     }
-  }, []);
+  }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
+      if (authLoading || !userId) return;
       load();
-    }, [load])
+    }, [load, authLoading, userId])
   );
 
   async function handlePickPhoto() {
@@ -269,10 +272,12 @@ export default function Profile() {
     if (!result.canceled && result.assets[0]) {
       const uri = result.assets[0].uri;
       try {
-        await updateUserAvatar(global.userID, uri);
+        await apiFetch(`/api/users/${userId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ avatar_url: uri }),
+        });
         setStats((prev) => prev ? { ...prev, avatarUri: uri } : prev);
       } catch (err) {
-        console.error("Failed to save avatar:", err);
         Alert.alert("Error", "Could not save profile picture.");
       }
     }
@@ -284,8 +289,8 @@ export default function Profile() {
       {
         text: "Log out",
         style: "destructive",
-        onPress: () => {
-          global.userID = undefined;
+        onPress: async () => {
+          await logout();
           navigation.getParent()?.reset({ index: 0, routes: [{ name: "index" }] });
         },
       },
@@ -297,8 +302,8 @@ export default function Profile() {
       { text: "Cancel", style: "cancel" },
       {
         text: "Switch",
-        onPress: () => {
-          global.userID = undefined;
+        onPress: async () => {
+          await logout();
           navigation.getParent()?.reset({ index: 0, routes: [{ name: "index" }] });
         },
       },

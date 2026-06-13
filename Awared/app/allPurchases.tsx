@@ -10,7 +10,8 @@ import {
 } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import Svg, { Path } from "react-native-svg";
-import { getTransactions } from "@/database/transactions";
+import { apiFetch } from "@/api";
+import { useAuth } from "./context/AuthContext";
 import { emotionColor } from "../components/EmotionGlyph";
 
 const C = {
@@ -81,44 +82,30 @@ function monthLabel(date: Date): string {
 
 export default function AllPurchases() {
   const router = useRouter();
+  const { userId, isLoading: authLoading } = useAuth();
   const [txs, setTxs] = useState<Tx[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const load = useCallback(async () => {
+    if (!userId) return;
     setIsLoading(true);
     try {
-      const userID = global.userID;
-      if (!userID) {
-        setIsLoading(false);
-        return;
-      }
-
-      const transactions = await getTransactions(userID);
-
-      // Map to the Tx shape the list expects
-      const mapped: Tx[] = transactions.map((t) => ({
-        id: t.id,
-        amount: t.amount,
-        merchant_name: t.merchant_name,
-        currency_code: t.currency_code,
-        transacted_at: t.transacted_at,
-        type: t.type,
-        emotion_name: t.emotion_name,
-        category_name: t.category_name,
-      }));
-
-      setTxs(mapped);
+      const rows = await apiFetch<Tx[]>(
+        `/api/transactions?user_id=${userId}&limit=200`
+      );
+      setTxs(rows);
     } catch (err) {
       console.error("allPurchases load error:", err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
+      if (authLoading || !userId) return;
       load();
-    }, [load])
+    }, [load, authLoading, userId])
   );
 
   const sections = useMemo<Section[]>(() => {

@@ -159,6 +159,116 @@ router.get("/", (req, res) => {
 	}
 });
 
+/**
+ * routes/transactions.ts  — ADD THIS ROUTE before the /:id routes
+ *
+ * GET /api/transactions/insights?user_id=...
+ *
+ * Returns the last 30 days of transactions enriched with emotion + category
+ * data in the exact shape that insights.tsx expects (RawTransaction type).
+ *
+ * Drop this block into your existing transactions.ts, above the
+ * `router.get("/:id", ...)` handler (Express matches routes in order,
+ * so the literal path must come before the param route).
+ */
+
+// ─── GET /api/transactions/insights ──────────────────────────────────────────
+router.get("/insights", (req, res) => {
+	const db = getDb();
+	const { user_id } = req.query;
+
+	if (!user_id) {
+		res.status(400).json({ error: "user_id query param is required" });
+		return;
+	}
+
+	try {
+		const rows = db
+			.prepare(
+				`SELECT
+           t.id,
+           t.amount,
+           t.merchant_name,
+           t.transacted_at,
+           t.category_id,
+           sc.name       AS category_name,
+           sc.icon       AS category_icon,
+           el.id         AS emotion_log_id,
+           el.emotion_id,
+           e.name        AS emotion_name,
+           e.emoji       AS emotion_emoji,
+           e.polarity    AS emotion_polarity,
+           e.energy      AS emotion_energy,
+           e.category    AS emotion_category
+         FROM transactions t
+         LEFT JOIN emotion_logs el        ON el.id  = t.emotion_log_id
+         LEFT JOIN emotions e             ON e.id   = el.emotion_id
+         LEFT JOIN spending_categories sc ON sc.id  = t.category_id
+         WHERE t.user_id = ?
+           AND t.transacted_at >= datetime('now', '-30 days')
+         ORDER BY t.transacted_at DESC`
+			)
+			.all(user_id as string);
+
+		res.json({ ok: true, transactions: rows });
+	} catch (err) {
+		console.error("[transactions] insights error:", err);
+		res.status(500).json({ error: "Failed to fetch insight transactions" });
+	}
+});
+
+// GET /api/transactions/home?user_id=...
+// Returns weekTxs, recent, and monthTopEmotion for the home dashboard.
+
+router.get("/home", (req, res) => {
+	const db = getDb();
+	const { user_id } = req.query;
+	if (!user_id) { res.status(400).json({ error: "user_id required" }); return; }
+
+	try {
+		const anchor = (db.prepare(
+			`SELECT MAX(transacted_at) as md FROM transactions WHERE user_id = ? AND type != 'refunded'`
+		).get(user_id as string) as { md: string | null })?.md;
+
+		const anchorDate = anchor ? new Date(anchor) : new Date();
+		const sevenAgo = new Date(anchorDate);
+		sevenAgo.setDate(anchorDate.getDate() - 7);
+
+		const weekTxs = db.prepare(
+			`SELECT t.amount, e.name as emotion_name
+       FROM transactions t
+       LEFT JOIN emotion_logs l ON l.id = t.emotion_log_id
+       LEFT JOIN emotions e ON e.id = l.emotion_id
+       WHERE t.user_id = ? AND t.transacted_at >= ? AND t.transacted_at <= ? AND t.type != 'refunded'`
+		).all(user_id as string, sevenAgo.toISOString(), anchorDate.toISOString());
+
+		const recent = db.prepare(
+			`SELECT t.id, t.amount, t.merchant_name, t.currency_code, t.transacted_at, t.type,
+              e.name as emotion_name, sc.name as category_name
+       FROM transactions t
+       LEFT JOIN emotion_logs l ON l.id = t.emotion_log_id
+       LEFT JOIN emotions e ON e.id = l.emotion_id
+       LEFT JOIN spending_categories sc ON sc.id = t.category_id
+       WHERE t.user_id = ?
+       ORDER BY t.transacted_at DESC LIMIT 12`
+		).all(user_id as string);
+
+		const ym = `${anchorDate.getFullYear()}-${String(anchorDate.getMonth() + 1).padStart(2, "0")}`;
+		const topRow = db.prepare(
+			`SELECT e.name FROM transactions t
+       LEFT JOIN emotion_logs l ON l.id = t.emotion_log_id
+       LEFT JOIN emotions e ON e.id = l.emotion_id
+       WHERE t.user_id = ? AND strftime('%Y-%m', t.transacted_at) = ? AND e.name IS NOT NULL
+       GROUP BY e.name ORDER BY COUNT(*) DESC LIMIT 1`
+		).get(user_id as string, ym) as { name: string } | undefined;
+
+		res.json({ weekTxs, recent, monthTopEmotion: topRow?.name ?? null });
+	} catch (err) {
+		console.error("[transactions] home error:", err);
+		res.status(500).json({ error: "Failed to fetch home data" });
+	}
+});
+
 // ─── GET /api/transactions/:id ────────────────────────────────────────────────
 
 router.get("/:id", (req, res) => {
