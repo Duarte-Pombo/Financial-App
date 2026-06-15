@@ -243,7 +243,7 @@ export default function Index() {
     );
   }
 
-  const visibleRecent = recent.slice(0, 5);
+  const visibleRecent = recent.slice(0, 3);
 
   const EmoWord = ({ emo }: { emo: string }) => {
     const active = filter === emo;
@@ -419,11 +419,11 @@ export default function Index() {
                     key={tx.id}
                     onPress={() => router.push(`/transaction/${tx.id}`)}
                     style={({ pressed }) => [
-                    s.recentItem,
-                    !isLast && s.recentItemBorder,
-                    dim && s.recentItemDim,
-                    pressed && s.recentItemPressed,
-                  ]}
+                      s.recentItem,
+                      !isLast && s.recentItemBorder,
+                      dim && s.recentItemDim,
+                      pressed && s.recentItemPressed,
+                    ]}
 
                   >
                     <View style={s.recentLine}>
@@ -537,7 +537,7 @@ const makeStyles = (C: ThemeColors) => StyleSheet.create({
   hero: {
     paddingHorizontal: 24,
     paddingTop: 4,
-    paddingBottom: 10,
+    paddingBottom: 1,
   },
   kicker: {
     fontFamily: "Manrope_600SemiBold",
@@ -548,18 +548,18 @@ const makeStyles = (C: ThemeColors) => StyleSheet.create({
   },
   heroHeadline: {
     fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 44,
+    fontSize: 42,
     color: C.ink,
-    lineHeight: 52,
+    lineHeight: 50,
     letterSpacing: -0.8,
   },
   heroEmoWord: {
     fontFamily: "PlayfairDisplay_700Bold_Italic",
-    fontSize: 44,
+    fontSize: 42,
   },
   heroAmount: {
     fontFamily: "LibreCaslonText_700Bold",
-    fontSize: 44,
+    fontSize: 42,
   },
 
   statsWrap: {
@@ -570,7 +570,7 @@ const makeStyles = (C: ThemeColors) => StyleSheet.create({
     height: 1,
     backgroundColor: C.purple,
     opacity: 0.55,
-    marginTop: 16,
+    marginTop: 8,
     marginBottom: 14,
   },
   statsRow: {
@@ -647,72 +647,72 @@ const makeStyles = (C: ThemeColors) => StyleSheet.create({
   },
 
 
-recentItem: {
-  minHeight: 82,
-  paddingTop: 12,
-  paddingBottom: 14,
-},
+  recentItem: {
+    minHeight: 82,
+    paddingTop: 12,
+    paddingBottom: 14,
+  },
 
 
-recentItemBorder: {
-  borderBottomWidth: 1,
-  borderBottomColor: C.ruleSoft,
-},
+  recentItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: C.ruleSoft,
+  },
 
-recentItemDim: {
-  opacity: 0.32,
-},
+  recentItemDim: {
+    opacity: 0.32,
+  },
 
-recentItemPressed: {
-  backgroundColor: "rgba(0,0,0,0.04)",
-},
-
-
+  recentItemPressed: {
+    backgroundColor: "rgba(0,0,0,0.04)",
+  },
 
 
-recentLine: {
-  width: "100%",
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  minHeight: 50,
-},
 
 
-recentLeft: {
-  flex: 1,
-  minWidth: 0,
-  flexDirection: "row",
-  alignItems: "center",
-},
+  recentLine: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 50,
+  },
 
-recentBar: {
-  width: 4,
-  height: 42,
-  borderRadius: 2,
-  marginRight: 12,
-  flexShrink: 0,
-},
 
-recentTextBlock: {
-  flex: 1,
-  minWidth: 0,
-  paddingRight: 10,
-},
+  recentLeft: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+  },
 
-recentEmotionBox: {
-  width: 104,
-  flexShrink: 0,
-  alignItems: "flex-end",
-  justifyContent: "center",
-},
+  recentBar: {
+    width: 4,
+    height: 42,
+    borderRadius: 2,
+    marginRight: 12,
+    flexShrink: 0,
+  },
 
-txEmotion: {
-  fontFamily: "PlayfairDisplay_700Bold_Italic",
-  fontSize: 16,
-  lineHeight: 20,
-  textAlign: "right",
-},
+  recentTextBlock: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 10,
+  },
+
+  recentEmotionBox: {
+    width: 104,
+    flexShrink: 0,
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+
+  txEmotion: {
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    fontSize: 16,
+    lineHeight: 20,
+    textAlign: "right",
+  },
 
   txRow: {
     minHeight: 66,
