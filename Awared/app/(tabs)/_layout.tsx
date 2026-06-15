@@ -163,7 +163,7 @@ const makeStyles = (C: ThemeColors, isDark: boolean) => StyleSheet.create({
     height: PILL_HEIGHT / 2,
     borderTopLeftRadius: PILL_RADIUS,
     borderTopRightRadius: PILL_RADIUS,
-    backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.22)",
+    backgroundColor: isDark ? "rgba(255,255,255,0.00)" : "rgba(255,255,255,0.22)",
   },
   glassBorder: {
     ...StyleSheet.absoluteFillObject,

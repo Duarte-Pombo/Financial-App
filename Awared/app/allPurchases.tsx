@@ -12,16 +12,9 @@ import { useFocusEffect, useRouter } from "expo-router";
 import Svg, { Path } from "react-native-svg";
 import { getDb } from "@/database/db";
 import { emotionColor } from "../components/EmotionGlyph";
+import { useTheme } from "@/context/ThemeContext";
+import { ThemeColors } from "@/theme/theme";
 
-const C = {
-  bg: "#FAF6EF",
-  ink: "#1F1B16",
-  inkMute: "rgba(31,27,22,0.45)",
-  inkSoft: "#7A7268",
-  ruleSoft: "rgba(0,0,0,0.06)",
-  purple: "#9B82C9",
-  recentRule: "#DDBB68",
-};
 
 type Tx = {
   id: string | number;
@@ -80,6 +73,8 @@ function monthLabel(date: Date): string {
 }
 
 export default function AllPurchases() {
+  const { colors: C } = useTheme();
+  const s = useMemo(() => makeStyles(C), [C]);
   const router = useRouter();
   const [txs, setTxs] = useState<Tx[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -265,20 +260,311 @@ export default function AllPurchases() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: ThemeColors) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: C.bg,
   },
 
   header: {
-    paddingTop: Platform.OS === "ios" ? 70 : 38,
-  
-    paddingBottom: 10,
+    paddingTop: 56,
+    paddingBottom: 6,
     paddingHorizontal: 24,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  greeting: {
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    fontSize: 28,
+    color: C.ink,
+    letterSpacing: -0.3,
+  },
+  headerBtn: {
+    padding: 4,
+  },
+
+  scrollContent: {
+    paddingBottom: 28,
+  },
+
+  toastContainer: {
+    position: "absolute",
+    top: 0,
+    left: 24,
+    right: 24,
+    backgroundColor: C.ink,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    zIndex: 100,
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  toastCheck: {
+    color: C.bg,
+    fontFamily: "Manrope_700Bold",
+    fontSize: 16,
+  },
+  toastText: {
+    color: C.bg,
+    fontSize: 15,
+    fontFamily: "Manrope_600SemiBold",
+  },
+
+
+  hero: {
+    paddingHorizontal: 24,
+    paddingTop: 4,
+    paddingBottom: 10,
+  },
+  kicker: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 11,
+    letterSpacing: 2,
+    color: C.inkMute,
+    marginBottom: 10,
+  },
+  heroHeadline: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 44,
+    color: C.ink,
+    lineHeight: 52,
+    letterSpacing: -0.8,
+  },
+  heroEmoWord: {
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    fontSize: 44,
+  },
+  heroAmount: {
+    fontFamily: "LibreCaslonText_700Bold",
+    fontSize: 44,
+  },
+
+  statsWrap: {
+    paddingHorizontal: 24,
+    paddingTop: 10,
+  },
+  statsDivider: {
+    height: 1,
+    backgroundColor: C.purple,
+    opacity: 0.55,
+    marginTop: 16,
+    marginBottom: 14,
+  },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  statCell: {
+    alignItems: "center",
+  },
+  statLabel: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 10.5,
+    letterSpacing: 1.8,
+    color: C.inkMute,
+    marginBottom: 6,
+  },
+  statValue: {
+    fontFamily: "LibreCaslonText_400Regular",
+    fontSize: 28,
+    color: C.ink,
+    lineHeight: 30,
+    letterSpacing: -0.6,
+  },
+
+  emoOfMonth: {
+    paddingHorizontal: 24,
+    paddingTop: 25,
+    paddingBottom: 16,
+  },
+  emoOfMonthRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  emoOfMonthText: {
+    fontFamily: "PlayfairDisplay_400Regular",
+    fontSize: 16,
+    color: C.ink,
+    flex: 1,
+    lineHeight: 22,
+  },
+  emoOfMonthEmo: {
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    fontSize: 18,
+  },
+
+  recentWrap: {
+    paddingHorizontal: 24,
+    paddingTop: 14,
+    marginTop: -19,
+  },
+  recentHeader: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: C.recentRule,
+    marginBottom: 2,
+  },
+  recentTitle: {
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    fontSize: 28,
+    color: C.ink,
+    letterSpacing: -0.3,
+  },
+  recentToggle: {
+    fontFamily: "Manrope_400Regular",
+    fontSize: 15,
+    color: C.ink,
+    borderBottomWidth: 1,
+    borderBottomColor: C.purple,
+    paddingBottom: 1,
+  },
+
+  recentItem: {
+    minHeight: 82,
+    paddingTop: 12,
+    paddingBottom: 14,
+  },
+
+  recentItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: C.ruleSoft,
+  },
+
+  recentItemDim: {
+    opacity: 0.32,
+  },
+
+  recentItemPressed: {
+    backgroundColor: "rgba(0,0,0,0.04)",
+  },
+
+  recentLine: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 50,
+  },
+
+  recentLeft: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  recentBar: {
+    width: 4,
+    height: 42,
+    borderRadius: 2,
+    marginRight: 12,
+    flexShrink: 0,
+  },
+
+  recentTextBlock: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 10,
+  },
+
+  recentEmotionBox: {
+    width: 104,
+    flexShrink: 0,
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+
+  txEmotion: {
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    fontSize: 16,
+    lineHeight: 20,
+    textAlign: "right",
+  },
+
+  txRow: {
+    minHeight: 66,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  txRowPressed: {
+    backgroundColor: "rgba(0,0,0,0.04)",
+  },
+  txRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: C.ruleSoft,
+  },
+  txBar: {
+    width: 4,
+    height: 42,
+    borderRadius: 2,
+    marginRight: 12,
+    flexShrink: 0,
+  },
+  txBody: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 10,
+  },
+  txMerchant: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 18,
+    color: C.ink,
+    lineHeight: 22,
+  },
+  txMeta: {
+    fontFamily: "Manrope_400Regular",
+    fontSize: 14,
+    color: C.inkSoft,
+    lineHeight: 19,
+    marginTop: 2,
+  },
+  txRight: {
+    width: 104,
+    flexShrink: 0,
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+
+  refundBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: C.ringBg,
+  },
+  refundText: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 9,
+    letterSpacing: 0.8,
+    color: C.inkSoft,
+    textTransform: "uppercase",
+  },
+
+  strikethrough: {
+    textDecorationLine: "line-through",
+    color: C.inkMute,
+  },
+
+  emptyState: {
+    paddingVertical: 36,
+    alignItems: "center",
+  },
+  emptyText: {
+    fontFamily: "PlayfairDisplay_400Regular_Italic",
+    fontSize: 14,
+    color: C.inkSoft,
   },
   backBtn: {
     padding: 4,
@@ -370,55 +656,5 @@ const s = StyleSheet.create({
     flexShrink: 0,
     alignItems: "flex-end",
     justifyContent: "center",
-  },
-
-  txMerchant: {
-    fontFamily: "Manrope_700Bold",
-    fontSize: 18,
-    color: C.ink,
-    lineHeight: 22,
-  },
-  txMeta: {
-    fontFamily: "Manrope_400Regular",
-    fontSize: 14,
-    color: C.inkSoft,
-    lineHeight: 19,
-    marginTop: 2,
-  },
-  txEmotion: {
-    fontFamily: "PlayfairDisplay_700Bold_Italic",
-    fontSize: 16,
-    lineHeight: 20,
-    textAlign: "right",
-  },
-
-  refundBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    backgroundColor: "#E5DECC",
-  },
-  refundText: {
-    fontFamily: "Manrope_700Bold",
-    fontSize: 9,
-    letterSpacing: 0.8,
-    color: C.inkSoft,
-    textTransform: "uppercase",
-  },
-
-  strikethrough: {
-    textDecorationLine: "line-through",
-    color: C.inkMute,
-  },
-
-  emptyState: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingBottom: 80,
-  },
-  emptyText: {
-    fontFamily: "PlayfairDisplay_400Regular_Italic",
-    fontSize: 16,
-    color: C.inkSoft,
   },
 });

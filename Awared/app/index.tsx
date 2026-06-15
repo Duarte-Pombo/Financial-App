@@ -21,6 +21,7 @@ import {
 } from "@/components/AuthForm";
 import { useTheme } from "@/context/ThemeContext";
 import { ThemeColors } from "@/theme/theme";
+import * as NavigationBar from 'expo-navigation-bar';
 
 export default function Login() {
   const { colors: C } = useTheme();
@@ -61,6 +62,8 @@ export default function Login() {
   }
 
   const canSubmit = email.trim().length > 0 && password.length > 0;
+
+  NavigationBar.setVisibilityAsync("hidden");
 
   return (
     <KeyboardAvoidingView
