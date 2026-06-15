@@ -46,7 +46,7 @@ Notifications.setNotificationHandler({
 });
 
 
-const DEV_RESET = true; // COMMENT AFTER TESTING
+//const DEV_RESET = true; // COMMENT AFTER TESTING
 
 // ┌─────┬──────────────────────────────────────────────────────────────────────┐
 // │  #  │ Persona / Purpose                                                    │
@@ -61,31 +61,31 @@ const DEV_RESET = true; // COMMENT AFTER TESTING
 // │  08 │ Happy/Excited Spender — positive emotion but category/amount risk    │
 // └─────┴──────────────────────────────────────────────────────────────────────┘
 
-import { seed_01_mindful_spender } from "../database/test_seeds/seed_01_mindful_spender";
-import { seed_02_stress_shopper } from "../database/test_seeds/seed_02_stress_shopper";
-import { seed_03_boredom_binger } from "../database/test_seeds/seed_03_boredom_binger";
-import { seed_04_night_owl } from "../database/test_seeds/seed_04_night_owl";
-import { seed_05_recovering_spender } from "../database/test_seeds/seed_05_recovering_spender";
-import { seed_06_edge_cases } from "../database/test_seeds/seed_06_edge_cases";
-import { seed_07_anger_spender } from "../database/test_seeds/seed_07_anger_spender";
-import { seed_08_happy_excited_spender } from "../database/test_seeds/seed_08_happy_excited_spender";
+// import { seed_01_mindful_spender } from "../database/test_seeds/seed_01_mindful_spender";
+// import { seed_02_stress_shopper } from "../database/test_seeds/seed_02_stress_shopper";
+// import { seed_03_boredom_binger } from "../database/test_seeds/seed_03_boredom_binger";
+// import { seed_04_night_owl } from "../database/test_seeds/seed_04_night_owl";
+// import { seed_05_recovering_spender } from "../database/test_seeds/seed_05_recovering_spender";
+// import { seed_06_edge_cases } from "../database/test_seeds/seed_06_edge_cases";
+// import { seed_07_anger_spender } from "../database/test_seeds/seed_07_anger_spender";
+// import { seed_08_happy_excited_spender } from "../database/test_seeds/seed_08_happy_excited_spender";
 
 // const activeSeed: (() => Promise<void>) | null = null;
 
 // ─── Wipes all user-generated data, leaving table structure intact ────────────
-async function resetDatabase(): Promise<void> {
-  const db = await getDb();
-  await db.withTransactionAsync(async () => {
-    await db.execAsync("DELETE FROM journal_entries;");
-    await db.execAsync("DELETE FROM budgets;");
-    await db.execAsync("DELETE FROM transactions;");
-    await db.execAsync("DELETE FROM emotion_logs;");
-    await db.execAsync("DELETE FROM spending_categories;");
-    await db.execAsync("DELETE FROM emotions;");
-    await db.execAsync("DELETE FROM users;");
-  });
-  console.log("[dev] database wiped");
-}
+// async function resetDatabase(): Promise<void> {
+//   const db = await getDb();
+//   await db.withTransactionAsync(async () => {
+//     await db.execAsync("DELETE FROM journal_entries;");
+//     await db.execAsync("DELETE FROM budgets;");
+//     await db.execAsync("DELETE FROM transactions;");
+//     await db.execAsync("DELETE FROM emotion_logs;");
+//     await db.execAsync("DELETE FROM spending_categories;");
+//     await db.execAsync("DELETE FROM emotions;");
+//     await db.execAsync("DELETE FROM users;");
+//   });
+//   console.log("[dev] database wiped");
+// }
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
@@ -109,21 +109,21 @@ export default function RootLayout() {
   useEffect(() => {
     async function init() {
       try {
-        await getDb(); // ensures tables exist
-
-        if (DEV_RESET) {
-          await resetDatabase();
-        }
-
-        await seedDatabase(); // always runs
-        await seed_01_mindful_spender();
-        await seed_02_stress_shopper();
-        await seed_03_boredom_binger();
-        await seed_04_night_owl();
-        await seed_05_recovering_spender();
-        await seed_06_edge_cases();
-        await seed_07_anger_spender();
-        await seed_08_happy_excited_spender();
+        // await getDb(); // ensures tables exist
+        //
+        // if (DEV_RESET) {
+        //   await resetDatabase();
+        // }
+        //
+        // await seedDatabase(); // always runs
+        // await seed_01_mindful_spender();
+        // await seed_02_stress_shopper();
+        // await seed_03_boredom_binger();
+        // await seed_04_night_owl();
+        // await seed_05_recovering_spender();
+        // await seed_06_edge_cases();
+        // await seed_07_anger_spender();
+        // await seed_08_happy_excited_spender();
         setReady(true);
       } catch (e) {
         console.error("[layout] init error:", e);
