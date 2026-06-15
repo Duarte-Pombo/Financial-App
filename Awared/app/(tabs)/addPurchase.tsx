@@ -166,13 +166,17 @@ export default function AddPurchase() {
       );
       const username = user['username']
 
-      const response = await fetch("https://hash-joseph-while-would.trycloudflare.com/savePurchase", {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ user: username, token: expoPushToken, time: Date.now() / 1000 }),
-      });
+      try {
+        const response = await fetch("PLACEHOLDER/savePurchase", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ user: username, token: expoPushToken, time: Date.now() / 1000 }),
+        });
+      } catch (e) {
+        console.log("Error: could not connnect to notifications server")
+      }
 
       router.navigate({ pathname: "/", params: { added: "true", timestamp: Date.now() } });
 
