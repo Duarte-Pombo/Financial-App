@@ -77,7 +77,8 @@ export default function AllPurchases() {
   const s = useMemo(() => makeStyles(C), [C]);
   const router = useRouter();
   const [txs, setTxs] = useState<Tx[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);;
+  const [userCurrency, setUserCurrency] = useState("€");
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -96,6 +97,12 @@ export default function AllPurchases() {
          ORDER BY t.transacted_at DESC`,
         [userID]
       );
+
+      const user = await db.getFirstAsync<{ currency_code: string }>(
+        "SELECT currency_code FROM users WHERE id = ?",
+        [userID]
+      );
+      if (user?.currency_code) setUserCurrency(user.currency_code);
 
       setTxs(rows);
     } catch (err) {
@@ -160,7 +167,7 @@ export default function AllPurchases() {
     const emoColor = emoName ? emotionColor(emoName) : C.inkMute;
     const barColor = isRefunded ? "#C4BDB7" : emoColor;
 
-    const amount = `${item.currency_code === "EUR" ? "€" : item.currency_code}${Number(item.amount).toFixed(2)}`;
+    const amount = `${userCurrency}${Number(item.amount).toFixed(2)}`;
 
     const meta = [amount, formatRelative(item.transacted_at), item.category_name]
       .filter(Boolean)
@@ -215,7 +222,7 @@ export default function AllPurchases() {
     <View style={s.sectionHeader}>
       <View style={s.sectionHeaderRow}>
         <Text style={s.sectionTitle}>{section.title}</Text>
-        <Text style={s.sectionTotal}>€{Math.round(section.total)}</Text>
+        <Text style={s.sectionTotal}>{userCurrency}{Math.round(section.total)}</Text>
       </View>
       <Text style={s.sectionMeta}>
         {section.count} {section.count === 1 ? "entry" : "entries"}

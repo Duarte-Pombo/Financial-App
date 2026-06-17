@@ -402,7 +402,7 @@ export default function Index() {
                 const barColor = isRefunded ? "#C4BDB7" : emoColor;
                 const dim = filter !== null && emoName !== filter;
 
-                const amount = `${tx.currency_code === "EUR" ? "€" : tx.currency_code}${Number(tx.amount).toFixed(2)}`;
+                const amount = `${userCurrency}${Number(tx.amount).toFixed(2)}`;
 
                 const meta = [
                   amount,

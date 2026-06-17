@@ -13,6 +13,7 @@ import {
 } from "../../components/EmotionGlyph";
 import { useTheme } from "@/context/ThemeContext";
 import { ThemeColors } from "@/theme/theme";
+import { getDb } from "@/database/db";
 
 const MONTHS_LONG = ["january", "february", "march", "april", "may", "june",
   "july", "august", "september", "october", "november", "december"];
@@ -269,7 +270,7 @@ function LegendItem({
 }
 
 // ─── DayPurchases — list of purchases for selected day ──────────────────────
-function DayPurchases({ transactions }: { transactions: HeatmapTx[] }) {
+function DayPurchases({ transactions, currency }: { transactions: HeatmapTx[], currency: string }) {
   const { colors: C } = useTheme();
   return (
     <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
@@ -296,7 +297,7 @@ function DayPurchases({ transactions }: { transactions: HeatmapTx[] }) {
             <Text style={{
               fontSize: 12, color: C.inkSoft, fontFamily: "Manrope_400Regular", marginTop: 2,
             }} numberOfLines={1}>
-              €{tx.amount.toFixed(2)}
+              {currency}{tx.amount.toFixed(2)}
               {tx.category_name ? ` · ${tx.category_name.toLowerCase()}` : ""}
             </Text>
           </View>
@@ -320,13 +321,14 @@ function DayPurchases({ transactions }: { transactions: HeatmapTx[] }) {
 
 // ─── Summary ─────────────────────────────────────────────────────────────────
 function Summary({
-  title, totalSpent, purchases, topEmotion, emotionAgg,
+  title, totalSpent, purchases, topEmotion, emotionAgg, currency
 }: {
   title: string;
   totalSpent: number;
   purchases: number;
   topEmotion: string | null;
   emotionAgg: Array<{ emotion: string; count: number; pct: number }>;
+  currency: string;
 }) {
   const { colors: C } = useTheme();
   const st = useMemo(() => makeStyles(C), [C]);
@@ -341,7 +343,7 @@ function Summary({
       }}>
         <View style={{ alignItems: "flex-start" }}>
           <Text style={{ fontSize: 22, fontFamily: "Manrope_700Bold", color: C.ink }}>
-            €{Math.round(totalSpent)}
+            {currency}{Math.round(totalSpent)}
           </Text>
           <Text style={st.smallLabel}>total spent</Text>
         </View>
@@ -409,6 +411,7 @@ export default function Calendar() {
   const [monthMonth, setMonthMonth] = useState(today.getMonth());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [filter, setFilter] = useState<string | null>(null);
+  const [userCurrency, setUserCurrency] = useState("€");
 
   const [weekDays, setWeekDays] = useState<WeekDayData[]>(
     Array.from({ length: 7 }, () => ({ count: 0, emotions: [] }))
@@ -429,6 +432,14 @@ export default function Calendar() {
   }, [dataYear, dataMonth]);
 
   useFocusEffect(useCallback(() => {
+    if (global.userID) {
+      getDb().then(db =>
+        db.getFirstAsync<{ currency_code: string }>(
+          "SELECT currency_code FROM users WHERE id = ?",
+          [global.userID]
+        )
+      ).then(user => { if (user?.currency_code) setUserCurrency(user.currency_code); });
+    }
     loadWeek();
     loadMonth();
   }, [loadWeek, loadMonth]));
@@ -656,8 +667,9 @@ export default function Calendar() {
                   purchases={daySummary.purchases}
                   topEmotion={daySummary.topEmotion}
                   emotionAgg={daySummary.emotionAgg}
+                  currency={userCurrency}
                 />
-                <DayPurchases transactions={dayDetail.transactions} />
+                <DayPurchases transactions={dayDetail.transactions} currency={userCurrency} />
               </>
             ) : (
               <Summary
@@ -666,6 +678,7 @@ export default function Calendar() {
                 purchases={weekTotalPurchases}
                 topEmotion={weekTopEmotion}
                 emotionAgg={weekEmotionAgg}
+                currency={userCurrency}
               />
             )}
           </>
@@ -747,8 +760,9 @@ export default function Calendar() {
                   purchases={daySummary.purchases}
                   topEmotion={daySummary.topEmotion}
                   emotionAgg={daySummary.emotionAgg}
+                  currency={userCurrency}
                 />
-                <DayPurchases transactions={dayDetail.transactions} />
+                <DayPurchases transactions={dayDetail.transactions} currency={userCurrency} />
               </>
             ) : (
               <Summary
@@ -757,6 +771,7 @@ export default function Calendar() {
                 purchases={monthTotalPurchases}
                 topEmotion={monthTopEmotion}
                 emotionAgg={monthEmotionAgg}
+                currency={userCurrency}
               />
             )}
           </>
