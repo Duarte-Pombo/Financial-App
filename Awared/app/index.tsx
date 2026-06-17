@@ -104,12 +104,7 @@ export default function Login() {
 
           <View style={styles.forgotRow}>
             <Pressable
-              onPress={() =>
-                Alert.alert(
-                  "Forgot Password",
-                  "Password recovery coming soon.",
-                )
-              }
+              onPress={() => router.push("/forgotPassword")}
               hitSlop={6}
             >
               <Text style={styles.forgotText}>Forgot your password?</Text>

@@ -171,6 +171,7 @@ function RootChrome({ ready }: { ready: boolean }) {
         <Stack.Screen name="allPurchases" options={{ headerShown: false, animation: "slide_from_right" }} />
         <Stack.Screen name="edit/[id]" options={{ headerShown: false, animation: "slide_from_right" }} />
         <Stack.Screen name="budget" options={{ headerShown: false, animation: "slide_from_right" }} />
+        <Stack.Screen name="forgotPassword" options={{ headerShown: false, animation: "slide_from_right" }} />
       </Stack>
     </>
   );
