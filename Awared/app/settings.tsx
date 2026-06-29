@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import * as Crypto from "expo-crypto";
 import { View, StyleSheet, ScrollView, Pressable, Alert, TextInput } from "react-native";
 import { Text } from "@/components/Text";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,8 +22,10 @@ export default function Settings() {
 
   // Profile State
   const [email, setEmail] = useState("");
+  const [originalEmail, setOriginalEmail] = useState(""); // 1. Track original email
   const [username, setUsername] = useState("");
   const [currency, setCurrency] = useState("€");
+  const [confirmProfilePassword, setConfirmProfilePassword] = useState(""); // 2. Password for confirmation
 
   // Password State
   const [currentPassword, setCurrentPassword] = useState("");
@@ -41,6 +44,7 @@ export default function Settings() {
         );
         if (user) {
           setEmail(user.email);
+          setOriginalEmail(user.email);
           setUsername(user.username);
           setCurrency(user.currency_code || "€"); // Fallback to € just in case
         }
@@ -57,13 +61,59 @@ export default function Settings() {
       return;
     }
 
+    const emailChanged = email.trim().toLowerCase() !== originalEmail.toLowerCase();
+
     try {
       const db = await getDb();
-      // ✅ Now saving the currency code to the database
-      await db.runAsync(
-        "UPDATE users SET email = ?, username = ?, currency_code = ? WHERE id = ?",
-        [email.trim(), username.trim(), currency.trim(), global.userID]
-      );
+
+      if (emailChanged) {
+        // 1. Enforce password entry if trying to change the email salt
+        if (!confirmProfilePassword) {
+          Alert.alert("Password Required", "Please enter your current password to authorize changing your email address.");
+          return;
+        }
+
+        // 2. Hash the confirmation password using the OLD email salt
+        const oldSalt = originalEmail.toLowerCase();
+        const hashOld = await Crypto.digestStringAsync(
+          Crypto.CryptoDigestAlgorithm.SHA256,
+          confirmProfilePassword + oldSalt
+        );
+
+        // 3. Verify identity matching against database
+        const validUser = await db.getFirstAsync(
+          "SELECT id FROM users WHERE id = ? AND password_hash = ?",
+          [global.userID, hashOld]
+        );
+
+        if (!validUser) {
+          Alert.alert("Security Error", "The password you entered is incorrect.");
+          return;
+        }
+
+        // 4. Generate the NEW hash using the fresh email salt string
+        const newSalt = email.trim().toLowerCase();
+        const hashNew = await Crypto.digestStringAsync(
+          Crypto.CryptoDigestAlgorithm.SHA256,
+          confirmProfilePassword + newSalt
+        );
+
+        // 5. Update profile and password hash concurrently
+        await db.runAsync(
+          "UPDATE users SET email = ?, username = ?, currency_code = ?, password_hash = ? WHERE id = ?",
+          [email.trim(), username.trim(), currency.trim(), hashNew, global.userID]
+        );
+      } else {
+        // If email didn't change, just run standard profile update parameters 
+        await db.runAsync(
+          "UPDATE users SET email = ?, username = ?, currency_code = ? WHERE id = ?",
+          [email.trim(), username.trim(), currency.trim(), global.userID]
+        );
+      }
+
+       // Synchronize current email state variables on database success
+      setOriginalEmail(email.trim());
+      setConfirmProfilePassword("");
       Alert.alert("Success", "Your profile has been updated!");
     } catch (error: any) {
       console.error(error);
@@ -74,6 +124,7 @@ export default function Settings() {
       }
     }
   }
+
 
   async function handleCurrencyChange(newSymbol: string) {
     setCurrency(newSymbol); // Update UI instantly
@@ -115,19 +166,37 @@ export default function Settings() {
 
     try {
       const db = await getDb();
-      const hashOld = btoa(currentPassword);
       
       const user = await db.getFirstAsync(
+        "SELECT id FROM users WHERE id = ?",
+        [global.userID]
+      );
+
+      if (!user) {
+        Alert.alert("Error", "User account not found");
+        return;
+      }
+
+      const salt = user.email.toLowerCase();
+      const hashOld = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        currentPassword + salt
+      );
+
+      const validUser = await db.getFirstAsync(
         "SELECT id FROM users WHERE id = ? AND password_hash = ?",
         [global.userID, hashOld]
       );
 
-      if (!user) {
+      if (!validUser) {
         Alert.alert("Error", "Your current password is incorrect.");
         return;
       }
 
-      const hashNew = btoa(newPassword);
+      const hashNew = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        newPassword + salt
+      );
       await db.runAsync(
         "UPDATE users SET password_hash = ? WHERE id = ?",
         [hashNew, global.userID]
@@ -263,6 +332,23 @@ export default function Settings() {
           autoCapitalize="none"
           placeholderTextColor={C.inkMute}
         />
+
+        {/* Dynamic prompt container for changing dynamic salts */}
+        {email.trim().toLowerCase() !== originalEmail.toLowerCase() && (
+          <View style={{ marginTop: 4 }}>
+            <Text style={[styles.inputLabel, { color: C.purpleDeep }]}>
+              confirm password to change email
+            </Text>
+            <TextInput
+              style={[styles.input, { borderColor: C.purpleDeep }]}
+              secureTextEntry
+              value={confirmProfilePassword}
+              onChangeText={setConfirmProfilePassword}
+              placeholder="Enter current password"
+              placeholderTextColor={C.inkMute}
+            />
+          </View>
+        )}
 
         <Pressable style={styles.saveButton} onPress={handleUpdateProfile}>
           <Text style={styles.saveButtonText}>Save Account Details</Text>

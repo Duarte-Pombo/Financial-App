@@ -44,6 +44,15 @@ export default function EditTransaction() {
         );
 
         if (tx) {
+
+          const txDate = new Date(tx.transacted_at);
+          const diffDays = Math.ceil((Date.now() - txDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDays > 3) {
+            Alert.alert("Edit Unavailable", "Transactions older than 3 days cannot be edited.");
+            router.back();
+            return;
+          }
+
           setAmount(tx.amount ? tx.amount.toString() : "");
           setMerchant(tx.merchant_name || "");
           setLocation(tx.location || "");

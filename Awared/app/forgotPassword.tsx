@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import * as Crypto from "expo-crypto";
 import {
   View,
   StyleSheet,
@@ -43,17 +44,25 @@ export default function ForgotPassword() {
     setBusy(true);
     try {
       const db = await getDb();
-      const user = await db.getFirstAsync<{ id: number }>(
-        "SELECT id FROM users WHERE email = ? OR username = ?",
+      const user = await db.getFirstAsync<{ id: number; email: string }>(
+        "SELECT id, email FROM users WHERE email = ? OR username = ?",
         [identifier.trim(), identifier.trim()]
       );
       if (!user) {
         Alert.alert("Not found", "No account with that email or username.");
+        setBusy(false);
         return;
       }
+
+      const salt = user.email.toLowerCase();
+      const hash = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        newPassword + salt
+      );
+
       await db.runAsync(
         "UPDATE users SET password_hash = ? WHERE id = ?",
-        [btoa(newPassword), user.id]
+        [hash, user.id]
       );
       Alert.alert("Done", "Password updated! You can now log in.", [
         { text: "Log in", onPress: () => router.replace("/") },

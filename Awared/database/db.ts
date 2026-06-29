@@ -6,7 +6,7 @@ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
   if (_db) return _db;
 
   //TODO: remove this line once database is fully tested, this deletes the entire database before creating it again
-  SQLite.deleteDatabaseAsync("awared.db");
+  await SQLite.deleteDatabaseAsync("awared.db");
   _db = await SQLite.openDatabaseAsync("awared.db");
 
   await _db.execAsync("PRAGMA journal_mode = WAL;");
@@ -73,20 +73,6 @@ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
       created_at     TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
     );
 
-    CREATE TABLE IF NOT EXISTS budgets (
-      id              TEXT    PRIMARY KEY,
-      user_id         TEXT    NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-      category_id     INTEGER REFERENCES spending_categories (id) ON DELETE SET NULL,
-      name            TEXT    NOT NULL,
-      amount_limit    REAL    NOT NULL,
-      period          TEXT    NOT NULL CHECK (period IN ('weekly', 'monthly', 'custom')),
-      period_start    TEXT    NOT NULL,
-      period_end      TEXT    NOT NULL,
-      alert_threshold INTEGER NOT NULL DEFAULT 80,
-      is_active       INTEGER NOT NULL DEFAULT 1,
-      created_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
-    );
-
     CREATE TABLE IF NOT EXISTS journal_entries (
       id             TEXT    PRIMARY KEY,
       user_id        TEXT    NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -105,17 +91,6 @@ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
       user_id        INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
       achievement_id TEXT    NOT NULL,
       unlocked_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-      UNIQUE (user_id, achievement_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS user_goals (
-      id              INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id         INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-      achievement_id  TEXT    NOT NULL,
-      target_value    REAL    NOT NULL DEFAULT 0,
-      started_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-      completed_at    TEXT,
-      is_active       INTEGER NOT NULL DEFAULT 1,
       UNIQUE (user_id, achievement_id)
     );
 

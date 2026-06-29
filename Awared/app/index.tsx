@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import * as Crypto from "expo-crypto";
 import {
   View,
   StyleSheet,
@@ -31,6 +32,10 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    NavigationBar.setVisibilityAsync("hidden");
+  }, []);
+
   async function attemptLogin() {
     if (!email || !password) {
       Alert.alert("Error", "Please enter both email/username and password.");
@@ -40,15 +45,32 @@ export default function Login() {
     setBusy(true);
     try {
       let db = await getDb();
-      let hash = btoa(password);
+      const identifier = email.trim();
 
-      const user = await db.getFirstAsync<{ id: number }>(
-        "SELECT id FROM users WHERE (email = ? or username = ?) AND password_hash = ?",
-        [email.trim(), email.trim(), hash],
+      const user = await db.getFirstAsync<{ id: number; email: string }>(
+        "SELECT id, email FROM users WHERE email = ? OR username = ?",
+        [identifier, identifier],
       );
 
-      if (user != null) {
-        global.userID = user.id;
+      if (!user) {
+        Alert.alert("Login Failed", "Wrong Credentials. Please try again.");
+        setBusy(false);
+        return;
+      }
+
+      const salt = user.email.toLowerCase();
+      const hash = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        password + salt
+      );
+
+      const validUser = await db.getFirstAsync<{ id: number }>(
+        "SELECT id FROM users WHERE id = ? AND password_hash = ?",
+        [user.id, hash],
+      );
+
+      if (validUser != null) {
+        global.userID = validUser.id;
         router.replace("/(tabs)");
       } else {
         Alert.alert("Login Failed", "Wrong Credentials. Please try again.");
@@ -62,8 +84,6 @@ export default function Login() {
   }
 
   const canSubmit = email.trim().length > 0 && password.length > 0;
-
-  NavigationBar.setVisibilityAsync("hidden");
 
   return (
     <KeyboardAvoidingView

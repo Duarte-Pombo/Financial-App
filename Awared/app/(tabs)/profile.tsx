@@ -284,6 +284,10 @@ export default function Profile() {
   useFocusEffect(
     useCallback(() => {
       load();
+
+      return () => {
+        setAchievementsExpanded(false);
+      };
     }, [load])
   );
 

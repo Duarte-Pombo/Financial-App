@@ -17,6 +17,7 @@ import LocationPreviewMap from "../../components/LocationPreviewMap";
 import { useTheme } from "@/context/ThemeContext";
 import { ThemeColors } from "@/theme/theme";
 import { useNotification } from "@/context/NotificationContext";
+import { runAchievementEngine, ACHIEVEMENT_DEFS } from "../../database/achievementEngine";
 
 type Emotion = {
   id: number;
@@ -158,6 +159,8 @@ export default function AddPurchase() {
         transacted_at: date.toISOString(),
       });
 
+      const newlyUnlocked = await runAchievementEngine(global.userID);
+
       let db = await getDb();
 
       const user = await db.getFirstAsync(
@@ -178,7 +181,7 @@ export default function AddPurchase() {
         console.log("Error: could not connnect to notifications server")
       }
 
-      router.navigate({ pathname: "/", params: { added: "true", timestamp: Date.now() } });
+      router.navigate({ pathname: "/", params: { added: "true", unlockedAchievements: newlyUnlocked.length > 0 ? JSON.stringify(newlyUnlocked) : undefined, timestamp: Date.now() } });
 
     } catch (e) {
       console.error(e);

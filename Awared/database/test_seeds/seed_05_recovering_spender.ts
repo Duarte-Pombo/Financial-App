@@ -23,6 +23,7 @@
 
 import { getDb } from "../db";
 import { randomUUID } from "expo-crypto";
+import * as Crypto from "expo-crypto";
 
 const USER_ID = 5;
 
@@ -36,9 +37,15 @@ function daysAgo(n: number, hour = 12, minute = 0): string {
 }
 
 async function ensureUser(db: any) {
+  const salt = "recovering@app.com".toLowerCase();
+  const secureHash = await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    "password123" + salt
+  );
+
   await db.runAsync(
     `INSERT OR IGNORE INTO users (id, email, username, password_hash) VALUES (?, ?, ?, ?)`,
-    [USER_ID, "recovering@app.com", "recovering_user", "MTIz"]
+    [USER_ID, "recovering@app.com", "recovering_user", secureHash]
   );
 }
 

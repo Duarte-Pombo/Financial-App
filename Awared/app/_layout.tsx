@@ -77,7 +77,6 @@ async function resetDatabase(): Promise<void> {
   const db = await getDb();
   await db.withTransactionAsync(async () => {
     await db.execAsync("DELETE FROM journal_entries;");
-    await db.execAsync("DELETE FROM budgets;");
     await db.execAsync("DELETE FROM transactions;");
     await db.execAsync("DELETE FROM emotion_logs;");
     await db.execAsync("DELETE FROM spending_categories;");
@@ -170,7 +169,6 @@ function RootChrome({ ready }: { ready: boolean }) {
         <Stack.Screen name="history" options={{ headerShown: false, animation: "slide_from_right" }} />
         <Stack.Screen name="allPurchases" options={{ headerShown: false, animation: "slide_from_right" }} />
         <Stack.Screen name="edit/[id]" options={{ headerShown: false, animation: "slide_from_right" }} />
-        <Stack.Screen name="budget" options={{ headerShown: false, animation: "slide_from_right" }} />
         <Stack.Screen name="forgotPassword" options={{ headerShown: false, animation: "slide_from_right" }} />
       </Stack>
     </>

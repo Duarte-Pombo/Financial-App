@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import * as Crypto from "expo-crypto";
 import {
   View,
   StyleSheet,
@@ -64,7 +65,11 @@ export default function Register() {
     setBusy(true);
     try {
       let db = await getDb();
-      let hash = btoa(password);
+      const salt = email.trim().toLowerCase();
+      const hash = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        password + salt
+      );
 
       let insert = await db.runAsync(
         "INSERT INTO users (email, username, password_hash) VALUES (?, ?, ?)",

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react"; // Added useCallback
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router"; // Added useFocusEffect
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getDb } from "@/database/db";
 import { EmotionGlyph, emotionColor, hasEmotionGlyph } from "@/components/EmotionGlyph";
@@ -27,48 +27,53 @@ export default function TransactionDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [userCurrency, setUserCurrency] = useState("€");
 
-  useEffect(() => {
-    async function fetchDetails() {
-      try {
-        const db = await getDb();
+  // Swapped useEffect for useFocusEffect so it runs whenever we navigate back to this screen
+  useFocusEffect(
+    useCallback(() => {
+      async function fetchDetails() {
+        try {
+          const db = await getDb();
 
-        // 1. Get the main transaction details
-        const tx = await db.getFirstAsync(
-          `SELECT * FROM transactions WHERE id = ?`,
-          [id]
-        );
-        setTransaction(tx);
-
-        // 2. Get the associated emotions
-        if (tx && tx.emotion_log_id) {
-          const emos = await db.getAllAsync(
-            `SELECT e.* FROM emotions e
-             JOIN emotion_logs l ON e.id = l.emotion_id
-             WHERE l.id = ?`,
-            [tx.emotion_log_id]
+          // 1. Get the main transaction details
+          const tx = await db.getFirstAsync(
+            `SELECT * FROM transactions WHERE id = ?`,
+            [id]
           );
-          setEmotions(emos);
-        }
+          setTransaction(tx);
 
-        if (global.userID) {
-          const user = await db.getFirstAsync<{ currency_code: string }>(
-            `SELECT currency_code FROM users WHERE id = ?`,
-            [global.userID]
-          );
-          if (user && user.currency_code) {
-            setUserCurrency(user.currency_code);
+          // 2. Get the associated emotions
+          if (tx && tx.emotion_log_id) {
+            const emos = await db.getAllAsync(
+              `SELECT e.* FROM emotions e
+               JOIN emotion_logs l ON e.id = l.emotion_id
+               WHERE l.id = ?`,
+              [tx.emotion_log_id]
+            );
+            setEmotions(emos);
+          } else {
+            setEmotions([]); // Clear emotions if none exist anymore
           }
+
+          if (global.userID) {
+            const user = await db.getFirstAsync<{ currency_code: string }>(
+              `SELECT currency_code FROM users WHERE id = ?`,
+              [global.userID]
+            );
+            if (user && user.currency_code) {
+              setUserCurrency(user.currency_code);
+            }
+          }
+
+        } catch (error) {
+          console.error("Failed to load transaction details:", error);
+        } finally {
+          setIsLoading(false);
         }
-
-      } catch (error) {
-        console.error("Failed to load transaction details:", error);
-      } finally {
-        setIsLoading(false);
       }
-    }
 
-    if (id) fetchDetails();
-  }, [id]);
+      if (id) fetchDetails();
+    }, [id])
+  );
 
   // --- ACTIONS LOGIC ---
   const handleDelete = () => {
@@ -95,12 +100,12 @@ export default function TransactionDetails() {
   };
 
   const handleRefund = () => {
+    if (!transaction) return;
     const txDate = new Date(transaction.transacted_at);
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - txDate.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    // 2. Check the 30-day constraint before doing anything
     if (diffDays > 30) {
       Alert.alert(
         "Refund Unavailable",
@@ -119,7 +124,6 @@ export default function TransactionDetails() {
           onPress: async () => {
             try {
               const db = await getDb();
-              // Updating the type to 'refunded' (or you could add an is_refunded boolean to your schema)
               await db.runAsync(`UPDATE transactions SET type = 'refunded' WHERE id = ?`, [id]);
               setTransaction({ ...transaction, type: 'refunded' });
               Alert.alert("Success", "Expense has been marked as refunded.");
@@ -154,13 +158,12 @@ export default function TransactionDetails() {
   const txDate = new Date(transaction.transacted_at);
   const isRefunded = transaction.type === "refunded";
 
-  // Check if less than 60 days have passed (BR05)
   const now = new Date();
   const diffTime = Math.abs(now.getTime() - txDate.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  const canRefund = diffDays <= 60 && !isRefunded;
+  const canRefund = diffDays <= 30 && !isRefunded;
+  const canEdit = diffDays <= 3 && !isRefunded;
 
-  // Hero price — split integer / decimal so the cents sit in a softer ink
   const [intPart, decPart] = String(transaction.amount).split(".");
 
   const dateTimeLabel = `${txDate.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })} at ${txDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
@@ -176,9 +179,13 @@ export default function TransactionDetails() {
           <Ionicons name="chevron-back" size={20} color={C.inkSoft} />
         </ChromeButton>
         <Text style={styles.headerTitle}>purchase</Text>
-        <ChromeButton label="edit" onClick={() => router.push(`/edit/${id}`)} style={styles.chromeButton}>
-          <Ionicons name="pencil" size={17} color={C.inkSoft} />
-        </ChromeButton>
+          {canEdit ? (
+            <ChromeButton label="edit" onClick={() => router.push(`/edit/${id}`)} style={styles.chromeButton}>
+              <Ionicons name="pencil" size={17} color={C.inkSoft} />
+            </ChromeButton>
+          ) : (
+            <View style={{ width: 38 }} />
+        )}
       </View>
 
       {/* Hero / Amount */}
@@ -261,7 +268,6 @@ export default function TransactionDetails() {
 
       {/* --- Action Buttons --- */}
       <View style={styles.actionsContainer}>
-        {/* Only show Refund button if applicable */}
         {canRefund ? (
           <Pressable style={styles.actionButton} onPress={handleRefund}>
             <Ionicons name="arrow-undo-outline" size={18} color={C.ink} />

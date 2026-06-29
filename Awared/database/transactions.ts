@@ -216,25 +216,3 @@ export async function getWeekHeatmapData(
   }
   return days;
 }
-
-// ─── Get recent transactions ──────────────────────────────────────────────────
-export async function getTransactions(user_id: string): Promise<Transaction[]> {
-  const db = await getDb();
-  return db.getAllAsync<Transaction>(
-    `SELECT
-       t.*,
-       e.name      AS emotion_name,
-       e.emoji     AS emotion_emoji,
-       e.color_hex AS emotion_color,
-       sc.name     AS category_name,
-       sc.icon     AS category_icon
-     FROM transactions t
-     LEFT JOIN emotion_logs el        ON el.id  = t.emotion_log_id
-     LEFT JOIN emotions e             ON e.id   = el.emotion_id
-     LEFT JOIN spending_categories sc ON sc.id  = t.category_id
-     WHERE t.user_id = ?
-     ORDER BY t.transacted_at DESC
-     LIMIT 50`,
-    [user_id]
-  );
-}

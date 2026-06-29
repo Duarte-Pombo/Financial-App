@@ -13,6 +13,7 @@ import { getDb } from "@/database/db";
 import { EmotionGlyph, emotionColor } from "../../components/EmotionGlyph";
 import { useTheme } from "@/context/ThemeContext";
 import { ThemeColors } from "@/theme/theme";
+import { ACHIEVEMENT_DEFS, AchievementDef } from "../../database/achievementEngine";
 
 type WeekTx = {
   amount: number;
@@ -90,7 +91,13 @@ export default function Index() {
   const [showToast, setShowToast] = useState(false);
   const toastAnim = useRef(new Animated.Value(-100)).current;
 
+  // --- Achievement toast ---
+  const [achievementToast, setAchievementToast] = useState<AchievementDef | null>(null);
+  const achievementAnim = useRef(new Animated.Value(-150)).current;
+
   useEffect(() => {
+    let maxWaitTime = 3000;
+
     if (params.added === "true") {
       setShowToast(true);
       Animated.spring(toastAnim, {
@@ -98,7 +105,7 @@ export default function Index() {
         useNativeDriver: true,
       }).start();
 
-      const timer = setTimeout(() => {
+      setTimeout(() => {
         Animated.timing(toastAnim, {
           toValue: -100,
           duration: 300,
@@ -109,7 +116,38 @@ export default function Index() {
         });
       }, 3000);
 
-      return () => clearTimeout(timer);
+      if (params.unlockedAchievements) {
+        try {
+          const ids: string[] = JSON.parse(params.unlockedAchievements as string);
+          if (ids.length > 0) {
+            const completed = ACHIEVEMENT_DEFS.find((def) => def.id === ids[0]);
+            if (completed) {
+              setAchievementToast(completed);
+              maxWaitTime = 5500; // Extend cleanup time if achievement shows
+
+              // Stagger the entrance slightly after the purchase toast
+              setTimeout(() => {
+                Animated.spring(achievementAnim, { toValue: 80, useNativeDriver: true }).start();
+              }, 400);
+
+              // Keep it visible a bit longer to read, then dismiss
+              setTimeout(() => {
+                Animated.timing(achievementAnim, { toValue: -150, duration: 300, useNativeDriver: true }).start(() => {
+                  setAchievementToast(null);
+                });
+              }, 5000);
+            }
+          }
+        } catch (e) {
+          console.error("Failed to parse achievements:", e);
+        }
+      }
+
+      const cleanupTimer = setTimeout(() => {
+        router.setParams({ added: "", timestamp: "", unlockedAchievements: "" });
+      }, maxWaitTime + 500);
+
+      return () => clearTimeout(cleanupTimer);
     }
   }, [params.added, params.timestamp]);
 
@@ -275,6 +313,23 @@ export default function Index() {
         >
           <Text style={s.toastCheck}>✓</Text>
           <Text style={s.toastText}>Purchase added successfully</Text>
+        </Animated.View>
+      )}
+
+      {/* ACHIEVEMENT TOAST */}
+      {achievementToast && (
+        <Animated.View
+          style={[
+            s.achievementToastCard,
+            { transform: [{ translateY: achievementAnim }] },
+          ]}
+        >
+          <Text style={s.achievementEmoji}>{achievementToast.emoji}</Text>
+          <View style={s.achievementToastContent}>
+            <Text style={s.achievementToastLabel}>ACHIEVEMENT UNLOCKED!</Text>
+            <Text style={s.achievementToastTitle}>{achievementToast.title}</Text>
+            <Text style={s.achievementToastDesc}>{achievementToast.description}</Text>
+          </View>
         </Animated.View>
       )}
 
@@ -533,6 +588,50 @@ const makeStyles = (C: ThemeColors) => StyleSheet.create({
     fontFamily: "Manrope_600SemiBold",
   },
 
+  achievementToastCard: {
+    position: "absolute",
+    top: 0,
+    left: 16,
+    right: 16,
+    backgroundColor: C.panel,
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    borderWidth: 1,
+    borderColor: "rgba(126,100,179,0.35)", // Subtle purple glow
+    zIndex: 99,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  achievementEmoji: {
+    fontSize: 32,
+  },
+  achievementToastContent: {
+    flex: 1,
+    gap: 2,
+  },
+  achievementToastLabel: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 10,
+    letterSpacing: 1.5,
+    color: C.purpleDeep,
+  },
+  achievementToastTitle: {
+    fontFamily: "PlayfairDisplay_700Bold_Italic",
+    fontSize: 18,
+    color: C.ink,
+  },
+  achievementToastDesc: {
+    fontFamily: "Manrope_500Medium",
+    fontSize: 12,
+    color: C.inkSoft,
+    lineHeight: 16,
+  },
 
   hero: {
     paddingHorizontal: 24,
