@@ -93,9 +93,6 @@ const CATEGORY_WEIGHTS: Record<string, number> = {
   Other: 2,
 };
 
-/** Base URL of your Express server. Change for production. */
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
-
 // ─── Design tokens (matches the rest of the app) ─────────────────────────────
 const C = {
   bg: "#F5F1EA",
@@ -121,10 +118,10 @@ const AI_INSIGHT_STYLE: Record<
   AiInsight["type"],
   { icon: string; accentColor: string; bgColor: string }
 > = {
-  warning: { icon: "🧠", accentColor: C.danger, bgColor: C.dangerSoft },
-  pattern: { icon: "🔍", accentColor: C.purpleDeep, bgColor: C.purpleSoft },
-  tip: { icon: "💡", accentColor: C.amber, bgColor: C.amberSoft },
-  positive: { icon: "✨", accentColor: C.green, bgColor: C.greenSoft },
+  warning: { icon: "·", accentColor: C.danger, bgColor: C.dangerSoft },
+  pattern: { icon: "·", accentColor: C.purpleDeep, bgColor: C.purpleSoft },
+  tip: { icon: "·", accentColor: C.amber, bgColor: C.amberSoft },
+  positive: { icon: "·", accentColor: C.green, bgColor: C.greenSoft },
 };
 
 // ─── Free-tier scoring helpers ────────────────────────────────────────────────
@@ -253,7 +250,7 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number, currenc
       id: "no-data", type: "tip",
       title: "Nothing to analyse yet",
       body: "Add a few purchases to start seeing insights about your spending patterns.",
-      icon: "📊", accentColor: "#6b21a8", bgColor: "#f3e8ff",
+      icon: "·", accentColor: C.purpleDeep, bgColor: C.purpleSoft,
       actions: ["Log your first purchase"],
     });
     return insights;
@@ -282,7 +279,7 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number, currenc
       id: "high-risk", type: "risk",
       title: "High-risk spending detected",
       body: `Your ${top.merchant_name ? `purchase at ${top.merchant_name}` : "recent purchase"} on ${when} scored ${top.impulseScore}/14 on the impulse scale. High-energy negative emotions, late hours, and above-average amounts are a triple warning sign.`,
-      icon: "⚠️", accentColor: "#dc2626", bgColor: "#fef2f2", score: top.impulseScore,
+      icon: "·", accentColor: C.danger, bgColor: C.dangerSoft, score: top.impulseScore,
       actions: [
         "Try a 20-minute spending cooldown before similar purchases",
         "Notice the emotion — write it in the note field next time",
@@ -294,7 +291,7 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number, currenc
       id: "mid-risk", type: "pattern",
       title: "Mild impulse pattern spotted",
       body: `${midRisk.length} of your recent purchases show mild emotional spending signals. Not a red flag, but worth reflecting on.`,
-      icon: "〰️", accentColor: "#b45309", bgColor: "#fefce8",
+      icon: "·", accentColor: C.amber, bgColor: C.amberSoft,
       actions: [
         "Ask yourself: would I make this same purchase tomorrow morning?",
         "Try logging your emotion before spending, not just after",
@@ -324,7 +321,7 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number, currenc
       id: "emotion-trigger", type: "pattern",
       title: `${topData.emoji} ${topEmotion} is your top spending trigger`,
       body: `You've made ${topData.count} purchase${topData.count > 1 ? "s" : ""} while feeling ${topEmotion.toLowerCase()}, totalling ${currency}${topData.totalAmount.toFixed(2)}.${merchantSentence} Emotional spending loops often start here.`,
-      icon: topData.emoji, accentColor: "#7c3aed", bgColor: "#f5f3ff",
+      icon: "·", accentColor: C.purpleDeep, bgColor: C.purpleSoft,
       actions: [
         `When you feel ${topEmotion.toLowerCase()}, try journaling for 5 minutes first`,
         "Notice: does this emotion always lead to spending in the same category?",
@@ -349,7 +346,7 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number, currenc
       id: "late-night", type: "risk",
       title: "Late-night spending habit",
       body: `${lateNight.length} of your purchases happened after 9 PM, totalling ${currency}${lateTotal.toFixed(2)}. Your peak hour is ${peakHour}:00 — when willpower research says inhibition is at its lowest.`,
-      icon: "🌙", accentColor: "#1d4ed8", bgColor: "#eff6ff",
+      icon: "·", accentColor: C.purpleDeep, bgColor: C.purpleSoft,
       actions: [
         "Enable Do Not Disturb mode after 10 PM on shopping apps",
         `Add a screen lock on payment apps between ${peakHour}:00 and ${(peakHour + 2) % 24}:00`,
@@ -376,7 +373,7 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number, currenc
         id: "top-category", type: "pattern",
         title: `${catData.icon} ${catName} is your biggest spend`,
         body: `You've spent ${currency}${catData.total.toFixed(2)} across ${catData.count} purchase${catData.count > 1 ? "s" : ""} in ${catName} (avg ${currency}${perPurchase} each). This category carries elevated impulse risk.`,
-        icon: catData.icon, accentColor: "#0369a1", bgColor: "#f0f9ff",
+        icon: "·", accentColor: C.purpleDeep, bgColor: C.purpleSoft,
         actions: [
           `Set a weekly cap of ${currency}${(catData.total * 0.75).toFixed(0)} for ${catName}`,
           "Review if each purchase here was planned or spontaneous",
@@ -394,7 +391,7 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number, currenc
       id: "big-purchases", type: "tip",
       title: "Above-average purchases flagged",
       body: `${bigPurchases.length} transaction${bigPurchases.length > 1 ? "s were" : " was"} more than 2× your average (${currency}${computedAvg.toFixed(2)}), totalling ${currency}${bigTotal.toFixed(2)}. These carry the highest financial risk when made impulsively.`,
-      icon: "💸", accentColor: "#b45309", bgColor: "#fff7ed",
+      icon: "·", accentColor: C.amber, bgColor: C.amberSoft,
       actions: [
         `For purchases over ${currency}${(computedAvg * 2).toFixed(0)}, sleep on it before buying`,
         "Keep a 'big purchase wishlist' — revisit it after 72 hours",
@@ -409,7 +406,7 @@ function generateInsights(scored: ScoredTransaction[], avgSpend: number, currenc
       id: "positive", type: "positive",
       title: "You're spending mindfully 🎉",
       body: `${healthyTxs.length} of your recent purchases showed low impulse risk and balanced emotional states — ${((healthyTxs.length / scored.length) * 100).toFixed(0)}% of your total. That's intentional spending in action.`,
-      icon: "✅", accentColor: "#059669", bgColor: "#ecfdf5",
+      icon: "·", accentColor: C.green, bgColor: C.greenSoft,
       actions: [
         "Notice what makes these purchases feel different — write it down",
         "This is what your spending looks like at its best",
@@ -430,7 +427,7 @@ function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number, 
       id: "premium-insufficient", type: "tip",
       title: "Need more data for vector analysis",
       body: "Log at least 3 purchases to unlock premium vector insights. The more you log, the more precise your behavioral profile becomes.",
-      icon: "📡", accentColor: "#7c3aed", bgColor: "#f5f3ff", actions: [],
+      icon: "·", accentColor: C.purpleDeep, bgColor: C.purpleSoft, actions: [],
     });
     return insights;
   }
@@ -460,7 +457,7 @@ function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number, 
         id: "premium-correlation", type: r < -0.35 ? "risk" : "pattern",
         title: `Emotion–spend correlation: r = ${r.toFixed(2)}`,
         body: `Pearson analysis across ${txWithEmotion.length} tagged transactions found a ${strength} link — ${direction} (r = ${r.toFixed(2)}, scale −1 to +1). ${interpretation}`,
-        icon: "📈", accentColor: r < -0.3 ? "#dc2626" : "#7c3aed",
+        icon: "·", accentColor: r < -0.3 ? "#dc2626" : "#7c3aed",
         bgColor: r < -0.3 ? "#fef2f2" : "#f5f3ff",
         actions: [
           r < -0.3
@@ -503,7 +500,7 @@ function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number, 
       id: "premium-cluster", type: "risk",
       title: "Your high-risk spending fingerprint",
       body: `Vector clustering of your ${highRiskTxs.length} riskiest transactions (cluster coherence: ${coherence}%) reveals a repeating pattern: ${energyDesc} ${emotionDesc} state, ${HOUR_LABELS(centroidHour)} on ${DOW_NAMES[centroidDow]}s, averaging ${currency}${centroidAmount.toFixed(2)} per purchase. This is your personal risk archetype.`,
-      icon: "🧬", accentColor: "#7c3aed", bgColor: "#f5f3ff",
+      icon: "·", accentColor: C.purpleDeep, bgColor: C.purpleSoft,
       actions: [
         `On ${DOW_NAMES[centroidDow]} ${HOUR_LABELS(centroidHour)}s, activate a spending cooldown automatically`,
         `Set a hard limit of ${currency}${(centroidAmount * 0.6).toFixed(0)} for any single purchase during your risk window`,
@@ -538,7 +535,7 @@ function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number, 
       id: "premium-weekly-rhythm", type: "pattern",
       title: `${DOW_NAMES[riskiest.dow]} is your highest-risk day`,
       body: `Weekly rhythm analysis shows ${DOW_NAMES[riskiest.dow]} averages a risk score of ${riskiest.avgRisk.toFixed(1)} — ${riskRatio}× higher than ${DOW_NAMES[safest.dow]} (${safest.avgRisk.toFixed(1)}), your calmest day. Average spend on your risk day: ${currency}${riskiest.avgAmount.toFixed(2)}.`,
-      icon: "📅", accentColor: "#0369a1", bgColor: "#f0f9ff",
+      icon: "·", accentColor: C.purpleDeep, bgColor: C.purpleSoft,
       actions: [
         `Set a strict daily cap of ${currency}${(riskiest.avgAmount * 1.2).toFixed(0)} every ${DOW_NAMES[riskiest.dow]}`,
         `Schedule something grounding on ${DOW_NAMES[riskiest.dow]}s to reduce emotional pressure`,
@@ -579,7 +576,7 @@ function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number, 
       id: "premium-merchant", type: "risk",
       title: `You visit ${top.name} when emotionally low`,
       body: `Merchant vulnerability analysis: ${top.name} has an average emotional polarity of ${top.avgPolarity.toFixed(1)}/5 at visit time (vulnerability score: ${vulnerabilityScore}/100). Across ${top.count} visits you've spent ${currency}${top.totalAmount.toFixed(2)} — ${currency}${top.avgAmount.toFixed(2)} per visit on average.`,
-      icon: "🏪", accentColor: "#b45309", bgColor: "#fff7ed",
+      icon: "·", accentColor: C.amber, bgColor: C.amberSoft,
       actions: [
         `Apply a 15-minute rule before visiting ${top.name} when feeling negative`,
         "This merchant may be serving an emotional need — identify the feeling it satisfies",
@@ -608,7 +605,7 @@ function generatePremiumInsights(scored: ScoredTransaction[], avgSpend: number, 
           id: "premium-predictive", type: "risk",
           title: `Recent pattern: ${riskPct}% match to your risk profile`,
           body: `Your ${closestTx.merchant_name ? `purchase at ${closestTx.merchant_name}` : "latest purchase"} has a ${riskPct}% cosine similarity to your historical high-risk sessions. The conditions that precede your impulsive purchases are present right now.`,
-          icon: "🔮", accentColor: "#dc2626", bgColor: "#fef2f2",
+          icon: "·", accentColor: C.danger, bgColor: C.dangerSoft,
           actions: [
             "This is the window where a 10-minute pause has the highest ROI",
             "Check in with your emotional state before your next purchase today",
@@ -627,17 +624,17 @@ const LOCKED_PREVIEWS = [
   {
     title: "Emotion–spend correlation",
     sub: "Pearson analysis of mood vs purchase amount",
-    icon: "📈",
+    icon: "·",
   },
   {
     title: "Your high-risk spending fingerprint",
     sub: "Vector clustering of your riskiest sessions",
-    icon: "🧬",
+    icon: "·",
   },
   {
     title: "Weekly rhythm & merchant vulnerability",
     sub: "Day-of-week patterns + merchant risk mapping",
-    icon: "📅",
+    icon: "·",
   },
 ];
 
@@ -719,29 +716,30 @@ async function fetchAiInsights(
   setAiInsights({ status: "loading" });
 
   try {
-    const res = await fetch(`${API_BASE}/api/insights/analyze`, {
+    const json = await apiFetch<{
+      ok: boolean;
+      insights: AiInsight[];
+      meta?: { modelLatencyMs: number };
+      error?: string;
+      retryable?: boolean;
+    }>("/api/insights/analyze", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      // We send the scored payload; the server handles all masking.
-      // We deliberately exclude: user_id, device info, exact timestamps.
       body: JSON.stringify({ transactions: scored }),
       signal,
     });
 
-    const json = await res.json();
-
-    if (!res.ok || !json.ok) {
+    if (!json.ok) {
       setAiInsights({
         status: "error",
         message: json.error ?? "Something went wrong. Please try again.",
-        retryable: json.retryable ?? res.status >= 500,
+        retryable: json.retryable ?? false,
       });
       return;
     }
 
     setAiInsights({
       status: "success",
-      data: json.insights as AiInsight[],
+      data: json.insights,
       latencyMs: json.meta?.modelLatencyMs ?? 0,
     });
 
@@ -773,7 +771,7 @@ function AiInsightsSection({
     <View style={{ marginTop: 4 }}>
       {/* Section header */}
       <View style={aiStyles.sectionHeader}>
-        <Text style={aiStyles.sectionTitle}>🧠 AI Behavioral Analysis</Text>
+        <Text style={aiStyles.sectionTitle}>AI behavioral analysis</Text>
         {state.status === "success" && (
           <Text style={aiStyles.latencyBadge}>
             {(state.latencyMs / 1000).toFixed(1)}s
@@ -820,10 +818,10 @@ function AiInsightsSection({
                 <View
                   style={[
                     aiStyles.iconBadge,
-                    { backgroundColor: style.accentColor + "20" },
+                    { backgroundColor: style.accentColor + "18" },
                   ]}
                 >
-                  <Text style={aiStyles.iconText}>{style.icon}</Text>
+                  <View style={[s.iconDot, { backgroundColor: style.accentColor }]} />
                 </View>
                 <View style={aiStyles.cardTitleBlock}>
                   <Text style={aiStyles.cardTitle}>{insight.title}</Text>
@@ -975,7 +973,7 @@ export default function Insights() {
       >
         <View style={s.cardHeader}>
           <View style={[s.iconBadge, { backgroundColor: insight.accentColor + "18" }]}>
-            <Text style={s.iconText}>{insight.icon}</Text>
+            <View style={[s.iconDot, { backgroundColor: insight.accentColor }]} />
           </View>
           <View style={s.cardTitleBlock}>
             <Text style={s.cardTitle}>{insight.title}</Text>
@@ -1081,11 +1079,11 @@ export default function Insights() {
               </Text>
               {isPremium ? (
                 <View style={[s.badge, { backgroundColor: C.greenSoft }]}>
-                  <Text style={[s.badgeText, { color: C.green }]}>✨ active</Text>
+                  <Text style={[s.badgeText, { color: C.green }]}>active</Text>
                 </View>
               ) : (
                 <View style={[s.badge, { backgroundColor: C.purpleSoft }]}>
-                  <Text style={[s.badgeText, { color: C.purpleDeep }]}>🔒 locked</Text>
+                  <Text style={[s.badgeText, { color: C.purpleDeep }]}>locked</Text>
                 </View>
               )}
             </View>
@@ -1110,7 +1108,7 @@ export default function Insights() {
                   >
                     <View style={s.lockedLeft}>
                       <View style={s.lockedIconWrap}>
-                        <Text style={s.lockedIcon}>{card.icon}</Text>
+                        <View style={[s.iconDot, { backgroundColor: C.purpleDeep }]} />
                       </View>
                       <View style={s.lockedTextWrap}>
                         <Text style={s.lockedTitle}>{card.title}</Text>
@@ -1141,7 +1139,7 @@ export default function Insights() {
       {!isPremium && !loading && (
         <Pressable style={s.upgradeBanner} onPress={() => setShowUpgradeModal(true)}>
           <View style={{ flex: 1 }}>
-            <Text style={s.upgradeBannerTitle}>✨ Unlock Premium Insights</Text>
+            <Text style={s.upgradeBannerTitle}>Unlock Premium Insights</Text>
             <Text style={s.upgradeBannerSub}>Vector analysis · Behavioral clusters</Text>
           </View>
           <View style={s.upgradeBannerBtn}>
@@ -1237,7 +1235,7 @@ const s = StyleSheet.create({
     width: 36, height: 36, borderRadius: 18,
     alignItems: "center", justifyContent: "center", flexShrink: 0,
   },
-  iconText: { fontSize: 16 },
+  iconDot: { width: 10, height: 10, borderRadius: 5 },
   cardTitleBlock: { flex: 1 },
   cardTitle: {
     fontFamily: "Manrope_600SemiBold", fontSize: 14, color: C.ink, lineHeight: 19,

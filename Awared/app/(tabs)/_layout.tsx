@@ -13,7 +13,9 @@ import {
   TabNavigationState,
 } from "@react-navigation/native";
 
-const APP_BG = "#FAF6EF";
+const APP_BG = "#F5F1EA";
+const ACTIVE = "#7E64B3";
+const INACTIVE = "rgba(31,27,22,0.40)";
 
 const { Navigator } = createMaterialTopTabNavigator();
 
@@ -27,12 +29,12 @@ const MaterialTopTabs = withLayoutContext<
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
 const TAB_ORDER = ["index", "calendar", "addPurchase", "insights", "profile"] as const;
-const TAB_META: Record<string, { idle: IconName; active: IconName; label: string; size?: number }> = {
-  index: { idle: "home-outline", active: "home-sharp", label: "Home" },
-  calendar: { idle: "calendar-outline", active: "calendar", label: "Calendar" },
-  addPurchase: { idle: "add-circle-outline", active: "add-circle", label: "Add", size: 24 },
-  insights: { idle: "stats-chart-outline", active: "stats-chart", label: "Insights" },
-  profile: { idle: "person-outline", active: "person", label: "Profile" },
+const TAB_META: Record<string, { idle: IconName; active: IconName; label: string; size?: number; add?: boolean }> = {
+  index: { idle: "home-outline", active: "home", label: "home" },
+  calendar: { idle: "calendar-outline", active: "calendar", label: "calendar" },
+  addPurchase: { idle: "add", active: "add", label: "log", size: 22, add: true },
+  insights: { idle: "bar-chart-outline", active: "bar-chart", label: "insights" },
+  profile: { idle: "person-outline", active: "person", label: "profile" },
 };
 
 function CustomTabBar({ state, navigation }: any) {
@@ -72,19 +74,21 @@ function CustomTabBar({ state, navigation }: any) {
                 style={styles.item}
                 android_ripple={null}
               >
-                <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-                  <Ionicons
-                    name={focused ? meta.active : meta.idle}
-                    color={focused ? "#F9A8BB" : "rgba(31,27,22,0.55)"}
-                    size={meta.size ?? 22}
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.label,
-                    { color: focused ? "#F9A8BB" : "rgba(31,27,22,0.55)" },
-                  ]}
-                >
+                {meta.add ? (
+                  // ── Centre "log" button — filled circle ──
+                  <View style={[styles.iconWrap, styles.addBtn]}>
+                    <Ionicons name="add" color="#fff" size={24} />
+                  </View>
+                ) : (
+                  <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+                    <Ionicons
+                      name={focused ? meta.active : meta.idle}
+                      color={focused ? ACTIVE : INACTIVE}
+                      size={meta.size ?? 21}
+                    />
+                  </View>
+                )}
+                <Text style={[styles.label, { color: meta.add ? ACTIVE : focused ? ACTIVE : INACTIVE }]}>
                   {meta.label}
                 </Text>
               </Pressable>
@@ -185,7 +189,18 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   iconWrapActive: {
-    backgroundColor: "rgba(249, 168, 187, 0.22)",
+    backgroundColor: "rgba(126,100,179,0.13)",
+  },
+  addBtn: {
+    backgroundColor: ACTIVE,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    shadowColor: ACTIVE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
   },
   label: {
     fontSize: 10,
